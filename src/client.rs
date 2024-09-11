@@ -3424,29 +3424,15 @@ pub mod peer_online {
             let offlines = onlines.drain((onlines.len() / 2)..).collect();
             f(onlines, offlines)
         } else {
-            let query_begin = Instant::now();
             let query_timeout = std::time::Duration::from_millis(3_000);
-            loop {
-                match query_online_states_(&ids, query_timeout).await {
-                    Ok((onlines, offlines)) => {
-                        f(onlines, offlines);
-                        break;
-                    }
-                    Err(e) => {
-                        log::debug!("{}", &e);
-                    }
+            match query_online_states_(&ids, query_timeout).await {
+                Ok((onlines, offlines)) => {
+                    f(onlines, offlines);
+                    return;
                 }
-
-                if query_begin.elapsed() > query_timeout {
-                    log::debug!(
-                        "query onlines timeout {:?} ({:?})",
-                        query_begin.elapsed(),
-                        query_timeout
-                    );
-                    break;
+                Err(e) => {
+                    log::debug!("query onlines, {}", &e);
                 }
-
-                sleep(1.5).await;
             }
         }
     }
@@ -3470,8 +3456,6 @@ pub mod peer_online {
         ids: &Vec<String>,
         timeout: std::time::Duration,
     ) -> ResultType<(Vec<String>, Vec<String>)> {
-        let query_begin = Instant::now();
-
         let mut msg_out = RendezvousMessage::new();
         msg_out.set_online_request(OnlineRequest {
             id: Config::get_id(),
@@ -3479,56 +3463,51 @@ pub mod peer_online {
             ..Default::default()
         });
 
-        loop {
-            let mut socket = match create_online_stream().await {
-                Ok(s) => s,
-                Err(e) => {
-                    log::debug!("Failed to create peers online stream, {e}");
-                    return Ok((vec![], ids.clone()));
-                }
-            };
-            // TODO: Use long connections to avoid socket creation
-            // If we use a Arc<Mutex<Option<FramedStream>>> to hold and reuse the previous socket,
-            // we may face the following error:
-            // An established connection was aborted by the software in your host machine. (os error 10053)
-            if let Err(e) = socket.send(&msg_out).await {
-                log::debug!("Failed to send peers online states query, {e}");
+        let mut socket = match create_online_stream().await {
+            Ok(s) => s,
+            Err(e) => {
+                log::debug!("Failed to create peers online stream, {e}");
                 return Ok((vec![], ids.clone()));
             }
-            if let Some(msg_in) =
-                crate::common::get_next_nonkeyexchange_msg(&mut socket, None).await
-            {
-                match msg_in.union {
-                    Some(rendezvous_message::Union::OnlineResponse(online_response)) => {
-                        let states = online_response.states;
-                        let mut onlines = Vec::new();
-                        let mut offlines = Vec::new();
-                        for i in 0..ids.len() {
-                            // bytes index from left to right
-                            let bit_value = 0x01 << (7 - i % 8);
-                            if (states[i / 8] & bit_value) == bit_value {
-                                onlines.push(ids[i].clone());
-                            } else {
-                                offlines.push(ids[i].clone());
-                            }
-                        }
-                        return Ok((onlines, offlines));
-                    }
-                    _ => {
-                        // ignore
-                    }
-                }
-            } else {
-                // TODO: Make sure socket closed?
-                bail!("Online stream receives None");
-            }
-
-            if query_begin.elapsed() > timeout {
-                bail!("Try query onlines timeout {:?}", &timeout);
-            }
-
-            sleep(300.0).await;
+        };
+        // TODO: Use long connections to avoid socket creation
+        // If we use a Arc<Mutex<Option<FramedStream>>> to hold and reuse the previous socket,
+        // we may face the following error:
+        // An established connection was aborted by the software in your host machine. (os error 10053)
+        if let Err(e) = socket.send(&msg_out).await {
+            log::debug!("Failed to send peers online states query, {e}");
+            return Ok((vec![], ids.clone()));
         }
+        if let Some(msg_in) =
+            crate::common::get_next_nonkeyexchange_msg(&mut socket, Some(timeout.as_millis() as _))
+                .await
+        {
+            match msg_in.union {
+                Some(rendezvous_message::Union::OnlineResponse(online_response)) => {
+                    let states = online_response.states;
+                    let mut onlines = Vec::new();
+                    let mut offlines = Vec::new();
+                    for i in 0..ids.len() {
+                        // bytes index from left to right
+                        let bit_value = 0x01 << (7 - i % 8);
+                        if (states[i / 8] & bit_value) == bit_value {
+                            onlines.push(ids[i].clone());
+                        } else {
+                            offlines.push(ids[i].clone());
+                        }
+                    }
+                    return Ok((onlines, offlines));
+                }
+                _ => {
+                    // ignore
+                }
+            }
+        } else {
+            // TODO: Make sure socket closed?
+            bail!("Online stream receives None");
+        }
+
+        bail!("Failed to query online states, no online response");
     }
 
     #[cfg(test)]
