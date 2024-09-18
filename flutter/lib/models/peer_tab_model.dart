@@ -186,8 +186,12 @@ class PeerTabModel with ChangeNotifier {
 
   setCurrentTabCachedPeers(List<Peer> peers) {
     Future.delayed(Duration.zero, () {
+      final isPreEmpty = _currentTabCachedPeers.isEmpty;
       _currentTabCachedPeers = peers;
-      notifyListeners();
+      final isNowEmpty = _currentTabCachedPeers.isEmpty;
+      if (isPreEmpty != isNowEmpty) {
+        notifyListeners();
+      }
     });
   }
 

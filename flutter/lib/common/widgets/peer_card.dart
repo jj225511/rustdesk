@@ -61,6 +61,7 @@ class _PeerCardState extends State<_PeerCard>
   Widget _buildPortrait() {
     final peer = super.widget.peer;
     final PeerTabModel peerTabModel = Provider.of(context);
+    debugPrint('REMOVE ME ========================== _buildPortrait 11');
     return Card(
         margin: EdgeInsets.symmetric(horizontal: 2),
         child: GestureDetector(
@@ -86,46 +87,14 @@ class _PeerCardState extends State<_PeerCard>
   }
 
   Widget _buildLandscape() {
-    final PeerTabModel peerTabModel = Provider.of(context);
     final peer = super.widget.peer;
-    var deco = Rx<BoxDecoration?>(
-      BoxDecoration(
+    var deco = BoxDecoration(
         border: Border.all(color: Colors.transparent, width: _borderWidth),
         borderRadius: BorderRadius.circular(
-          peerCardUiType.value == PeerUiType.grid ? _cardRadius : _tileRadius,
+           _cardRadius,
         ),
-      ),
-    );
-    return MouseRegion(
-      onEnter: (evt) {
-        deco.value = BoxDecoration(
-          border: Border.all(
-              color: Theme.of(context).colorScheme.primary,
-              width: _borderWidth),
-          borderRadius: BorderRadius.circular(
-            peerCardUiType.value == PeerUiType.grid ? _cardRadius : _tileRadius,
-          ),
-        );
-      },
-      onExit: (evt) {
-        deco.value = BoxDecoration(
-          border: Border.all(color: Colors.transparent, width: _borderWidth),
-          borderRadius: BorderRadius.circular(
-            peerCardUiType.value == PeerUiType.grid ? _cardRadius : _tileRadius,
-          ),
-        );
-      },
-      child: GestureDetector(
-          onDoubleTap:
-              peerTabModel.multiSelectionMode || peerTabModel.isShiftDown
-                  ? null
-                  : () => widget.connect(context, peer.id),
-          onTap: () => peerTabModel.select(peer),
-          onLongPress: () => peerTabModel.select(peer),
-          child: Obx(() => peerCardUiType.value == PeerUiType.grid
-              ? _buildPeerCard(context, peer, deco)
-              : _buildPeerTile(context, peer, deco))),
-    );
+      );
+    return _buildPeerCard(context, peer, deco);
   }
 
   Widget _buildPeerTile(
@@ -240,7 +209,7 @@ class _PeerCardState extends State<_PeerCard>
   }
 
   Widget _buildPeerCard(
-      BuildContext context, Peer peer, Rx<BoxDecoration?> deco) {
+      BuildContext context, Peer peer, BoxDecoration deco) {
     hideUsernameOnCard ??=
         bind.mainGetBuildinOption(key: kHideUsernameOnCard) == 'Y';
     final name = hideUsernameOnCard == true
@@ -250,9 +219,8 @@ class _PeerCardState extends State<_PeerCard>
       color: Colors.transparent,
       elevation: 0,
       margin: EdgeInsets.zero,
-      child: Obx(
-        () => Container(
-          foregroundDecoration: deco.value,
+      child: Container(
+          foregroundDecoration: deco,
           child: ClipRRect(
             borderRadius: BorderRadius.circular(_cardRadius - _borderWidth),
             child: Column(
@@ -313,7 +281,7 @@ class _PeerCardState extends State<_PeerCard>
                           style: Theme.of(context).textTheme.titleSmall,
                         )),
                       ]).paddingSymmetric(vertical: 8)),
-                      checkBoxOrActionMoreLandscape(peer, isTile: false),
+                     checkBoxOrActionMoreLandscape(peer, isTile: false),
                     ],
                   ).paddingSymmetric(horizontal: 12.0),
                 )
@@ -321,7 +289,6 @@ class _PeerCardState extends State<_PeerCard>
             ),
           ),
         ),
-      ),
     );
 
     final colors = _frontN(peer.tags, 25)
@@ -361,6 +328,7 @@ class _PeerCardState extends State<_PeerCard>
 
   Widget checkBoxOrActionMorePortrait(Peer peer) {
     final PeerTabModel peerTabModel = Provider.of(context);
+    debugPrint('REMOVE ME ========================== checkBoxOrActionMorePortrait 11');
     final selected = peerTabModel.isPeerSelected(peer.id);
     if (peerTabModel.multiSelectionMode) {
       return Padding(
@@ -388,29 +356,7 @@ class _PeerCardState extends State<_PeerCard>
   }
 
   Widget checkBoxOrActionMoreLandscape(Peer peer, {required bool isTile}) {
-    final PeerTabModel peerTabModel = Provider.of(context);
-    final selected = peerTabModel.isPeerSelected(peer.id);
-    if (peerTabModel.multiSelectionMode) {
-      final icon = selected
-          ? Icon(
-              Icons.check_box,
-              color: MyTheme.accent,
-            )
-          : Icon(Icons.check_box_outline_blank);
-      bool last = peerTabModel.isShiftDown && peer.id == peerTabModel.lastId;
-      double right = isTile ? 4 : 0;
-      if (last) {
-        return Container(
-          decoration: BoxDecoration(
-              border: Border.all(color: MyTheme.accent, width: 1)),
-          child: icon,
-        ).marginOnly(right: right);
-      } else {
-        return icon.marginOnly(right: right);
-      }
-    } else {
-      return _actionMore(peer);
-    }
+    return build_more(context);
   }
 
   Widget _actionMore(Peer peer) => Listener(
@@ -1329,6 +1275,52 @@ Widget getOnline(double rightPadding, bool online) {
 
 Widget build_more(BuildContext context, {bool invert = false}) {
   final RxBool hover = false.obs;
+  // return Obx(() => CircleAvatar(
+  //         radius: 14,
+  //         backgroundColor: hover.value
+  //             ? (invert
+  //                 ? Theme.of(context).colorScheme.background
+  //                 : Theme.of(context).scaffoldBackgroundColor)
+  //             : (invert
+  //                 ? Theme.of(context).scaffoldBackgroundColor
+  //                 : Theme.of(context).colorScheme.background),
+  //         child: Icon(Icons.more_vert,
+  //             size: 18,
+  //             color: hover.value
+  //                 ? Theme.of(context).textTheme.titleLarge?.color
+  //                 : Theme.of(context)
+  //                     .textTheme
+  //                     .titleLarge
+  //                     ?.color
+  //                     ?.withOpacity(0.5))));
+
+  // return InkWell(
+  //     borderRadius: BorderRadius.circular(14),
+  //     onTap: () {},
+  //     onHover: (value) => hover.value = value,
+  //     child: CircleAvatar(
+  //         radius: 14,
+  //         backgroundColor: (invert
+  //                 ? Theme.of(context).scaffoldBackgroundColor
+  //                 : Theme.of(context).colorScheme.background),
+  //         child: Icon(Icons.more_vert,
+  //             size: 18,
+  //             color: Theme.of(context)
+  //                     .textTheme
+  //                     .titleLarge
+  //                     ?.color
+  //                     ?.withOpacity(0.5))));
+
+  return Obx(() => Icon(Icons.more_vert,
+              size: 18,
+              color: hover.value
+                  ? Theme.of(context).textTheme.titleLarge?.color
+                  : Theme.of(context)
+                      .textTheme
+                      .titleLarge
+                      ?.color
+                      ?.withOpacity(0.5)));
+
   return InkWell(
       borderRadius: BorderRadius.circular(14),
       onTap: () {},

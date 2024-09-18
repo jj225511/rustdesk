@@ -110,6 +110,7 @@ class _PeersViewState extends State<_PeersView>
   void dispose() {
     windowManager.removeListener(this);
     WidgetsBinding.instance.removeObserver(this);
+    _scrollController.dispose();
     _exit = true;
     super.dispose();
   }
@@ -194,7 +195,7 @@ class _PeersViewState extends State<_PeersView>
           if (snapshot.hasData) {
             var peers = snapshot.data!;
             if (peers.length > 1000) peers = peers.sublist(0, 1000);
-            gFFI.peerTabModel.setCurrentTabCachedPeers(peers);
+            // gFFI.peerTabModel.setCurrentTabCachedPeers(peers);
             buildOnePeer(Peer peer, bool isPortrait) {
               final visibilityChild = VisibilityDetector(
                 key: ValueKey(_cardId(peer.id)),
@@ -279,7 +280,7 @@ class _PeersViewState extends State<_PeersView>
     () async {
       final p = await bind.mainIsUsingPublicServer();
       if (!p) {
-        _queryInterval = const Duration(seconds: 6);
+        _queryInterval = const Duration(seconds: 1);
       }
       while (!_exit) {
         final now = DateTime.now();

@@ -107,6 +107,7 @@ class _PeerTabPageState extends State<PeerTabPage>
   @override
   Widget build(BuildContext context) {
     final model = Provider.of<PeerTabModel>(context);
+    debugPrint('REMOVE ME ========================== aa');
     Widget selectionWrap(Widget widget) {
       return model.multiSelectionMode ? createMultiSelectionBar() : widget;
     }
@@ -142,6 +143,7 @@ class _PeerTabPageState extends State<PeerTabPage>
 
   Widget _createSwitchBar(BuildContext context) {
     final model = Provider.of<PeerTabModel>(context);
+    debugPrint('REMOVE ME ========================== _createSwitchBar 11');
     var counter = -1;
     return ReorderableListView(
         buildDefaultDragHandles: false,
@@ -193,6 +195,7 @@ class _PeerTabPageState extends State<PeerTabPage>
 
   Widget _createPeersView() {
     final model = Provider.of<PeerTabModel>(context);
+    debugPrint('REMOVE ME ========================== bb');
     Widget child;
     if (model.visibleEnabledOrderedIndexs.isEmpty) {
       child = visibleContextMenuListener(Row(
@@ -217,6 +220,7 @@ class _PeerTabPageState extends State<PeerTabPage>
   Widget _createRefresh(
       {required PeerTabIndex index, required RxBool loading}) {
     final model = Provider.of<PeerTabModel>(context);
+    debugPrint('REMOVE ME ========================== cc');
     final textColor = Theme.of(context).textTheme.titleLarge?.color;
     return Offstage(
       offstage: model.currentTab != index.index,
@@ -246,7 +250,7 @@ class _PeerTabPageState extends State<PeerTabPage>
 
   Widget _createMultiSelection() {
     final textColor = Theme.of(context).textTheme.titleLarge?.color;
-    final model = Provider.of<PeerTabModel>(context);
+    final model = Provider.of<PeerTabModel>(context, listen: false);
     return _hoverAction(
       toolTip: translate('Select'),
       context: context,
@@ -333,6 +337,7 @@ class _PeerTabPageState extends State<PeerTabPage>
 
   Widget visibleContextMenu(CancelFunc cancelFunc) {
     final model = Provider.of<PeerTabModel>(context);
+    debugPrint('REMOVE ME ========================== ee');
     final menu = List<MenuEntrySwitchSync>.empty(growable: true);
     for (int i = 0; i < model.orders.length; i++) {
       int tabIndex = model.orders[i];
@@ -364,6 +369,7 @@ class _PeerTabPageState extends State<PeerTabPage>
 
   Widget createMultiSelectionBar() {
     final model = Provider.of<PeerTabModel>(context);
+    debugPrint('REMOVE ME ========================== ff');
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -391,6 +397,7 @@ class _PeerTabPageState extends State<PeerTabPage>
 
   Widget deleteSelection() {
     final model = Provider.of<PeerTabModel>(context);
+    debugPrint('REMOVE ME ========================== gg');
     if (model.currentTab == PeerTabIndex.group.index) {
       return Offstage();
     }
@@ -438,6 +445,7 @@ class _PeerTabPageState extends State<PeerTabPage>
 
   Widget addSelectionToFav() {
     final model = Provider.of<PeerTabModel>(context);
+    debugPrint('REMOVE ME ========================== hh');
     return Offstage(
       offstage:
           model.currentTab != PeerTabIndex.recent.index, // show based on recent
@@ -463,6 +471,7 @@ class _PeerTabPageState extends State<PeerTabPage>
 
   Widget addSelectionToAb() {
     final model = Provider.of<PeerTabModel>(context);
+    debugPrint('REMOVE ME ========================== ii');
     final addressbooks = gFFI.abModel.addressBooksCanWrite();
     if (model.currentTab == PeerTabIndex.ab.index) {
       addressbooks.remove(gFFI.abModel.currentName.value);
@@ -484,6 +493,7 @@ class _PeerTabPageState extends State<PeerTabPage>
 
   Widget editSelectionTags() {
     final model = Provider.of<PeerTabModel>(context);
+    debugPrint('REMOVE ME ========================== jj');
     return Offstage(
       offstage: !gFFI.userModel.isLogin ||
           model.currentTab != PeerTabIndex.ab.index ||
@@ -514,6 +524,7 @@ class _PeerTabPageState extends State<PeerTabPage>
 
   Widget selectAll() {
     final model = Provider.of<PeerTabModel>(context);
+    debugPrint('REMOVE ME ========================== kk');
     return Offstage(
       offstage:
           model.selectedPeers.length >= model.currentTabCachedPeers.length,
@@ -530,6 +541,7 @@ class _PeerTabPageState extends State<PeerTabPage>
 
   Widget closeSelection() {
     final model = Provider.of<PeerTabModel>(context);
+    debugPrint('REMOVE ME ========================== ll');
     return _hoverAction(
             context: context,
             toolTip: translate('Close'),
@@ -559,6 +571,7 @@ class _PeerTabPageState extends State<PeerTabPage>
 
   List<Widget> _landscapeRightActions(BuildContext context) {
     final model = Provider.of<PeerTabModel>(context);
+    debugPrint('REMOVE ME ========================== mm');
     return [
       const PeerSearchBar().marginOnly(right: 13),
       _createRefresh(
@@ -583,6 +596,7 @@ class _PeerTabPageState extends State<PeerTabPage>
 
   List<Widget> _portraitRightActions(BuildContext context) {
     final model = Provider.of<PeerTabModel>(context);
+    debugPrint('REMOVE ME ========================== nn');
     final screenWidth = MediaQuery.of(context).size.width;
     final leftIconSize = Theme.of(context).iconTheme.size ?? 24;
     final leftActionsSize =
