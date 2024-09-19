@@ -195,7 +195,7 @@ class _PeersViewState extends State<_PeersView>
           if (snapshot.hasData) {
             var peers = snapshot.data!;
             if (peers.length > 1000) peers = peers.sublist(0, 1000);
-            // gFFI.peerTabModel.setCurrentTabCachedPeers(peers);
+            gFFI.peerTabModel.setCurrentTabCachedPeers(peers);
             buildOnePeer(Peer peer, bool isPortrait) {
               final visibilityChild = VisibilityDetector(
                 key: ValueKey(_cardId(peer.id)),

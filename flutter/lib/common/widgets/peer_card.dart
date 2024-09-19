@@ -1294,32 +1294,32 @@ Widget build_more(BuildContext context, {bool invert = false}) {
   //                     ?.color
   //                     ?.withOpacity(0.5))));
 
-  // return InkWell(
-  //     borderRadius: BorderRadius.circular(14),
-  //     onTap: () {},
-  //     onHover: (value) => hover.value = value,
-  //     child: CircleAvatar(
-  //         radius: 14,
-  //         backgroundColor: (invert
-  //                 ? Theme.of(context).scaffoldBackgroundColor
-  //                 : Theme.of(context).colorScheme.background),
-  //         child: Icon(Icons.more_vert,
-  //             size: 18,
-  //             color: Theme.of(context)
-  //                     .textTheme
-  //                     .titleLarge
-  //                     ?.color
-  //                     ?.withOpacity(0.5))));
-
-  return Obx(() => Icon(Icons.more_vert,
+  return InkWell(
+      borderRadius: BorderRadius.circular(14),
+      onTap: () {},
+      onHover: (value) => hover.value = value,
+      child: CircleAvatar(
+          radius: 14,
+          backgroundColor: (invert
+                  ? Theme.of(context).scaffoldBackgroundColor
+                  : Theme.of(context).colorScheme.background),
+          child: Icon(Icons.more_vert,
               size: 18,
-              color: hover.value
-                  ? Theme.of(context).textTheme.titleLarge?.color
-                  : Theme.of(context)
+              color: Theme.of(context)
                       .textTheme
                       .titleLarge
                       ?.color
-                      ?.withOpacity(0.5)));
+                      ?.withOpacity(0.5))));
+
+  // return Obx(() => Icon(Icons.more_vert,
+  //             size: 18,
+  //             color: hover.value
+  //                 ? Theme.of(context).textTheme.titleLarge?.color
+  //                 : Theme.of(context)
+  //                     .textTheme
+  //                     .titleLarge
+  //                     ?.color
+  //                     ?.withOpacity(0.5)));
 
   return InkWell(
       borderRadius: BorderRadius.circular(14),
