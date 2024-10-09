@@ -85,7 +85,11 @@ class RustdeskImpl {
       dynamic hint}) {
     return js.context.callMethod('setByName', [
       'session_add_sync',
-      jsonEncode({'id': id, 'password': password})
+      jsonEncode({
+        'id': id,
+        'password': password,
+        'is_shared_password': isSharedPassword
+      })
     ]);
   }
 
@@ -1146,15 +1150,15 @@ class RustdeskImpl {
   }
 
   Future<void> mainSaveAb({required String json, dynamic hint}) {
-    throw UnimplementedError();
+    return Future(() => js.context.callMethod('setByName', ['save_ab', json]));
   }
 
   Future<void> mainClearAb({dynamic hint}) {
-    throw UnimplementedError();
+    return Future(() => js.context.callMethod('setByName', ['clear_ab']));
   }
 
   Future<String> mainLoadAb({dynamic hint}) {
-    throw UnimplementedError();
+    return Future(() => js.context.callMethod('getByName', ['load_ab']));
   }
 
   Future<void> mainSaveGroup({required String json, dynamic hint}) {
