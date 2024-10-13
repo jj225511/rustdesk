@@ -940,6 +940,11 @@ impl<T: InvokeUiSession> Session<T> {
         down_or_up: bool,
     ) {
         let key = rdev::usb_hid_key_from_code(usb_hid as _);
+        // CapsLock and NumLock are special keys that no need to send to the peer.
+        // May fix https://github.com/rustdesk/rustdesk/issues/9617
+        if key == rdev::Key::CapsLock || key == rdev::Key::NumLock {
+            return;
+        }
 
         #[cfg(target_os = "windows")]
         let platform_code: u32 = rdev::win_code_from_key(key).unwrap_or(0);
