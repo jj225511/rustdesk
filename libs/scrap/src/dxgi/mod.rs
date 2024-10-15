@@ -352,8 +352,32 @@ impl Capturer {
             );
             let texture = ComPtr(texture);
             self.texture = texture;
+            if self.display.rotation() == DXGI_MODE_ROTATION_ROTATE180 {
+                self.flip_texture()?;
+            }
             Ok(self.texture.0 as *mut c_void)
         }
+    }
+
+    // https://stackoverflow.com/a/46836305
+    unsafe fn flip_texture(&mut self) -> io::Result<()> {
+        let mut desc: D3D11_TEXTURE2D_DESC = mem::zeroed();
+        (*self.texture.0).GetDesc(&mut desc);
+        desc.Usage = D3D11_USAGE_DEFAULT;
+        desc.CPUAccessFlags = 0;
+        desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+    
+        let mut texture: *mut ID3D11Texture2D = ptr::null_mut();
+        let hr = (*self.device.0).CreateTexture2D(&desc, ptr::null(), &mut texture);
+        if FAILED(hr) {
+            return Err(io::Error::new(io::ErrorKind::Other, "Failed to create texture".to_string()));
+        }
+    
+        // to-do: Is is expensive to copy texture, can we do better?
+        (*self.context.0).CopyResource(texture as *mut _, self.texture.0 as *mut _);
+        self.texture = ComPtr(texture);
+
+        Ok(())
     }
 
     fn unmap(&self) {
