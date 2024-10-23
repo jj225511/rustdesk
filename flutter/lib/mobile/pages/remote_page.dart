@@ -317,7 +317,9 @@ class _RemotePageState extends State<RemotePage> {
 
     return WillPopScope(
       onWillPop: () async {
-        clientClose(sessionId, gFFI.dialogManager);
+        if (!isPreventNavigatorPop) {
+          clientClose(sessionId, gFFI.dialogManager);
+        }
         return false;
       },
       child: Scaffold(

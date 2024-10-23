@@ -24,6 +24,17 @@ const _kMouseEventDown = 'mousedown';
 const _kMouseEventUp = 'mouseup';
 const _kMouseEventMove = 'mousemove';
 
+// For android, mouse right button click is return function.
+// Use this time to prevent return on right button click.
+DateTime lastMouseRightBtnClick = DateTime.now();
+
+// For android
+// Prevent navigator pop in 500ms.
+bool get isPreventNavigatorPop =>
+    DateTime.now().millisecondsSinceEpoch -
+        lastMouseRightBtnClick.millisecondsSinceEpoch <=
+    500;
+
 class CanvasCoords {
   double x = 0;
   double y = 0;
@@ -544,7 +555,8 @@ class InputModel {
       handleKeyDownEventModifiers(e);
     }
 
-    if (isMobile || (isDesktop || isWebDesktop) && keyboardMode == kKeyMapMode) {
+    if (isMobile ||
+        (isDesktop || isWebDesktop) && keyboardMode == kKeyMapMode) {
       // FIXME: e.character is wrong for dead keys, eg: ^ in de
       newKeyboardMode(
           e.character ?? '',
@@ -728,6 +740,10 @@ class InputModel {
       }
     }
     _lastButtons = evt.buttons;
+
+    if (buttons == 2 && type == _kMouseEventUp) {
+      lastMouseRightBtnClick = DateTime.now();
+    }
 
     out['buttons'] = buttons;
     out['type'] = type;
