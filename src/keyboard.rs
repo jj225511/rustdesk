@@ -105,12 +105,14 @@ pub mod client {
     }
 
     pub fn process_event(keyboard_mode: &str, event: &Event, lock_modes: Option<i32>) {
+        log::info!("TEST ============================== process_event: {:?}, lock modes: {:?}", event, &lock_modes);
         let keyboard_mode = get_keyboard_mode_enum(keyboard_mode);
         if is_long_press(&event) {
             return;
         }
         let peer = get_peer_platform().to_lowercase();
         for key_event in event_to_key_events(peer, &event, keyboard_mode, lock_modes) {
+            log::info!("TEST ============================== send key event: {:?}", &key_event);
             send_key_event(&key_event);
         }
     }

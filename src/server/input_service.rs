@@ -1661,6 +1661,8 @@ pub fn handle_key_(evt: &KeyEvent) {
         return;
     }
 
+    log::info!("TEST ============================== handle key: {:?}", evt);
+
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
     let mut _lock_mode_handler = None;
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
