@@ -37,8 +37,6 @@ object KeyEventConverter {
             action = KeyEvent.ACTION_UP
         }
 
-        // FIXME: The last parameter is the repeat count, not modifiers ?
-        // https://developer.android.com/reference/android/view/KeyEvent#KeyEvent(long,%20long,%20int,%20int,%20int)
         return KeyEvent(0, 0, action, chrValue, 0, modifiers)
     }
 
