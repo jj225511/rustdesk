@@ -1834,8 +1834,11 @@ Future<OffsetDevicePixelRatio?> _adjustRestoreMainWindowOffset(
   double? frameBottom;
   double devicePixelRatio = 1.0;
 
+  debugPrint('======================== _adjustRestoreMainWindowOffset, desktop: ${isDesktop || isWebDesktop}, window rect: ($left, $top, $width, $height)');
   if (isDesktop || isWebDesktop) {
+    int screenIndex = 1;
     for (final screen in await window_size.getScreenList()) {
+      debugPrint('======================== _adjustRestoreMainWindowOffset, screen $screenIndex, visibleFrame: ${screen.visibleFrame}');
       if (isPointInRect(Offset(left, top), screen.visibleFrame)) {
         devicePixelRatio = screen.scaleFactor;
       }
@@ -1851,8 +1854,10 @@ Future<OffsetDevicePixelRatio?> _adjustRestoreMainWindowOffset(
       frameBottom = frameBottom == null
           ? screen.visibleFrame.bottom
           : max(screen.visibleFrame.bottom, frameBottom);
+      screenIndex++;
     }
   }
+  debugPrint('======================== _adjustRestoreMainWindowOffset, visible frame 1: ($frameLeft, $frameTop, $frameRight, $frameBottom)');
   if (frameLeft == null) {
     frameLeft = 0.0;
     frameTop = 0.0;
