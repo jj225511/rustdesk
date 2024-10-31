@@ -42,6 +42,7 @@ class _RemotePageState extends State<RemotePage> {
   bool _showBar = !isWebDesktop;
   bool _showGestureHelp = false;
   String _value = '';
+  String _composingValue = '';
   Orientation? _currentOrientation;
 
   final _blockableOverlayState = BlockableOverlayState();
@@ -57,7 +58,6 @@ class _RemotePageState extends State<RemotePage> {
 
   final TextEditingController _textController =
       TextEditingController(text: initText);
-  bool _lastComposingChangeValid = false;
 
   _RemotePageState(String id) {
     initSharedStates(id);
@@ -97,9 +97,6 @@ class _RemotePageState extends State<RemotePage> {
         showToast(translate('Automatically record outgoing sessions'));
       }
     });
-    if (isAndroid) {
-      _textController.addListener(textAndroidListener);
-    }
   }
 
   @override
@@ -127,16 +124,6 @@ class _RemotePageState extends State<RemotePage> {
     // The inner logic of `on_voice_call_closed` will check if the voice call is active.
     // Only one client is considered here for now.
     gFFI.chatModel.onVoiceCallClosed("End connetion");
-    if (isAndroid) {
-      _textController.removeListener(textAndroidListener);
-    }
-  }
-
-  // This listener is used to handle the composing region changes for Android soft keyboard input.
-  void textAndroidListener() {
-    if (_lastComposingChangeValid) {
-      _handleNonIOSSoftKeyboardInput(_textController.text);
-    }
   }
 
   // to-do: It should be better to use transparent color instead of the bgColor.
@@ -222,13 +209,41 @@ class _RemotePageState extends State<RemotePage> {
     }
   }
 
-  void _handleNonIOSSoftKeyboardInput(String newValue) {
-    _lastComposingChangeValid = _textController.value.isComposingRangeValid;
-    if (_lastComposingChangeValid && newValue.length > _value.length) {
-      // Only early return if is composing new words.
-      // We need to send `backspace` immediately if is deleting letters.
+  void _handleAndroidComposing(String composing) {
+    int i = 0;
+    while (i < _composingValue.length &&
+        i < composing.length &&
+        _composingValue[i] == composing[i]) {
+      ++i;
+    }
+    if (i < _composingValue.length) {
+      for (int j = 0; j < _composingValue.length - i; ++j) {
+        inputModel.inputKey('VK_BACK');
+      }
+    }
+    if (i < composing.length) {
+      bind.sessionInputString(
+          sessionId: sessionId, value: composing.substring(i));
+    }
+    _composingValue = composing;
+  }
+
+  void _handleAndroidSoftKeyboardInput(String newValue) {
+    // We're composing new words if `isNewComposing` is true, or we're deleting.
+    final isNewComposing = newValue.length > _value.length;
+    if (isNewComposing && _textController.value.isComposingRangeValid) {
+      final composingValue = _textController.text.substring(
+          _textController.value.composing.start,
+          _textController.value.composing.end);
+      _handleAndroidComposing(composingValue);
       return;
     }
+
+    if (_composingValue.isNotEmpty) {
+      _value += _composingValue;
+      _composingValue = '';
+    }
+
     var oldValue = _value;
     _value = newValue;
     if (oldValue.isNotEmpty &&
@@ -278,7 +293,7 @@ class _RemotePageState extends State<RemotePage> {
       if (newValue != _textController.text) return;
       _handleIOSSoftKeyboardInput(_textController.text);
     } else {
-      _handleNonIOSSoftKeyboardInput(newValue);
+      _handleAndroidSoftKeyboardInput(newValue);
     }
   }
 
