@@ -24,7 +24,10 @@ import '../../models/platform_model.dart';
 import '../../utils/image.dart';
 import '../widgets/dialog.dart';
 
-final initText = '1' * 1024;
+// We can't use letters, or it may trigger word prediction.
+// https://github.com/rustdesk/rustdesk/issues/9789#issuecomment-2448793330
+final auxInputChar = '.';
+final initText = auxInputChar * 1024;
 
 class RemotePage extends StatefulWidget {
   RemotePage({Key? key, required this.id, this.password, this.isSharedPassword})
@@ -61,6 +64,8 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
 
   final TextEditingController _textController =
       TextEditingController(text: initText);
+  // [Space] then [Dot] results ". " for SwiftKey keyboard.
+  String _lastChar = ' ';
 
   _RemotePageState(String id) {
     initSharedStates(id);
@@ -182,9 +187,9 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
     var oldValue = _value;
     _value = newValue;
     var i = newValue.length - 1;
-    for (; i >= 0 && newValue[i] != '1'; --i) {}
+    for (; i >= 0 && newValue[i] != auxInputChar; --i) {}
     var j = oldValue.length - 1;
-    for (; j >= 0 && oldValue[j] != '1'; --j) {}
+    for (; j >= 0 && oldValue[j] != auxInputChar; --j) {}
     if (i < j) j = i;
     var subNewValue = newValue.substring(j + 1);
     var subOldValue = oldValue.substring(j + 1);
@@ -233,16 +238,17 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
     _value = newValue;
     if (oldValue.isNotEmpty &&
         newValue.isNotEmpty &&
-        oldValue[0] == '1' &&
-        newValue[0] != '1') {
+        oldValue[0] == auxInputChar &&
+        newValue[0] != auxInputChar) {
       // clipboard
       oldValue = '';
     }
+
+    final backspace = 'VK_BACK';
     if (newValue.length == oldValue.length) {
       // ?
     } else if (newValue.length < oldValue.length) {
-      final char = 'VK_BACK';
-      inputModel.inputKey(char);
+      inputModel.inputKey(backspace);
     } else {
       final content = newValue.substring(oldValue.length);
       if (content.length > 1) {
@@ -263,8 +269,17 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
           return;
         }
         bind.sessionInputString(sessionId: sessionId, value: content);
+        _lastChar = content.substring(content.length - 1);
       } else {
+        if (newValue.length > 1 &&
+            _lastChar == ' ' &&
+            newValue.substring(newValue.length - 2) == '. ') {
+          // fix: input space after dot, will cause dot never be input
+          inputModel.inputKey(backspace);
+          inputChar('.');
+        }
         inputChar(content);
+        _lastChar = content;
       }
     }
   }
@@ -544,8 +559,8 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
             ),
             KeyHelpTools(requestShow: (keyboardIsVisible || _showGestureHelp)),
             SizedBox(
-              width: 0,
-              height: 0,
+              width: 100,
+              height: 100,
               child: !_showEdit
                   ? Container()
                   : TextFormField(
@@ -563,6 +578,7 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
                       // trick way to make backspace work always
                       keyboardType: TextInputType.multiline,
                       onChanged: handleSoftKeyboardInput,
+                      style: TextStyle(color: Colors.red),
                     ),
             ),
           ];
