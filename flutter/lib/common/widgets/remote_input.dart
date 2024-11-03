@@ -84,6 +84,9 @@ class _RawTouchGestureDetectorRegionState
   double _mouseScrollIntegral = 0; // mouse scroll speed controller
   double _scale = 1;
 
+  // Workaround tap down event when two fingers are used to scale(mobile)
+  TapDownDetails? _lastTapDownDetails;
+
   PointerDeviceKind? lastDeviceKind;
 
   // For touch mode, onDoubleTap
@@ -114,9 +117,21 @@ class _RawTouchGestureDetectorRegionState
     if (handleTouch) {
       _lastPosOfDoubleTapDown = d.localPosition;
       // Desktop or mobile "Touch mode"
-      if (ffi.cursorModel.move(d.localPosition.dx, d.localPosition.dy)) {
+      _lastTapDownDetails = d;
+    }
+  }
+
+  _procLastTapDownDetails({bool move = true}) {
+    if (_lastTapDownDetails != null) {
+      TapDownDetails d = _lastTapDownDetails!;
+      if (move) {
+        if (ffi.cursorModel.move(d.localPosition.dx, d.localPosition.dy)) {
+          inputModel.tapDown(MouseButtons.left);
+        }
+      } else {
         inputModel.tapDown(MouseButtons.left);
       }
+      _lastTapDownDetails = null;
     }
   }
 
@@ -126,6 +141,7 @@ class _RawTouchGestureDetectorRegionState
     }
     if (handleTouch) {
       if (ffi.cursorModel.move(d.localPosition.dx, d.localPosition.dy)) {
+        _procLastTapDownDetails(move: false);
         inputModel.tapUp(MouseButtons.left);
       }
     }
@@ -261,6 +277,7 @@ class _RawTouchGestureDetectorRegionState
   }
 
   onOneFingerPanStart(BuildContext context, DragStartDetails d) {
+    _procLastTapDownDetails();
     lastDeviceKind = d.kind ?? lastDeviceKind;
     if (lastDeviceKind != PointerDeviceKind.touch) {
       return;
@@ -329,6 +346,7 @@ class _RawTouchGestureDetectorRegionState
 
   // scale + pan event
   onTwoFingerScaleStart(ScaleStartDetails d) {
+    _lastTapDownDetails = null;
     if (lastDeviceKind != PointerDeviceKind.touch) {
       return;
     }
