@@ -2040,16 +2040,44 @@ class CursorModel with ChangeNotifier {
       return false;
     }
     _lastIsBlocked = false;
-    moveLocal(x, y, adjust: parent.target?.canvasModel.getAdjustY() ?? 0);
+    if (!_moveLocalIfInRemoteRect(x, y)) {
+      return false;
+    }
     parent.target?.inputModel.moveMouse(_x, _y);
     return true;
   }
 
-  moveLocal(double x, double y, {double adjust = 0}) {
+  Offset _getNewPos(double x, double y, double adjust) {
     final xoffset = parent.target?.canvasModel.x ?? 0;
     final yoffset = parent.target?.canvasModel.y ?? 0;
-    _x = (x - xoffset) / scale + _displayOriginX;
-    _y = (y - yoffset - adjust) / scale + _displayOriginY;
+    final newX = (x - xoffset) / scale + _displayOriginX;
+    final newY = (y - yoffset - adjust) / scale + _displayOriginY;
+    return Offset(newX, newY);
+  }
+
+  bool _moveLocalIfInRemoteRect(double x, double y) {
+    final adjust = parent.target?.canvasModel.getAdjustY() ?? 0;
+    final newPos = _getNewPos(x, y, adjust);
+    final visibleRect = getVisibleRect();
+    if (!isPointInRect(newPos, visibleRect)) {
+      return false;
+    }
+    final rect = parent.target?.ffiModel.rect;
+    if (rect != null) {
+      if (!isPointInRect(newPos, rect)) {
+        return false;
+      }
+    }
+    _x = newPos.dx;
+    _y = newPos.dy;
+    notifyListeners();
+    return true;
+  }
+
+  moveLocal(double x, double y, {double adjust = 0}) {
+    final newPos = _getNewPos(x, y, adjust);
+    _x = newPos.dx;
+    _y = newPos.dy;
     notifyListeners();
   }
 
@@ -2182,9 +2210,44 @@ class CursorModel with ChangeNotifier {
       }
     }
     if (!isMoved) {
+      final rect = parent.target?.ffiModel.rect;
+      if (rect == null) {
+        // unreachable
+        return;
+      }
+
+      Offset? movementInRect(double x, double y, Rect r) {
+        final isXInRect = x >= r.left && x <= r.right;
+        final isYInRect = y >= r.top && y <= r.bottom;
+        if (!(isXInRect || isYInRect)) {
+          return null;
+        }
+        if (x < r.left) {
+          x = r.left;
+        } else if (x > r.right) {
+          x = r.right;
+        }
+        if (y < r.top) {
+          y = r.top;
+        } else if (y > r.bottom) {
+          y = r.bottom;
+        }
+        return Offset(x, y);
+      }
+
       final scale = parent.target?.canvasModel.scale ?? 1.0;
-      _x += delta.dx / scale;
-      _y += delta.dy / scale;
+      var movement =
+          movementInRect(_x + delta.dx / scale, _y + delta.dy / scale, rect);
+      if (movement == null) {
+        return;
+      }
+      movement = movementInRect(movement.dx, movement.dy, getVisibleRect());
+      if (movement == null) {
+        return;
+      }
+
+      _x = movement.dx;
+      _y = movement.dy;
       parent.target?.inputModel.moveMouse(_x, _y);
     }
     notifyListeners();
