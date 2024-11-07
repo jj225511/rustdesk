@@ -24,7 +24,7 @@ import '../../models/platform_model.dart';
 import '../../utils/image.dart';
 import '../widgets/dialog.dart';
 
-final initText = '1' * 1024;
+final initText = '1' * 15;
 
 class RemotePage extends StatefulWidget {
   RemotePage({Key? key, required this.id, this.password, this.isSharedPassword})
@@ -542,8 +542,8 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
                 keyboardIsVisible: keyboardIsVisible,
                 showGestureHelp: _showGestureHelp),
             SizedBox(
-              width: 0,
-              height: 0,
+              width: 150,
+              height: 100,
               child: !_showEdit
                   ? Container()
                   : TextFormField(
@@ -561,6 +561,7 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
                       // trick way to make backspace work always
                       keyboardType: TextInputType.multiline,
                       onChanged: handleSoftKeyboardInput,
+                      style: TextStyle(color: Colors.red),
                     ),
             ),
           ];
