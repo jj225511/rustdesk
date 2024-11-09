@@ -19,7 +19,7 @@ import 'package:flutter_hbb/utils/platform_channel.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
 import 'package:provider/provider.dart';
-import 'package:uni_links/uni_links.dart';
+import 'package:app_links/app_links.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:uuid/uuid.dart';
 import 'package:window_manager/window_manager.dart';
@@ -2027,6 +2027,7 @@ Future<bool> restoreWindowPosition(WindowType type,
 }
 
 var webInitialLink = "";
+final _appLinks = AppLinks();
 
 /// Initialize uni links for macos/windows
 ///
@@ -2039,7 +2040,7 @@ Future<bool> initUniLinks() async {
   }
   // check cold boot
   try {
-    final initialLink = await getInitialLink();
+    final initialLink = await _appLinks.getInitialLinkString();
     print("initialLink: $initialLink");
     if (initialLink == null || initialLink.isEmpty) {
       return false;
@@ -2066,7 +2067,7 @@ StreamSubscription? listenUniLinks({handleByFlutter = true}) {
     return null;
   }
 
-  final sub = uriLinkStream.listen((Uri? uri) {
+  final sub = _appLinks.uriLinkStream.listen((Uri? uri) {
     debugPrint("A uri was received: $uri. handleByFlutter $handleByFlutter");
     if (uri != null) {
       if (handleByFlutter) {
