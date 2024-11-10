@@ -1086,14 +1086,14 @@ jobs:
 
       - uses: r0adkll/sign-android-release@v1
         name: Sign app APK
-        if: env.ANDROID_SIGNING_KEY != null
+        # if: env.ANDROID_SIGNING_KEY != null
         id: sign-rustdesk
         with:
           releaseDirectory: ./signed-apk
-          signingKeyBase64: ${{ secrets.ANDROID_SIGNING_KEY }}
-          alias: ${{ secrets.ANDROID_ALIAS }}
-          keyStorePassword: ${{ secrets.ANDROID_KEY_STORE_PASSWORD }}
-          keyPassword: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          signingKeyBase64: "12345"
+          alias: "12345"
+          keyStorePassword: "12345"
+          keyPassword: "12345"
         env:
           # env.ANDROID_SIGN_TOOL_VERSION is set by Step "Setup sign tool version variable"
           BUILD_TOOLS_VERSION: ${{ env.ANDROID_SIGN_TOOL_VERSION }}
@@ -1270,14 +1270,14 @@ jobs:
 
       - uses: r0adkll/sign-android-release@v1
         name: Sign app APK
-        if: env.ANDROID_SIGNING_KEY != null
+        # if: env.ANDROID_SIGNING_KEY != null
         id: sign-rustdesk
         with:
           releaseDirectory: ./signed-apk
-          signingKeyBase64: ${{ secrets.ANDROID_SIGNING_KEY }}
-          alias: ${{ secrets.ANDROID_ALIAS }}
-          keyStorePassword: ${{ secrets.ANDROID_KEY_STORE_PASSWORD }}
-          keyPassword: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          signingKeyBase64: "12345"
+          alias: "12345"
+          keyStorePassword: "12345"
+          keyPassword: "12345"
         env:
           # env.ANDROID_SIGN_TOOL_VERSION is set by Step "Setup sign tool version variable"
           BUILD_TOOLS_VERSION: ${{ env.ANDROID_SIGN_TOOL_VERSION }}
