@@ -433,9 +433,8 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
 
   Widget getBottomAppBar() {
     final ffiModel = Provider.of<FfiModel>(context);
-    return BottomAppBar(
-      elevation: 10,
-      color: MyTheme.accent,
+    return _BottomAppBar(
+      height: 56,
       child: Row(
         mainAxisSize: MainAxisSize.max,
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -781,6 +780,46 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
   //         ]));
   //   }, clickMaskDismiss: true);
   // }
+}
+
+class _BottomAppBar extends StatefulWidget {
+  final Widget child;
+  final double? height;
+
+  _BottomAppBar({required this.child, this.height});
+
+  @override
+  State<_BottomAppBar> createState() => _BottomAppBarState();
+}
+
+class _BottomAppBarState extends State<_BottomAppBar> {
+  double? height;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      gFFI.canvasModel.onBottomAppBarVisibilityChanged(height ?? 56.0);
+    });
+  }
+
+  @override
+  void dispose() {
+    gFFI.canvasModel.onBottomAppBarVisibilityChanged(null);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    height ??= widget.height;
+    height ??= Theme.of(context).bottomAppBarTheme.height;
+    return BottomAppBar(
+      height: height,
+      elevation: 10,
+      color: MyTheme.accent,
+      child: widget.child,
+    );
+  }
 }
 
 class KeyHelpTools extends StatefulWidget {

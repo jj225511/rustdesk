@@ -1422,6 +1422,9 @@ class CanvasModel with ChangeNotifier {
   ScrollStyle _scrollStyle = ScrollStyle.scrollauto;
   ViewStyle _lastViewStyle = ViewStyle.defaultViewStyle();
 
+  // mobile only
+  double? _bottomAppBarHeight;
+
   Timer? _timerMobileFocusCanvasCursor;
 
   // `isMobileCanvasChanged` is used to avoid canvas reset when changing the input method
@@ -1480,7 +1483,8 @@ class CanvasModel with ChangeNotifier {
       h = h -
           mediaData.viewInsets.bottom -
           (parent.target?.cursorModel.keyHelpToolsRectToAdjustCanvas?.bottom ??
-              0);
+              0) -
+          (_bottomAppBarHeight ?? 0);
     }
     return Size(w < 0 ? 0 : w, h < 0 ? 0 : h);
   }
@@ -1489,7 +1493,23 @@ class CanvasModel with ChangeNotifier {
   double getAdjustY() {
     final bottom =
         parent.target?.cursorModel.keyHelpToolsRectToAdjustCanvas?.bottom ?? 0;
-    return max(bottom - MediaQueryData.fromView(ui.window).padding.top, 0);
+    return max(
+        bottom -
+            MediaQueryData.fromView(ui.window).padding.top -
+            (_bottomAppBarHeight ?? 0),
+        0);
+  }
+
+  onBottomAppBarVisibilityChanged(double? h) {
+    final isRectVisibilityChanged =
+        (_bottomAppBarHeight == null) != (h == null);
+    debugPrint(
+        'REMOVE ME ======================== onBottomAppBarVisibilityChanged: $isRectVisibilityChanged, h: $h');
+    _bottomAppBarHeight = h;
+    if (isRectVisibilityChanged) {
+      // Change the canvas size when the bottom app bar is shown or hidden.
+      updateViewStyle();
+    }
   }
 
   updateViewStyle({refreshMousePos = true, notify = true}) async {
@@ -1935,7 +1955,7 @@ class CursorModel with ChangeNotifier {
   double _displayOriginY = 0;
   DateTime? _firstUpdateMouseTime;
   Rect? _windowRect;
-  List<RemoteWindowCoords> _remoteWindowCoords = [];
+  final List<RemoteWindowCoords> _remoteWindowCoords = [];
   bool gotMouseControl = true;
   DateTime _lastPeerMouse = DateTime.now()
       .subtract(Duration(milliseconds: 3000 * kMouseControlTimeoutMSec));
