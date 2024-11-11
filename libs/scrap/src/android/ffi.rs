@@ -8,6 +8,7 @@ use jni::{
     JavaVM,
 };
 
+use hbb_common::{message_proto::MultiClipboards, protobuf::Message};
 use jni::errors::{Error as JniError, Result as JniResult};
 use lazy_static::lazy_static;
 use serde::Deserialize;
@@ -15,13 +16,25 @@ use std::ops::Not;
 use std::sync::atomic::{AtomicPtr, Ordering::SeqCst};
 use std::sync::{Mutex, RwLock};
 use std::time::{Duration, Instant};
+
 lazy_static! {
     static ref JVM: RwLock<Option<JavaVM>> = RwLock::new(None);
     static ref MAIN_SERVICE_CTX: RwLock<Option<GlobalRef>> = RwLock::new(None); // MainService -> video service / audio service / info
+    static ref CLIPBOARD_MANAGER: RwLock<Option<GlobalRef>> = RwLock::new(None);
     static ref VIDEO_RAW: Mutex<FrameRaw> = Mutex::new(FrameRaw::new("video", MAX_VIDEO_FRAME_TIMEOUT));
     static ref AUDIO_RAW: Mutex<FrameRaw> = Mutex::new(FrameRaw::new("audio", MAX_AUDIO_FRAME_TIMEOUT));
     static ref NDK_CONTEXT_INITED: Mutex<bool> = Default::default();
     static ref MEDIA_CODEC_INFOS: RwLock<Option<MediaCodecInfos>> = RwLock::new(None);
+    static ref CLIPBOARDS: Mutex<Option<MultiClipboards>> = Mutex::new(None);
+    static ref LOG_CALLBACK: Mutex<Option<fn(String)>> = Mutex::new(None);
+}
+
+pub fn set_log_callback(callback: fn(String)) {
+    if let Ok(mut cb) = LOG_CALLBACK.lock() {
+        if cb.is_none() {
+            *cb = Some(callback);
+        }
+    }
 }
 
 const MAX_VIDEO_FRAME_TIMEOUT: Duration = Duration::from_millis(100);
@@ -104,6 +117,10 @@ pub fn get_audio_raw<'a>(dst: &mut Vec<u8>, last: &mut Vec<u8>) -> Option<()> {
     AUDIO_RAW.lock().ok()?.take(dst, last)
 }
 
+pub fn get_clipboards() -> Option<MultiClipboards> {
+    CLIPBOARDS.lock().ok()?.take()
+}
+
 #[no_mangle]
 pub extern "system" fn Java_ffi_FFI_onVideoFrameUpdate(
     env: JNIEnv,
@@ -128,6 +145,22 @@ pub extern "system" fn Java_ffi_FFI_onAudioFrameUpdate(
     if let Ok(data) = env.get_direct_buffer_address(&jb) {
         if let Ok(len) = env.get_direct_buffer_capacity(&jb) {
             AUDIO_RAW.lock().unwrap().update(data, len);
+        }
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn Java_ffi_FFI_onClipboardUpdate(
+    env: JNIEnv,
+    _class: JClass,
+    buffer: JByteBuffer,
+) {
+    if let Ok(data) = env.get_direct_buffer_address(&buffer) {
+        if let Ok(len) = env.get_direct_buffer_capacity(&buffer) {
+            let data = unsafe { std::slice::from_raw_parts(data, len) };
+            if let Ok(clips) = MultiClipboards::parse_from_bytes(data) {
+                CLIPBOARDS.lock().unwrap().replace(clips);
+            }
         }
     }
 }
@@ -159,6 +192,17 @@ pub extern "system" fn Java_ffi_FFI_init(env: JNIEnv, _class: JClass, ctx: JObje
         if let Ok(context) = env.new_global_ref(ctx) {
             *MAIN_SERVICE_CTX.write().unwrap() = Some(context);
             init_ndk_context().ok();
+        }
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn Java_ffi_FFI_setClipboardManager(env: JNIEnv, _class: JClass, clipboard_manager: JObject) {
+    log::debug!("ClipboardManager init from java");
+    if let Ok(jvm) = env.get_java_vm() {
+        *JVM.write().unwrap() = Some(jvm);
+        if let Ok(manager) = env.new_global_ref(clipboard_manager) {
+            *CLIPBOARD_MANAGER.write().unwrap() = Some(manager);
         }
     }
 }
@@ -272,6 +316,51 @@ pub fn call_main_service_key_event(data: &[u8]) -> JniResult<()> {
     }
 }
 
+pub fn call_main_service_update_clipboard(data: &[u8]) -> JniResult<()> {
+    if let (Some(jvm), Some(ctx)) = (
+        JVM.read().unwrap().as_ref(),
+        CLIPBOARD_MANAGER.read().unwrap().as_ref(),
+    ) {
+        let mut env = jvm.attach_current_thread_as_daemon()?;
+        let data = env.byte_array_from_slice(data)?;
+
+        env.call_method(
+            ctx,
+            "rustUpdateClipboard",
+            "([B)V",
+            &[JValue::Object(&JObject::from(data))],
+        )?;
+        return Ok(());
+    } else {
+        return Err(JniError::ThrowFailed(-1));
+    }
+}
+
+pub enum EnableClipboard {
+    DisableAll = 0,
+    EnableAll = 1,
+    ClientDisable = 2,
+    ClientEnable = 3,
+    ServerDisable = 4,
+    ServerEnable = 5,
+}
+// enable:
+// disable all - 0, enable all - 1
+// client_disable - 2, client_enable - 3
+// server_disable - 4, server_enable - 5
+pub fn call_main_service_enable_clipboard(enable: EnableClipboard) -> JniResult<()> {
+    if let (Some(jvm), Some(ctx)) = (
+        JVM.read().unwrap().as_ref(),
+        CLIPBOARD_MANAGER.read().unwrap().as_ref(),
+    ) {
+        let mut env = jvm.attach_current_thread_as_daemon()?;
+        env.call_method(ctx, "rustEnableClipboard", "(I)V", &[JValue::Int(enable as i32)])?;
+        return Ok(());
+    } else {
+        return Err(JniError::ThrowFailed(-1));
+    }
+}
+
 pub fn call_main_service_get_by_name(name: &str) -> JniResult<String> {
     if let (Some(jvm), Some(ctx)) = (
         JVM.read().unwrap().as_ref(),
@@ -350,9 +439,7 @@ fn init_ndk_context() -> JniResult<()> {
                 ctx.as_obj().as_raw() as _,
             );
             #[cfg(feature = "hwcodec")]
-            hwcodec::android::ffmpeg_set_java_vm(
-                jvm.get_java_vm_pointer() as _,
-            );
+            hwcodec::android::ffmpeg_set_java_vm(jvm.get_java_vm_pointer() as _);
         }
         *lock = true;
         return Ok(());

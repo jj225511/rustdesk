@@ -13,6 +13,7 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
+import android.content.ClipboardManager
 import android.os.Build
 import android.os.IBinder
 import android.util.Log
@@ -36,6 +37,9 @@ import kotlin.concurrent.thread
 class MainActivity : FlutterActivity() {
     companion object {
         var flutterMethodChannel: MethodChannel? = null
+        private var _rdClipboardManager: RdClipboardManager? = null
+        val rdClipboardManager: RdClipboardManager?
+            get() = _rdClipboardManager;
     }
 
     private val channelTag = "mChannel"
@@ -85,11 +89,20 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    override fun onCreate() {
+        super.onCreate()
+        if (_rdClipboardManager == null) {
+            _rdClipboardManager = RdClipboardManager(getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager)
+            FFI.setClipboardManager(_rdClipboardManager!!)
+        }
+    }
+
     override fun onDestroy() {
         Log.e(logTag, "onDestroy")
         mainService?.let {
             unbindService(serviceConnection)
         }
+        rdClipboardManager?.rustEnableClipboard(0)
         super.onDestroy()
     }
 
@@ -387,5 +400,14 @@ class MainActivity : FlutterActivity() {
     override fun onStart() {
         super.onStart()
         stopService(Intent(this, FloatingWindowService::class.java))
+    }
+
+    // For client side
+    // When swithing from other app to this app, try to sync clipboard.
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) {
+            MainService.rdClipboardManager?.syncClipboard(true)
+        }
     }
 }

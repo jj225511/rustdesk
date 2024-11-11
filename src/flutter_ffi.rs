@@ -274,7 +274,7 @@ pub fn session_toggle_option(session_id: SessionID, value: String) {
         session.toggle_option(value.clone());
         try_sync_peer_option(&session, &session_id, &value, None);
     }
-    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    #[cfg(not(target_os = "ios"))]
     if sessions::get_session_by_session_id(&session_id).is_some() && value == "disable-clipboard" {
         crate::flutter::update_text_clipboard_required();
     }
@@ -817,6 +817,21 @@ pub fn main_show_option(_key: String) -> SyncReturn<bool> {
     SyncReturn(false)
 }
 
+#[inline]
+#[cfg(target_os = "android")]
+fn enable_server_clipboard(keyboard_enabled: &str, clip_enabled: &str) {
+    use scrap::android::ffi::{call_main_service_enable_clipboard, EnableClipboard};
+    let keyboard_enabled =
+        config::option2bool(config::keys::OPTION_ENABLE_KEYBOARD, &keyboard_enabled);
+    let clip_enabled = config::option2bool(config::keys::OPTION_ENABLE_CLIPBOARD, &clip_enabled);
+    let enable = if keyboard_enabled && clip_enabled {
+        EnableClipboard::ServerEnable
+    } else {
+        EnableClipboard::ServerDisable
+    };
+    let _ = call_main_service_enable_clipboard(enable);
+}
+
 pub fn main_set_option(key: String, value: String) {
     #[cfg(target_os = "android")]
     if key.eq(config::keys::OPTION_ENABLE_KEYBOARD) {
@@ -824,6 +839,11 @@ pub fn main_set_option(key: String, value: String) {
             config::keys::OPTION_ENABLE_KEYBOARD,
             &value,
         ));
+        enable_server_clipboard(&value, &get_option(config::keys::OPTION_ENABLE_CLIPBOARD));
+    }
+    #[cfg(target_os = "android")]
+    if key.eq(config::keys::OPTION_ENABLE_CLIPBOARD) {
+        enable_server_clipboard(&get_option(config::keys::OPTION_ENABLE_KEYBOARD), &value);
     }
     if key.eq("custom-rendezvous-server") {
         set_option(key, value.clone());
@@ -2320,6 +2340,8 @@ pub mod server_side {
         app_dir: JString,
         custom_client_config: JString,
     ) {
+        scrap::android::ffi::set_log_callback(crate::flutter::flutter_log);
+
         log::debug!("startServer from jvm");
         let mut env = env;
         if let Ok(app_dir) = env.get_string(&app_dir) {

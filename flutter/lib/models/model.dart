@@ -271,7 +271,11 @@ class FfiModel with ChangeNotifier {
   StreamEventHandler startEventListener(SessionID sessionId, String peerId) {
     return (evt) async {
       var name = evt['name'];
-      if (name == 'msgbox') {
+      if (name == 'flutter_log') {
+        debugPrint('============================================= '
+            'Flutter log: ${evt['msg']}');
+      }
+      else if (name == 'msgbox') {
         handleMsgBox(evt, sessionId, peerId);
       } else if (name == 'toast') {
         handleToast(evt, sessionId, peerId);
