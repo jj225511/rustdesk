@@ -1619,39 +1619,41 @@ impl<T: InvokeUiSession> Interface for Session<T> {
                 return;
             }
         } else if !self.is_port_forward() {
-            if pi.displays.is_empty() {
-                self.lc.write().unwrap().handle_peer_info(&pi);
-                self.update_privacy_mode();
-                self.msgbox("error", "Remote Error", "No Displays", "");
-                return;
+            if !pi.displays.is_empty() {
+                self.try_change_init_resolution(pi.current_display);
+                let p = self.lc.read().unwrap().should_auto_login();
+                if !p.is_empty() {
+                    input_os_password(p, true, self.clone());
+                }
+                let current = &pi.displays[pi.current_display as usize];
+                self.set_display(
+                    current.x,
+                    current.y,
+                    current.width,
+                    current.height,
+                    current.cursor_embedded,
+                );
             }
-            self.try_change_init_resolution(pi.current_display);
-            let p = self.lc.read().unwrap().should_auto_login();
-            if !p.is_empty() {
-                input_os_password(p, true, self.clone());
-            }
-            let current = &pi.displays[pi.current_display as usize];
-            self.set_display(
-                current.x,
-                current.y,
-                current.width,
-                current.height,
-                current.cursor_embedded,
-            );
         }
         self.update_privacy_mode();
         // Save recent peers, then push event to flutter. So flutter can refresh peer page.
         self.lc.write().unwrap().handle_peer_info(&pi);
+        // Don't early return if `pi.displays.is_empty()`.
+        // https://github.com/rustdesk/rustdesk/issues/9884
         self.set_peer_info(&pi);
         if self.is_file_transfer() {
             self.close_success();
         } else if !self.is_port_forward() {
-            self.msgbox(
-                "success",
-                "Successful",
-                "Connected, waiting for image...",
-                "",
-            );
+            if pi.displays.is_empty() {
+                self.msgbox("error", "Remote Error", "No Displays", "");
+            } else {
+                self.msgbox(
+                    "success",
+                    "Successful",
+                    "Connected, waiting for image...",
+                    "",
+                );
+            }
         }
         self.on_connected(self.lc.read().unwrap().conn_type);
         #[cfg(windows)]
@@ -1664,7 +1666,7 @@ impl<T: InvokeUiSession> Interface for Session<T> {
                 crate::platform::windows::add_recent_document(&path);
             }
         }
-        if !pi.windows_sessions.sessions.is_empty() {
+        if !pi.displays.is_empty() && !pi.windows_sessions.sessions.is_empty() {
             let selected = self
                 .lc
                 .read()
