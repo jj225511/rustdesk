@@ -1171,6 +1171,7 @@ pub async fn lock_screen() {
 #[inline]
 #[cfg(target_os = "linux")]
 pub fn handle_key(evt: &KeyEvent) {
+    log::info!("REMOVE ME ================================ handle_key: {:?}", evt);
     handle_key_(evt);
 }
 

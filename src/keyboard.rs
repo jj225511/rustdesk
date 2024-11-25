@@ -110,7 +110,10 @@ pub mod client {
             return;
         }
         let peer = get_peer_platform().to_lowercase();
-        for key_event in event_to_key_events(peer, &event, keyboard_mode, lock_modes) {
+        let key_events = event_to_key_events(peer, &event, keyboard_mode, lock_modes);
+        #[cfg(not(any(target_os = "android", target_os = "ios")))]
+        log::info!("REMOVE ME ================================ key_events: {:?}", &key_events);
+        for key_event in key_events {
             send_key_event(&key_event);
         }
     }
@@ -127,6 +130,7 @@ pub mod client {
         }
         let peer = session.peer_platform().to_lowercase();
         for key_event in event_to_key_events(peer, &event, keyboard_mode, lock_modes) {
+            println!("REMOVE ME ================================ key_event 22: {:?}", &key_event);
             session.send_key_event(&key_event);
         }
     }
