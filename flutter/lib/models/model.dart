@@ -2200,7 +2200,10 @@ class CursorModel with ChangeNotifier {
         rect,
         buttons: kPrimaryButton);
     if (newPos == null) {
+      debugPrint('REMVOE ME ========= tryMoveCanvasX eary return |||||||: $tryMoveCanvasX, rect: $rect, newPos: null, (_x,_y): (${_x.toStringAsFixed(2)},${_y.toStringAsFixed(2)}), (dx,dy): (${dx.toStringAsFixed(2)},${dy.toStringAsFixed(2)}), scale: ${scale.toStringAsFixed(2)}');
       return;
+    } else {
+      debugPrint('REMVOE ME ====================== tryMoveCanvasX 222: $tryMoveCanvasX, rect: $rect, newPos: (${newPos.x.toStringAsFixed(2)},${newPos.y.toStringAsFixed(2)}), (_x,_y): (${_x.toStringAsFixed(2)},${_y.toStringAsFixed(2)}), (dx,dy): (${dx.toStringAsFixed(2)},${dy.toStringAsFixed(2)}), scale: ${scale.toStringAsFixed(2)}');
     }
     dx = newPos.x - _x;
     dy = newPos.y - _y;
