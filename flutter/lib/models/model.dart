@@ -2184,28 +2184,8 @@ class CursorModel with ChangeNotifier {
 
     if (dx == 0 && dy == 0) return;
 
-    Point? newPos;
-    final rect = parent.target?.ffiModel.rect;
-    if (rect == null) {
-      // unreachable
-      return;
-    }
-    newPos = InputModel.getPointInRemoteRect(
-        false,
-        parent.target?.ffiModel.pi.platform,
-        kPointerEventKindMouse,
-        kMouseEventTypeDefault,
-        (_x + dx).toInt(),
-        (_y + dy).toInt(),
-        rect,
-        buttons: kPrimaryButton);
-    if (newPos == null) {
-      return;
-    }
-    dx = newPos.x - _x;
-    dy = newPos.y - _y;
-    _x = newPos.x.toDouble();
-    _y = newPos.y.toDouble();
+    _x += dx;
+    _y += dy;
     if (tryMoveCanvasX && dx != 0) {
       parent.target?.canvasModel.panX(-dx * scale);
     }
