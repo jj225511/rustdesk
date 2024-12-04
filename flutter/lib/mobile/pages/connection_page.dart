@@ -115,9 +115,9 @@ class _ConnectionPageState extends State<ConnectionPage> {
               // 2. `<action android:name="android.support.customtabs.action.CustomTabsService" />` in AndroidManifest.xml
               //
               // But it is better to add the check.
-              if (await canLaunchUrl(Uri.parse(url))) {
+              //if (await canLaunchUrl(Uri.parse(url))) {
                 await launchUrl(Uri.parse(url));
-              }
+              //}
             },
             child: Container(
                 alignment: AlignmentDirectional.center,
