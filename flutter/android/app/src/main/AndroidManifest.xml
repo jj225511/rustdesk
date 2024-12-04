@@ -17,6 +17,7 @@
 
     <queries>
         <intent>
+            <!-- https://developer.android.com/training/package-visibility/use-cases#open-urls-custom-tabs -->
             <action android:name="android.support.customtabs.action.CustomTabsService" />
         </intent>
     </queries>
