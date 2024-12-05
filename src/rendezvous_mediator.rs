@@ -263,6 +263,7 @@ impl RendezvousMediator {
     ) -> ResultType<()> {
         match msg {
             Some(rendezvous_message::Union::RegisterPeerResponse(rpr)) => {
+                log::debug!("======================== RegisterPeerResponse {:?}", &rpr);
                 update_latency();
                 if rpr.request_pk {
                     log::info!("request_pk received from {}", self.host);
@@ -270,6 +271,7 @@ impl RendezvousMediator {
                 }
             }
             Some(rendezvous_message::Union::RegisterPkResponse(rpr)) => {
+                log::debug!("======================== RegisterPkResponse {:?}", &rpr);
                 update_latency();
                 match rpr.result.enum_value() {
                     Ok(register_pk_response::Result::OK) => {
