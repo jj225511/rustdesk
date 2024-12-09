@@ -39,8 +39,8 @@ pub(crate) use platform::create_cliprdr_context;
 pub trait CliprdrServiceContext: Send + Sync {
     /// set to be stopped
     fn set_is_stopped(&mut self) -> Result<(), CliprdrError>;
-    /// clear the content on clipboard
-    fn empty_clipboard(&mut self, conn_id: i32) -> Result<bool, CliprdrError>;
+    /// close the clipboard
+    fn close_clipboard(&mut self, conn_id: i32, empty: bool) -> Result<bool, CliprdrError>;
 
     /// run as a server for clipboard RPC
     fn server_clip_file(&mut self, conn_id: i32, msg: ClipboardFile) -> Result<(), CliprdrError>;

@@ -514,8 +514,12 @@ pub struct _cliprdr_client_context {
 // #[link(name = "ole32")]
 extern "C" {
     pub(crate) fn init_cliprdr(context: *mut CliprdrClientContext) -> BOOL;
-    pub(crate) fn uninit_cliprdr(context: *mut CliprdrClientContext) -> BOOL;
-    pub(crate) fn empty_cliprdr(context: *mut CliprdrClientContext, connID: UINT32) -> BOOL;
+    pub(crate) fn uninit_cliprdr(context: *mut CliprdrClientContext, empty: BOOL) -> BOOL;
+    pub(crate) fn close_cliprdr(
+        context: *mut CliprdrClientContext,
+        connID: UINT32,
+        empty: BOOL,
+    ) -> BOOL;
 }
 
 unsafe impl Send for CliprdrClientContext {}
@@ -579,7 +583,7 @@ impl CliprdrClientContext {
 impl Drop for CliprdrClientContext {
     fn drop(&mut self) {
         unsafe {
-            if FALSE == uninit_cliprdr(&mut *self) {
+            if FALSE == uninit_cliprdr(&mut *self, FALSE) {
                 println!("Failed to uninit cliprdr");
             } else {
                 println!("Succeeded to uninit cliprdr");
@@ -594,8 +598,8 @@ impl CliprdrServiceContext for CliprdrClientContext {
         Ok(())
     }
 
-    fn empty_clipboard(&mut self, conn_id: i32) -> Result<bool, CliprdrError> {
-        Ok(empty_clipboard(self, conn_id))
+    fn close_clipboard(&mut self, conn_id: i32, empty: bool) -> Result<bool, CliprdrError> {
+        Ok(close_clipboard(self, conn_id, empty))
     }
 
     fn server_clip_file(&mut self, conn_id: i32, msg: ClipboardFile) -> Result<(), CliprdrError> {
@@ -614,8 +618,9 @@ fn ret_to_result(ret: u32) -> Result<(), CliprdrError> {
         e => Err(CliprdrError::Unknown(e)),
     }
 }
-pub fn empty_clipboard(context: &mut CliprdrClientContext, conn_id: i32) -> bool {
-    unsafe { TRUE == empty_cliprdr(context, conn_id as u32) }
+
+pub fn close_clipboard(context: &mut CliprdrClientContext, conn_id: i32, empty: bool) -> bool {
+    unsafe { TRUE == close_cliprdr(context, conn_id as u32, if empty { TRUE } else { FALSE }) }
 }
 
 pub fn server_clip_file(

@@ -193,7 +193,7 @@ impl<T: InvokeUiCM> ConnectionManager<T> {
         #[cfg(any(target_os = "windows", target_os = "linux", target_os = "macos"))]
         {
             let _ = ContextSend::proc(|context| -> ResultType<()> {
-                context.empty_clipboard(id)?;
+                context.close_clipboard(id, false)?;
                 Ok(())
             });
         }

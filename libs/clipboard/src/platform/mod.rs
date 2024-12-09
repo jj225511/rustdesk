@@ -72,7 +72,7 @@ impl CliprdrServiceContext for DummyCliprdrContext {
     fn set_is_stopped(&mut self) -> Result<(), CliprdrError> {
         Ok(())
     }
-    fn empty_clipboard(&mut self, _conn_id: i32) -> Result<bool, CliprdrError> {
+    fn close_clipboard(&mut self, _conn_id: i32, _empty: bool) -> Result<bool, CliprdrError> {
         Ok(true)
     }
     fn server_clip_file(

@@ -532,7 +532,7 @@ impl CliprdrServiceContext for ClipboardContext {
         Ok(())
     }
 
-    fn empty_clipboard(&mut self, _conn_id: i32) -> Result<bool, CliprdrError> {
+    fn close_clipboard(&mut self, _conn_id: i32, _empty: bool) -> Result<bool, CliprdrError> {
         self.clipboard.set_file_list(&[])?;
         Ok(true)
     }

@@ -208,6 +208,8 @@ struct wf_clipboard
 	// rdpChannels* channels;
 	CliprdrClientContext *context;
 
+	BOOL ready;
+
 	BOOL sync;
 	UINT32 capabilities;
 
@@ -250,8 +252,8 @@ typedef struct wf_clipboard wfClipboard;
 #define DELAYED_RENDERING 2
 
 BOOL wf_cliprdr_init(wfClipboard *clipboard, CliprdrClientContext *cliprdr);
-BOOL wf_cliprdr_uninit(wfClipboard *clipboard, CliprdrClientContext *cliprdr);
-BOOL wf_do_empty_cliprdr(wfClipboard *clipboard);
+BOOL wf_cliprdr_uninit(wfClipboard *clipboard, CliprdrClientContext *cliprdr, BOOL empty);
+BOOL wf_do_close_cliprdr(wfClipboard *clipboard, BOOL empty);
 
 static BOOL wf_create_file_obj(UINT32 *connID, wfClipboard *clipboard, IDataObject **ppDataObject);
 static void wf_destroy_file_obj(IDataObject *instance);
@@ -368,7 +370,8 @@ static HRESULT STDMETHODCALLTYPE CliprdrStream_Read(IStream *This, void *pv, ULO
 
 	*pcbRead = clipboard->req_fsize;
 	// Check overflow, can not be a real case
-	if ((instance->m_lOffset.QuadPart + clipboard->req_fsize) < instance->m_lOffset.QuadPart) {
+	if ((instance->m_lOffset.QuadPart + clipboard->req_fsize) < instance->m_lOffset.QuadPart)
+	{
 		// It's better to crash to release the explorer.exe
 		// This is a critical error, because the explorer is waiting for the data
 		// and the m_lOffset is wrong(overflowed)
@@ -698,6 +701,8 @@ static HRESULT STDMETHODCALLTYPE CliprdrDataObject_GetData(IDataObject *This, FO
 	CliprdrDataObject *instance = (CliprdrDataObject *)This;
 	wfClipboard *clipboard;
 
+	printf("REMOVE ME ======================= CliprdrDataObject_GetData, %s:%d\n", __FILE__, __LINE__);
+
 	if (!pFormatEtc || !pMedium || !instance)
 		return E_INVALIDARG;
 
@@ -711,6 +716,12 @@ static HRESULT STDMETHODCALLTYPE CliprdrDataObject_GetData(IDataObject *This, FO
 
 	if (!clipboard)
 		return E_INVALIDARG;
+	printf("REMOVE ME ======================= CliprdrDataObject_GetData, %s:%d\n", __FILE__, __LINE__);
+
+	if (!clipboard->ready)
+	{
+		return E_UNEXPECTED;
+	}
 
 	if ((idx = cliprdr_lookup_format(instance, pFormatEtc)) == -1)
 	{
@@ -723,6 +734,7 @@ static HRESULT STDMETHODCALLTYPE CliprdrDataObject_GetData(IDataObject *This, FO
 
 	if (instance->m_pFormatEtc[idx].cfFormat == RegisterClipboardFormat(CFSTR_FILEDESCRIPTORW))
 	{
+		printf("REMOVE ME ======================= CliprdrDataObject_GetData, %s:%d\n", __FILE__, __LINE__);
 		// FILEGROUPDESCRIPTOR *dsc;
 		FILEGROUPDESCRIPTORW *dsc;
 		// DWORD remote_format_id = get_remote_format_id(clipboard, instance->m_pFormatEtc[idx].cfFormat);
@@ -731,6 +743,7 @@ static HRESULT STDMETHODCALLTYPE CliprdrDataObject_GetData(IDataObject *This, FO
 		{
 			return E_UNEXPECTED;
 		}
+		printf("REMOVE ME ======================= CliprdrDataObject_GetData, %s:%d\n", __FILE__, __LINE__);
 		if (!clipboard->hmem)
 		{
 			return E_UNEXPECTED;
@@ -1479,6 +1492,9 @@ static UINT cliprdr_send_format_list(wfClipboard *clipboard, UINT32 connID)
 
 	// send
 	rc = clipboard->context->ClientFormatList(clipboard->context, &formatList);
+	// No need to check `rc` here, because `ready` only indicates if `Ctrl+C` is pressed after init.
+	clipboard->ready = TRUE;
+	printf("REMOVE ME ======================= cliprdr_send_format_list, %s:%d\n", __FILE__, __LINE__);
 
 	for (index = 0; index < numFormats; index++)
 	{
@@ -1523,7 +1539,7 @@ UINT try_reset_event(HANDLE event)
 	}
 }
 
-UINT wait_response_event(UINT32 connID, wfClipboard *clipboard, HANDLE event, BOOL* recvedFlag, void **data)
+UINT wait_response_event(UINT32 connID, wfClipboard *clipboard, HANDLE event, BOOL *recvedFlag, void **data)
 {
 	UINT rc = ERROR_SUCCESS;
 	clipboard->context->IsStopped = FALSE;
@@ -1535,13 +1551,16 @@ UINT wait_response_event(UINT32 connID, wfClipboard *clipboard, HANDLE event, BO
 		DWORD waitRes = WaitForSingleObject(event, waitOnceTimeoutMillis);
 		if (waitRes == WAIT_TIMEOUT && clipboard->context->IsStopped == FALSE)
 		{
-			if ((*recvedFlag) == TRUE) {
+			if ((*recvedFlag) == TRUE)
+			{
 				// The data has been received, but the event is still not signaled.
 				// We just skip the rest of the waiting and reset the flag.
 				*recvedFlag = FALSE;
 				// Explicitly set the waitRes to WAIT_OBJECT_0, because we have received the data.
 				waitRes = WAIT_OBJECT_0;
-			} else {
+			}
+			else
+			{
 				// The data has not been received yet, we should continue to wait.
 				continue;
 			}
@@ -1554,7 +1573,7 @@ UINT wait_response_event(UINT32 connID, wfClipboard *clipboard, HANDLE event, BO
 
 		if (clipboard->context->IsStopped == TRUE)
 		{
-			wf_do_empty_cliprdr(clipboard);
+			wf_do_close_cliprdr(clipboard, TRUE);
 			rc = ERROR_INTERNAL_ERROR;
 		}
 
@@ -1618,12 +1637,18 @@ static UINT cliprdr_send_data_request(UINT32 connID, wfClipboard *clipboard, UIN
 	formatDataRequest.connID = connID;
 	formatDataRequest.requestedFormatId = remoteFormatId;
 	clipboard->requestedFormatId = formatId;
+
+	printf("REMOVE ME ======================= cliprdr_send_data_request, %s:%d\n", __FILE__, __LINE__);
+	fflush(stdout);
+
 	rc = clipboard->context->ClientFormatDataRequest(clipboard->context, &formatDataRequest);
 	if (rc != ERROR_SUCCESS)
 	{
 		return rc;
 	}
 
+	printf("REMOVE ME ======================= cliprdr_send_data_request, %s:%d\n", __FILE__, __LINE__);
+	fflush(stdout);
 	return wait_response_event(connID, clipboard, clipboard->formatDataRespEvent, &clipboard->formatDataRespReceived, &clipboard->hmem);
 }
 
@@ -2321,7 +2346,17 @@ static UINT wf_cliprdr_server_format_list(CliprdrClientContext *context,
 	UINT32 i;
 	formatMapping *mapping;
 	CLIPRDR_FORMAT *format;
-	wfClipboard *clipboard = (wfClipboard *)context->Custom;
+	wfClipboard *clipboard = NULL;
+
+	if (!context || !formatList)
+		return ERROR_INTERNAL_ERROR;
+
+	clipboard = (wfClipboard *)context->Custom;
+	if (!clipboard)
+		return ERROR_INTERNAL_ERROR;
+
+	printf("REMOVE ME ======================= wf_cliprdr_server_format_list, %s:%d\n", __FILE__, __LINE__);
+	clipboard->ready = TRUE;
 
 	if (!clear_format_map(clipboard))
 		return ERROR_INTERNAL_ERROR;
@@ -2360,7 +2395,8 @@ static UINT wf_cliprdr_server_format_list(CliprdrClientContext *context,
 		if (context->EnableFiles)
 		{
 			UINT32 *p_conn_id = (UINT32 *)calloc(1, sizeof(UINT32));
-			if (p_conn_id) {
+			if (p_conn_id)
+			{
 				*p_conn_id = formatList->connID;
 				if (PostMessage(clipboard->hwnd, WM_CLIPRDR_MESSAGE, OLE_SETCLIPBOARD, p_conn_id))
 					rc = CHANNEL_RC_OK;
@@ -2739,7 +2775,7 @@ wf_cliprdr_server_format_data_response(CliprdrClientContext *context,
 
 		if (formatDataResponse->msgFlags != CB_RESPONSE_OK)
 		{
-			// BOOL emptyRes = wf_do_empty_cliprdr((wfClipboard *)context->custom);
+			// BOOL emptyRes = wf_do_close_cliprdr((wfClipboard *)context->custom, TRUE);
 			// (void)emptyRes;
 			rc = E_FAIL;
 			break;
@@ -3071,6 +3107,7 @@ BOOL wf_cliprdr_init(wfClipboard *clipboard, CliprdrClientContext *cliprdr)
 	clipboard->map_size = 0;
 	clipboard->hUser32 = LoadLibraryA("user32.dll");
 	clipboard->data_obj = NULL;
+	clipboard->ready = FALSE;
 
 	if (clipboard->hUser32)
 	{
@@ -3117,32 +3154,36 @@ BOOL wf_cliprdr_init(wfClipboard *clipboard, CliprdrClientContext *cliprdr)
 	cliprdr->Custom = (void *)clipboard;
 	return TRUE;
 error:
-	wf_cliprdr_uninit(clipboard, cliprdr);
+	wf_cliprdr_uninit(clipboard, cliprdr, FALSE);
 	return FALSE;
 }
 
-BOOL wf_cliprdr_uninit(wfClipboard *clipboard, CliprdrClientContext *cliprdr)
+BOOL wf_cliprdr_uninit(wfClipboard *clipboard, CliprdrClientContext *cliprdr, BOOL empty)
 {
 	if (!clipboard || !cliprdr)
 		return FALSE;
 
 	cliprdr->Custom = NULL;
+	clipboard->ready = FALSE;
 
 	/* discard all contexts in clipboard */
-	if (try_open_clipboard(clipboard->hwnd))
+	if (empty)
 	{
-		if (!EmptyClipboard())
+		if (try_open_clipboard(clipboard->hwnd))
 		{
-			DEBUG_CLIPRDR("EmptyClipboard failed with 0x%x", GetLastError());
+			if (!EmptyClipboard())
+			{
+				DEBUG_CLIPRDR("EmptyClipboard failed with 0x%x", GetLastError());
+			}
+			if (!CloseClipboard())
+			{
+				// critical error!!!
+			}
 		}
-		if (!CloseClipboard())
+		else
 		{
-			// critical error!!!
+			DEBUG_CLIPRDR("OpenClipboard failed with 0x%x", GetLastError());
 		}
-	}
-	else
-	{
-		DEBUG_CLIPRDR("OpenClipboard failed with 0x%x", GetLastError());
 	}
 
 	if (clipboard->hwnd)
@@ -3182,12 +3223,12 @@ BOOL init_cliprdr(CliprdrClientContext *context)
 	return wf_cliprdr_init(&clipboard, context);
 }
 
-BOOL uninit_cliprdr(CliprdrClientContext *context)
+BOOL uninit_cliprdr(CliprdrClientContext *context, BOOL empty)
 {
-	return wf_cliprdr_uninit(&clipboard, context);
+	return wf_cliprdr_uninit(&clipboard, context, empty);
 }
 
-BOOL empty_cliprdr(CliprdrClientContext *context, UINT32 connID)
+BOOL close_cliprdr(CliprdrClientContext *context, UINT32 connID, BOOL empty)
 {
 	wfClipboard *clipboard = NULL;
 	CliprdrDataObject *instance = NULL;
@@ -3216,16 +3257,18 @@ BOOL empty_cliprdr(CliprdrClientContext *context, UINT32 connID)
 		}
 	}
 
-	return wf_do_empty_cliprdr(clipboard);
+	return wf_do_close_cliprdr(clipboard, empty);
 }
 
-BOOL wf_do_empty_cliprdr(wfClipboard *clipboard)
+BOOL wf_do_close_cliprdr(wfClipboard *clipboard, BOOL empty)
 {
 	BOOL rc = FALSE;
 	if (!clipboard)
 	{
 		return FALSE;
 	}
+
+	clipboard->ready = FALSE;
 
 	if (WaitForSingleObject(clipboard->data_obj_mutex, INFINITE) != WAIT_OBJECT_0)
 	{
@@ -3248,9 +3291,12 @@ BOOL wf_do_empty_cliprdr(wfClipboard *clipboard)
 			break;
 		}
 
-		if (!EmptyClipboard())
+		if (empty)
 		{
-			rc = FALSE;
+			if (!EmptyClipboard())
+			{
+				rc = FALSE;
+			}
 		}
 		if (!CloseClipboard())
 		{

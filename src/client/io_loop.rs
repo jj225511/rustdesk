@@ -304,7 +304,7 @@ impl<T: InvokeUiSession> Remote<T> {
             let conn_id = self.client_conn_id;
             log::debug!("try empty cliprdr for conn_id {}", conn_id);
             let _ = ContextSend::proc(|context| -> ResultType<()> {
-                context.empty_clipboard(conn_id)?;
+                context.close_clipboard(conn_id, false)?;
                 Ok(())
             });
         }
