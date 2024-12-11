@@ -122,7 +122,7 @@ class ConfigOP {
 class WidgetOP extends StatefulWidget {
   final ConfigOP config;
   final RxString curOP;
-  final Function(Map<String, dynamic>) cbLogin;
+  final Function(LoginResponse) cbLogin;
   const WidgetOP({
     Key? key,
     required this.config,
@@ -175,7 +175,16 @@ class _WidgetOPState extends State<WidgetOP> {
         if (authBody != null) {
           _updateTimer?.cancel();
           widget.curOP.value = '';
-          widget.cbLogin(authBody as Map<String, dynamic>);
+          try {
+            // access_token is already stored in the rust side.
+            LoginResponse resp =
+                gFFI.userModel.getLoginResponseFromAuthBody(authBody);
+            widget.cbLogin(resp);
+          } catch (e) {
+            debugPrint('Failed to parse oidc login body, body: "$authBody"');
+            failedMsg =
+                'Failed to parse oidc login body, error: $e, body: "$authBody"';
+          }
         }
 
         setState(() {
@@ -275,7 +284,7 @@ class _WidgetOPState extends State<WidgetOP> {
 class LoginWidgetOP extends StatelessWidget {
   final List<ConfigOP> ops;
   final RxString curOP;
-  final Function(Map<String, dynamic>) cbLogin;
+  final Function(LoginResponse) cbLogin;
 
   LoginWidgetOP({
     Key? key,
@@ -521,21 +530,9 @@ Future<bool?> loginDialog() async {
                       .map((e) => ConfigOP(op: e['name'], icon: e['icon']))
                       .toList(),
                   curOP: curOP,
-                  cbLogin: (Map<String, dynamic> authBody) async {
-                    LoginResponse? resp;
-                    try {
-                      // access_token is already stored in the rust side.
-                      resp =
-                          gFFI.userModel.getLoginResponseFromAuthBody(authBody);
-                    } catch (e) {
-                      debugPrint(
-                          'Failed to parse oidc login body: "$authBody"');
-                    }
+                  cbLogin: (LoginResponse resp) async {
                     close(true);
-
-                    if (resp != null) {
-                      handleLoginResponse(resp, false, null);
-                    }
+                    handleLoginResponse(resp, false, null);
                   },
                 ),
               ],
