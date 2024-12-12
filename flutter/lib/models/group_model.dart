@@ -169,6 +169,7 @@ class GroupModel {
             path: uri0.path,
             port: uri0.port,
             queryParameters: queryParameters);
+            debugPrint('REMOVE ME ============================ headers: ${getHttpHeaders()}');
         final resp = await http.get(uri, headers: getHttpHeaders());
         _statusCode = resp.statusCode;
 

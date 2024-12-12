@@ -12,6 +12,8 @@ use std::{
     time::{Duration, Instant},
 };
 
+use super::http_client::MAX_REDIRECTS;
+
 const MAX_HEADER_LEN: usize = 1024;
 const SHOULD_SEND_TIME: Duration = Duration::from_secs(1);
 const SHOULD_SEND_SIZE: u64 = 1024 * 1024;
@@ -83,29 +85,46 @@ struct RecordUploader {
     running: bool,
     last_send: Instant,
 }
+
 impl RecordUploader {
     fn send<Q, B>(&self, query: &Q, body: B) -> ResultType<()>
     where
         Q: Serialize + ?Sized,
-        B: Into<Body>,
+        B: Into<Body> + Clone,
     {
-        match self
-            .client
-            .post(format!("{}/api/record", self.api_server))
-            .query(query)
-            .body(body)
-            .send()
-        {
-            Ok(resp) => {
+        let mut resp = None;
+        let mut url = format!("{}/api/record", self.api_server);
+        for _ in 0..MAX_REDIRECTS {
+            // to-do: Maybe no need to clone body every try.
+            // Just post to check if it's a redirect.
+            let response = self
+                .client
+                .post(&url)
+                .query(query)
+                .body(body.clone())
+                .send()?;
+            if response.status().is_redirection() {
+                if let Some(next) = response.headers().get("location") {
+                    url = next.to_str()?.to_string();
+                } else {
+                    bail!("redirect without location");
+                }
+            } else {
+                resp = Some(response);
+                break;
+            }
+        }
+        match resp {
+            Some(resp) => {
                 if let Ok(m) = resp.json::<Map<String, serde_json::Value>>() {
                     if let Some(e) = m.get("error") {
                         bail!(e.to_string());
                     }
                 }
-                Ok(())
             }
-            Err(e) => bail!(e.to_string()),
+            None => bail!("too many redirects"),
         }
+        Ok(())
     }
 
     fn handle_new_file(&mut self, filepath: String) -> ResultType<()> {

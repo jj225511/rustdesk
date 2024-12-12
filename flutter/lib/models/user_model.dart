@@ -196,6 +196,11 @@ class UserModel {
       final url = await bind.mainGetApiServer();
       if (url.trim().isEmpty) return [];
       final resp = await http.get(Uri.parse('$url/api/login-options'));
+      if (resp.statusCode != 200) {
+        BotToast.showText(
+            contentColor: Colors.red, text: 'HTTP ${resp.statusCode}');
+        return [];
+      }
       final List<String> ops = [];
       for (final item in jsonDecode(resp.body)) {
         ops.add(item as String);
