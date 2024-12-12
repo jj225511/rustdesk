@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../models/platform_model.dart';
 export 'package:http/http.dart' show Response;
@@ -44,6 +43,9 @@ class HttpService {
 
     switch (method) {
       case HttpMethod.get:
+        // Note: `GET` or `HEAD` always follows redirects, though the `followRedirects` is set to `false`.
+        // final request = http.Request('GET', url)..followRedirects = false;
+        // response = await request.send().then(http.Response.fromStream);
         response = await http.get(url, headers: headers);
         break;
       case HttpMethod.post:
@@ -58,7 +60,6 @@ class HttpService {
       default:
         throw Exception('Unsupported HTTP method');
     }
-
     return response;
   }
 
@@ -92,24 +93,64 @@ class HttpService {
   }
 }
 
+const int _kMaxRedirects = 5;
+// Manually handle redirects for the Flutter HTTP client.
+// dart:io's HttpClient follows redirects automatically, but there's a bug.
+// The follwing code takes no effect if redirects are already followed.
+//
+// https://github.com/dart-lang/sdk/issues/54001
+// The requests other than `GET` or `HEAD` don't follow redirects for status code 307 and 308.
+Future<http.Response> _handleRedirect(
+    Uri url, Future<http.Response> Function(Uri url) doRequest) async {
+  for (int i = 0; i < _kMaxRedirects; i++) {
+    final response = await doRequest(url);
+    // Don't use `response.isRedirect` here, it's false while the status code is 307 and 308.
+    // https://github.com/dart-lang/sdk/issues/49210
+    // https://github.com/dart-lang/sdk/issues/54001
+    if (response.statusCode >= 300 && response.statusCode < 400) {
+      final location = response.headers['location'];
+      if (location == null) {
+        throw Exception('Redirect response missing location header');
+      } else {
+        url = Uri.parse(location);
+      }
+    } else {
+      return response;
+    }
+  }
+  throw Exception('Too many redirects');
+}
+
 Future<http.Response> get(Uri url, {Map<String, String>? headers}) async {
-  return await HttpService().sendRequest(url, HttpMethod.get, headers: headers);
+  final httpService = HttpService();
+  return await _handleRedirect(url, (url) async {
+    return await httpService.sendRequest(url, HttpMethod.get, headers: headers);
+  });
 }
 
 Future<http.Response> post(Uri url,
     {Map<String, String>? headers, Object? body, Encoding? encoding}) async {
-  return await HttpService()
-      .sendRequest(url, HttpMethod.post, body: body, headers: headers);
+  final httpService = HttpService();
+  return await _handleRedirect(url, (url) async {
+    return await httpService.sendRequest(url, HttpMethod.post,
+        body: body, headers: headers);
+  });
 }
 
 Future<http.Response> put(Uri url,
     {Map<String, String>? headers, Object? body, Encoding? encoding}) async {
-  return await HttpService()
-      .sendRequest(url, HttpMethod.put, body: body, headers: headers);
+  final httpService = HttpService();
+  return await _handleRedirect(url, (url) async {
+    return await httpService.sendRequest(url, HttpMethod.put,
+        body: body, headers: headers);
+  });
 }
 
 Future<http.Response> delete(Uri url,
     {Map<String, String>? headers, Object? body, Encoding? encoding}) async {
-  return await HttpService()
-      .sendRequest(url, HttpMethod.delete, body: body, headers: headers);
+  final httpService = HttpService();
+  return await _handleRedirect(url, (url) async {
+    return await httpService.sendRequest(url, HttpMethod.delete,
+        body: body, headers: headers);
+  });
 }
