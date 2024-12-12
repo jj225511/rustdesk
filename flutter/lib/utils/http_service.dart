@@ -43,14 +43,11 @@ class HttpService {
     var response = http.Response('', 400);
 
     // https://github.com/dart-lang/sdk/issues/54001
-    // There're three bugs of handling redirect in the http package.
+    // There're two bugs of handling redirect in the http package.
     // 1. `GET` or `HEAD` always follows redirects, though the `followRedirects` is set to `false`.
-    // 2. `GET` can't pass the 'Authorization' header in the redirect request.
-    // 3. The other methods don't follow redirects for status code 307 and 308.
+    // 2. The other methods don't follow redirects for status code 307 and 308.
     switch (method) {
       case HttpMethod.get:
-        // There's a bug in the http package where it follows redirects when using the `get` method.
-        // The server cann't read the 'Authorization' header in the redirect request.
         final request = http.Request('GET', url)..followRedirects = false;
         response = await request.send().then(http.Response.fromStream);
         break;

@@ -4,8 +4,6 @@ use hbb_common::proxy::{Proxy, ProxyScheme};
 use reqwest::blocking::Client as SyncClient;
 use reqwest::Client as AsyncClient;
 
-pub const MAX_REDIRECTS: usize = 5;
-
 macro_rules! configure_http_client {
     ($builder:expr, $Client: ty) => {{
         let mut builder = $builder;

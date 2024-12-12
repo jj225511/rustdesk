@@ -1,6 +1,6 @@
-use super::{http_client::MAX_REDIRECTS, HbbHttpResponse};
+use super::HbbHttpResponse;
 use crate::hbbs_http::create_http_client;
-use hbb_common::{bail, config::LocalConfig, log, ResultType};
+use hbb_common::{config::LocalConfig, log, ResultType};
 use reqwest::blocking::Client;
 use serde_derive::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
@@ -142,53 +142,25 @@ impl OidcSession {
         }
     }
 
-    #[inline]
     fn auth(
         api_server: &str,
         op: &str,
         id: &str,
         uuid: &str,
     ) -> ResultType<HbbHttpResponse<OidcAuthUrl>> {
-        Self::auth_with_redirection(
-            &format!("{}/api/oidc/auth", api_server),
-            &serde_json::json!({
+        Ok(OIDC_SESSION
+            .read()
+            .unwrap()
+            .client
+            .post(format!("{}/api/oidc/auth", api_server))
+            .json(&serde_json::json!({
                 "op": op,
                 "id": id,
                 "uuid": uuid,
                 "deviceInfo": crate::ui_interface::get_login_device_info(),
-            }),
-            0,
-        )
-    }
-
-    fn auth_with_redirection(
-        url: &str,
-        json_body: &serde_json::Value,
-        redirect_count: usize,
-    ) -> ResultType<HbbHttpResponse<OidcAuthUrl>> {
-        if redirect_count >= MAX_REDIRECTS {
-            bail!("Too many redirects");
-        }
-        let resp = OIDC_SESSION
-            .read()
-            .unwrap()
-            .client
-            .post(url)
-            .json(json_body)
-            .send()?;
-        if resp.status().is_redirection() {
-            match resp.headers().get("location") {
-                Some(location) => {
-                    return Self::auth_with_redirection(
-                        location.to_str()?,
-                        json_body,
-                        redirect_count + 1,
-                    );
-                }
-                None => bail!("Redirect without location"),
-            }
-        }
-        Ok(resp.try_into()?)
+            }))
+            .send()?
+            .try_into()?)
     }
 
     fn query(
@@ -201,26 +173,13 @@ impl OidcSession {
             &format!("{}/api/oidc/auth-query", api_server),
             &[("code", code), ("id", id), ("uuid", uuid)],
         )?;
-        Self::query_with_redirection(url.as_str(), 0)
-    }
-
-    fn query_with_redirection(
-        url: &str,
-        redirect_count: usize,
-    ) -> ResultType<HbbHttpResponse<AuthBody>> {
-        if redirect_count >= MAX_REDIRECTS {
-            bail!("Too many redirects");
-        }
-        let resp = OIDC_SESSION.read().unwrap().client.get(url).send()?;
-        if resp.status().is_redirection() {
-            match resp.headers().get("location") {
-                Some(location) => {
-                    return Self::query_with_redirection(location.to_str()?, redirect_count + 1);
-                }
-                None => bail!("Redirect without location"),
-            }
-        }
-        Ok(resp.try_into()?)
+        Ok(OIDC_SESSION
+            .read()
+            .unwrap()
+            .client
+            .get(url)
+            .send()?
+            .try_into()?)
     }
 
     fn reset(&mut self) {
