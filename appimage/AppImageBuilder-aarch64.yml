@@ -19,7 +19,7 @@ AppDir:
     name: rustdesk
     icon: rustdesk
     version: 1.3.5
-    exec: usr/lib/rustdesk/rustdesk
+    exec: usr/libexec/rustdesk/rustdesk
     exec_args: $@
   apt:
     arch:
