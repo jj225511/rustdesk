@@ -4,6 +4,11 @@ pub use crate::clipboard::{check_clipboard, ClipboardContext, ClipboardSide};
 pub use crate::clipboard::{CLIPBOARD_INTERVAL as INTERVAL, CLIPBOARD_NAME as NAME};
 #[cfg(windows)]
 use crate::ipc::{self, ClipboardFile, ClipboardNonFile, Data};
+#[cfg(all(
+    any(target_os = "linux", target_os = "macos"),
+    feature = "unix-file-copy-paste"
+))]
+use clipboard::platform::unix::{init_fuse_context, uninit_fuse_context};
 #[cfg(not(target_os = "android"))]
 use clipboard_master::{CallbackResult, ClipboardHandler};
 #[cfg(target_os = "android")]
@@ -45,6 +50,17 @@ pub fn new() -> GenericService {
 
 #[cfg(not(target_os = "android"))]
 fn run(sp: EmptyExtraFieldService) -> ResultType<()> {
+    #[cfg(all(
+        any(target_os = "linux", target_os = "macos"),
+        feature = "unix-file-copy-paste"
+    ))]
+    let _fuse_call_on_ret = init_fuse_context(false).map(|_| crate::SimpleCallOnReturn {
+        b: true,
+        f: Box::new(|| {
+            uninit_fuse_context(false);
+        }),
+    });
+
     let (tx_cb_result, rx_cb_result) = channel();
     let handler = Handler {
         sp: sp.clone(),

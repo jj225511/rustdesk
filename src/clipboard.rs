@@ -1,3 +1,4 @@
+use super::clipboard_file;
 #[cfg(not(target_os = "android"))]
 use arboard::{ClipboardData, ClipboardFormat};
 #[cfg(not(target_os = "android"))]
@@ -8,6 +9,12 @@ use std::{
     thread::JoinHandle,
     time::Duration,
 };
+
+#[cfg(all(
+    any(target_os = "linux", target_os = "macos"),
+    feature = "unix-file-copy-paste"
+))]
+use crate::clipboard_file::unix_file_clip;
 
 pub const CLIPBOARD_NAME: &'static str = "clipboard";
 pub const CLIPBOARD_INTERVAL: u64 = 333;
@@ -57,6 +64,23 @@ pub fn check_clipboard(
         *ctx = ClipboardContext::new().ok();
     }
     let ctx2 = ctx.as_mut()?;
+
+    #[cfg(all(
+        any(target_os = "linux", target_os = "macos"),
+        feature = "unix-file-copy-paste"
+    ))]
+    match ctx2.get_files(side, force) {
+        Ok(Some(urls)) => {
+            if !urls.is_empty() {
+                return Some(unix_file_clip::get_file_format_msg());
+            }
+        }
+        Err(e) => {
+            log::error!("Failed to get clipboard file urls. {}", e);
+        }
+        _ => {}
+    }
+
     match ctx2.get(side, force) {
         Ok(content) => {
             if !content.is_empty() {
@@ -72,6 +96,38 @@ pub fn check_clipboard(
         }
     }
     None
+}
+
+#[cfg(all(
+    any(target_os = "linux", target_os = "macos"),
+    feature = "unix-file-copy-paste"
+))]
+#[inline]
+pub fn get_clipboard_file_urls(
+    ctx: &mut Option<ClipboardContext>,
+    side: ClipboardSide,
+    force: bool,
+) -> ResultType<Option<Vec<String>>> {
+    if ctx.is_none() {
+        *ctx = ClipboardContext::new().ok();
+    }
+    if let Some(ctx) = ctx.as_mut() {
+        ctx.get_files(side, force)
+    } else {
+        bail!("Failed to create clipboard context")
+    }
+}
+
+#[cfg(all(
+    any(target_os = "linux", target_os = "macos"),
+    feature = "unix-file-copy-paste"
+))]
+pub fn update_clipboard_files(files: Vec<String>, side: ClipboardSide) {
+    if !files.is_empty() {
+        std::thread::spawn(move || {
+            do_update_clipboard_(vec![ClipboardData::FileUrl(files)], side);
+        });
+    }
 }
 
 #[cfg(target_os = "windows")]
@@ -102,6 +158,10 @@ fn update_clipboard_(multi_clipboards: Vec<Clipboard>, side: ClipboardSide) {
     if to_update_data.is_empty() {
         return;
     }
+    do_update_clipboard_(to_update_data, side);
+}
+
+fn do_update_clipboard_(mut to_update_data: Vec<ClipboardData>, side: ClipboardSide) {
     let mut ctx = CLIPBOARD_CTX.lock().unwrap();
     if ctx.is_none() {
         match ClipboardContext::new() {
@@ -186,7 +246,7 @@ impl ClipboardContext {
         // https://github.com/rustdesk/rustdesk/issues/9263
         // https://github.com/rustdesk/rustdesk/issues/9222#issuecomment-2329233175
         for i in 0..CLIPBOARD_GET_MAX_RETRY {
-            match self.inner.get_formats(SUPPORTED_FORMATS) {
+            match self.inner.get_formats(formats) {
                 Ok(data) => {
                     return Ok(data
                         .into_iter()
@@ -209,8 +269,17 @@ impl ClipboardContext {
     }
 
     pub fn get(&mut self, side: ClipboardSide, force: bool) -> ResultType<Vec<ClipboardData>> {
+        self.get_formats_filter(SUPPORTED_FORMATS, side, force)
+    }
+
+    fn get_formats_filter(
+        &mut self,
+        formats: &[ClipboardFormat],
+        side: ClipboardSide,
+        force: bool,
+    ) -> ResultType<Vec<ClipboardData>> {
         let _lock = ARBOARD_MTX.lock().unwrap();
-        let data = self.get_formats(SUPPORTED_FORMATS)?;
+        let data = self.get_formats(formats)?;
         if data.is_empty() {
             return Ok(data);
         }
@@ -230,6 +299,30 @@ impl ClipboardContext {
                 _ => true,
             })
             .collect())
+    }
+
+    #[cfg(all(
+        any(target_os = "linux", target_os = "macos"),
+        feature = "unix-file-copy-paste"
+    ))]
+    pub fn get_files(
+        &mut self,
+        side: ClipboardSide,
+        force: bool,
+    ) -> ResultType<Option<Vec<String>>> {
+        let data = self.get_formats_filter(
+            &[
+                ClipboardFormat::FileUrl,
+                ClipboardFormat::Special(RUSTDESK_CLIPBOARD_OWNER_FORMAT),
+            ],
+            side,
+            force,
+        )?;
+        println!("REMOVE ME ============================ data: {:?}", &data);
+        Ok(data.into_iter().find_map(|c| match c {
+            ClipboardData::FileUrl(urls) => Some(urls),
+            _ => None,
+        }))
     }
 
     fn set(&mut self, data: &[ClipboardData]) -> ResultType<()> {
@@ -443,6 +536,19 @@ mod proto {
             ClipboardData::Rtf(s) => plain_to_proto(s, ClipboardFormat::Rtf),
             ClipboardData::Html(s) => plain_to_proto(s, ClipboardFormat::Html),
             ClipboardData::Image(a) => image_to_proto(a),
+            #[cfg(all(
+                any(target_os = "linux", target_os = "macos"),
+                feature = "unix-file-copy-paste"
+            ))]
+            ClipboardData::FileUrl(urls) => {
+                let exclude_paths = clipboard::platform::unix::get_exclude_paths();
+                let s = urls
+                    .into_iter()
+                    .filter(|s| exclude_paths.iter().all(|p| !s.starts_with(&**p)))
+                    .collect::<Vec<_>>()
+                    .join("\n");
+                plain_to_proto(s, ClipboardFormat::FileUrl)
+            }
             ClipboardData::Special((s, d)) => special_to_proto(d, s),
             _ => return None,
         };
@@ -482,6 +588,13 @@ mod proto {
             Ok(ClipboardFormat::ImageSvg) => Some(ClipboardData::Image(arboard::ImageData::svg(
                 std::str::from_utf8(&data).unwrap_or_default(),
             ))),
+            #[cfg(all(
+                any(target_os = "linux", target_os = "macos"),
+                feature = "unix-file-copy-paste"
+            ))]
+            Ok(ClipboardFormat::FileUrl) => String::from_utf8(data)
+                .ok()
+                .map(|s| ClipboardData::FileUrl(s.split('\n').map(|x| x.to_owned()).collect())),
             Ok(ClipboardFormat::Special) => {
                 Some(ClipboardData::Special((clipboard.special_name, data)))
             }

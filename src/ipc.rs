@@ -230,7 +230,7 @@ pub enum Data {
     FS(FS),
     Test,
     SyncConfig(Option<Box<(Config, Config2)>>),
-    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    #[cfg(target_os = "windows")]
     ClipboardFile(ClipboardFile),
     ClipboardFileEnabled(bool),
     #[cfg(target_os = "windows")]

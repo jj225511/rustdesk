@@ -22,6 +22,7 @@ pub mod fuse;
 #[cfg(feature = "unix-file-copy-paste")]
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 pub mod unix;
+
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 pub fn create_cliprdr_context(
     _enable_files: bool,

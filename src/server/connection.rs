@@ -443,6 +443,29 @@ impl Connection {
         std::thread::spawn(move || Self::handle_input(_rx_input, tx_cloned));
         let mut second_timer = crate::rustdesk_interval(time::interval(Duration::from_secs(1)));
 
+        #[cfg(all(
+            any(target_os = "linux", target_os = "macos"),
+            feature = "unix-file-copy-paste"
+        ))]
+        let rx_clip1;
+        let mut rx_clip;
+        let _tx_clip: mpsc::UnboundedSender<i32>;
+        #[cfg(all(
+            any(target_os = "linux", target_os = "macos"),
+            feature = "unix-file-copy-paste"
+        ))]
+        {
+            rx_clip1 = clipboard::get_rx_cliprdr_server(id);
+            rx_clip = rx_clip1.lock().await;
+        }
+        #[cfg(not(all(
+            any(target_os = "linux", target_os = "macos"),
+            feature = "unix-file-copy-paste"
+        )))]
+        {
+            (_tx_clip, rx_clip) = mpsc::unbounded_channel::<i32>();
+        }
+
         loop {
             tokio::select! {
                 // biased; // video has higher priority // causing test_delay_timer failed while transferring big file
@@ -529,7 +552,7 @@ impl Connection {
                         ipc::Data::RawMessage(bytes) => {
                             allow_err!(conn.stream.send_raw(bytes).await);
                         }
-                        #[cfg(any(target_os="windows", target_os="linux", target_os = "macos"))]
+                        #[cfg(target_os = "windows")]
                         ipc::Data::ClipboardFile(clip) => {
                             allow_err!(conn.stream.send(&clip_2_msg(clip)).await);
                         }
@@ -738,6 +761,20 @@ impl Connection {
                     }
                     video_service::VIDEO_QOS.lock().unwrap().user_delay_response_elapsed(conn.inner.id(), conn.delay_response_instant.elapsed().as_millis());
                 }
+                clip_file = rx_clip.recv() => match clip_file {
+                    Some(_clip) => {
+                        #[cfg(all(
+                            any(target_os = "linux", target_os = "macos"),
+                            feature = "unix-file-copy-paste"
+                        ))]
+                        {
+                            conn.handle_file_clip(_clip).await;
+                        }
+                    }
+                    None => {
+                        //
+                    }
+                },
             }
         }
 
@@ -1453,7 +1490,13 @@ impl Connection {
         self.audio && !self.disable_audio
     }
 
-    #[cfg(any(target_os = "windows", target_os = "linux", target_os = "macos"))]
+    #[cfg(any(
+        target_os = "windows",
+        all(
+            any(target_os = "linux", target_os = "macos"),
+            feature = "unix-file-copy-paste"
+        )
+    ))]
     fn file_transfer_enabled(&self) -> bool {
         self.file && self.enable_file_transfer
     }
@@ -2112,12 +2155,21 @@ impl Connection {
                     #[cfg(target_os = "android")]
                     crate::clipboard::handle_msg_multi_clipboards(_mcb);
                 }
-                Some(message::Union::Cliprdr(_clip)) =>
-                {
-                    #[cfg(any(target_os = "windows", target_os = "linux", target_os = "macos"))]
+                Some(message::Union::Cliprdr(_clip)) => {
+                    #[cfg(target_os = "windows")]
                     if let Some(clip) = msg_2_clip(_clip) {
-                        log::debug!("got clipfile from client peer");
                         self.send_to_cm(ipc::Data::ClipboardFile(clip))
+                    }
+                    #[cfg(all(
+                        any(target_os = "linux", target_os = "macos"),
+                        feature = "unix-file-copy-paste"
+                    ))]
+                    if let Some(clip) = msg_2_clip(_clip) {
+                        if let Some(msg) =
+                            unix_file_clip::serve_clip_messages(false, clip, self.inner.id())
+                        {
+                            self.send(msg).await;
+                        }
                     }
                 }
                 Some(message::Union::FileAction(fa)) => {
@@ -2914,6 +2966,7 @@ impl Connection {
         if let Ok(q) = o.enable_file_transfer.enum_value() {
             if q != BoolOption::NotSet {
                 self.enable_file_transfer = q == BoolOption::Yes;
+                #[cfg(target_os = "windows")]
                 self.send_to_cm(ipc::Data::ClipboardFileEnabled(
                     self.file_transfer_enabled(),
                 ));
@@ -3320,6 +3373,35 @@ impl Connection {
             peer_id: self.lr.my_id.clone(),
             name: self.lr.my_name.clone(),
             session_id: self.lr.session_id,
+        }
+    }
+
+    #[cfg(all(
+        any(target_os = "linux", target_os = "macos"),
+        feature = "unix-file-copy-paste"
+    ))]
+    async fn handle_file_clip(&mut self, clip: clipboard::ClipboardFile) {
+        let is_stopping_allowed = clip.is_stopping_allowed();
+        let is_clipboard_enabled = self.clipboard;
+        let file_transfer_enabled = self.file;
+        let file_transfer_enabled_peer = self.file_transfer_enabled();
+        let stop = is_stopping_allowed
+            && !(is_clipboard_enabled && file_transfer_enabled && file_transfer_enabled_peer);
+        log::debug!(
+            "Process clipboard message from clip, stop: {}, is_stopping_allowed: {}, is_clipboard_enabled: {}, file_transfer_enabled: {}, file_transfer_enabled_peer: {}",
+            stop, is_stopping_allowed, is_clipboard_enabled, file_transfer_enabled, file_transfer_enabled_peer);
+        if !stop {
+            use hbb_common::config::keys::OPTION_ONE_WAY_FILE_TRANSFER;
+            if !clip.is_beginning_message()
+                || crate::get_builtin_option(OPTION_ONE_WAY_FILE_TRANSFER) != "Y"
+            {
+                // Maybe we should end the connection, because copy&paste files causes everything to wait.
+                allow_err!(
+                    self.stream
+                        .send(&crate::clipboard_file::clip_2_msg(clip))
+                        .await
+                );
+            }
         }
     }
 }
