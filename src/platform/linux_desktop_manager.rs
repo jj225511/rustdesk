@@ -629,7 +629,7 @@ impl DesktopManager {
 
     fn get_xorg() -> &'static str {
         // Fedora 26 or later
-        let xorg = "/usr/libexec/Xorg";
+        let xorg = "/usr/local/Xorg";
         if Path::new(xorg).is_file() {
             return xorg;
         }
