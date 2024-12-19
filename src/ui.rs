@@ -51,7 +51,7 @@ pub fn start(args: &mut [String]) {
         ]
         .iter()
         {
-            let path = format!("{prefix}{dir}/lib/rustdesk/libsciter-gtk.so");
+            let path = format!("{prefix}{dir}/local/rustdesk/libsciter-gtk.so");
             if std::path::Path::new(&path).exists() {
                 so_path = path;
                 break;
