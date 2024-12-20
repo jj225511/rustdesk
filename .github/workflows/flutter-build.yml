@@ -50,6 +50,7 @@ jobs:
     uses: ./.github/workflows/bridge.yml
 
   build-RustDeskTempTopMostWindow:
+    if: False
     uses: ./.github/workflows/third-party-RustDeskTempTopMostWindow.yml
     with:
       upload-artifact: ${{ inputs.upload-artifact }}
@@ -61,6 +62,7 @@ jobs:
       fail-fast: false
 
   build-for-windows-flutter:
+    if: False
     name: ${{ matrix.job.target }}
     needs: [build-RustDeskTempTopMostWindow, generate-bridge]
     runs-on: ${{ matrix.job.os }}
@@ -249,6 +251,7 @@ jobs:
 
   # The fallback for the flutter version, we use Sciter for 32bit Windows.
   build-for-windows-sciter:
+    if: False
     name: ${{ matrix.job.target }} (${{ matrix.job.os }})
     runs-on: ${{ matrix.job.os }}
     # Temporarily disable this action due to additional test is needed.
@@ -462,7 +465,7 @@ jobs:
             rustdesk*-aarch64.dmg
 
   build-rustdesk-ios:
-    if: ${{ inputs.upload-artifact }}
+    if: False
     name: build rustdesk ios ipa
     runs-on: ${{ matrix.job.os }}
     needs: [generate-bridge]
@@ -628,6 +631,7 @@ jobs:
       #       flutter/build/ios/ipa/*.ipa
 
   build-for-macOS:
+    if: False
     name: ${{ matrix.job.target }}
     runs-on: ${{ matrix.job.os }}
     needs: [generate-bridge]
@@ -869,6 +873,7 @@ jobs:
           files: rustdesk-${{ env.VERSION }}-unsigned.tar.gz
 
   build-rustdesk-android:
+    if: False
     needs: [generate-bridge]
     name: build rustdesk android apk ${{ matrix.job.target }}
     runs-on: ${{ matrix.job.os }}
@@ -1167,7 +1172,7 @@ jobs:
   build-rustdesk-android-universal:
     needs: [build-rustdesk-android]
     name: build rustdesk android universal apk
-    if: ${{ inputs.upload-artifact }}
+    if: False
     runs-on: ubuntu-20.04
     env:
       reltype: release
@@ -1369,14 +1374,14 @@ jobs:
               deb_arch: amd64,
               vcpkg-triplet: x64-linux,
             }
-          - {
-              arch: aarch64,
-              target: aarch64-unknown-linux-gnu,
-              distro: ubuntu18.04,
-              on: [self-hosted, Linux, ARM64],
-              deb_arch: arm64,
-              vcpkg-triplet: arm64-linux,
-            }
+          # - {
+          #     arch: aarch64,
+          #     target: aarch64-unknown-linux-gnu,
+          #     distro: ubuntu18.04,
+          #     on: [self-hosted, Linux, ARM64],
+          #     deb_arch: arm64,
+          #     vcpkg-triplet: arm64-linux,
+          #   }
     steps:
       - name: Export GitHub Actions cache environment variables
         uses: actions/github-script@v6
@@ -1686,7 +1691,7 @@ jobs:
 
   build-rustdesk-linux-sciter:
     if: ${{ inputs.upload-artifact }}
-    needs: build-rustdesk-linux # not for dep, just make it run later for parallelism
+    # needs: build-rustdesk-linux # not for dep, just make it run later for parallelism
     runs-on: ${{ matrix.job.on }}
     name: build-rustdesk-linux-sciter ${{ matrix.job.target }}
     strategy:
@@ -1704,16 +1709,16 @@ jobs:
               vcpkg-triplet: x64-linux,
               extra_features: ",hwcodec",
             }
-          - {
-              arch: armv7,
-              target: armv7-unknown-linux-gnueabihf,
-              on: [self-hosted, Linux, ARM64],
-              distro: ubuntu18.04-rustdesk,
-              deb_arch: armhf,
-              sciter_arch: arm32,
-              vcpkg-triplet: arm-linux,
-              extra_features: "",
-            }
+          # - {
+          #     arch: armv7,
+          #     target: armv7-unknown-linux-gnueabihf,
+          #     on: [self-hosted, Linux, ARM64],
+          #     distro: ubuntu18.04-rustdesk,
+          #     deb_arch: armhf,
+          #     sciter_arch: arm32,
+          #     vcpkg-triplet: arm-linux,
+          #     extra_features: "",
+          #   }
     steps:
       - name: Export GitHub Actions cache environment variables
         uses: actions/github-script@v6
@@ -1910,7 +1915,7 @@ jobs:
       matrix:
         job:
           - { target: x86_64-unknown-linux-gnu, arch: x86_64 }
-          - { target: aarch64-unknown-linux-gnu, arch: aarch64 }
+          # - { target: aarch64-unknown-linux-gnu, arch: aarch64 }
     steps:
       - name: Checkout source code
         uses: actions/checkout@v4
@@ -1975,14 +1980,14 @@ jobs:
               arch: x86_64,
               suffix: "-sciter",
             }
-          - {
-              target: aarch64-unknown-linux-gnu,
-              # try out newer flatpak since error of "error: Nothing matches org.freedesktop.Platform in remote flathub"
-              distro: ubuntu22.04,
-              on: [self-hosted, Linux, ARM64],
-              arch: aarch64,
-              suffix: "",
-            }
+          # - {
+          #     target: aarch64-unknown-linux-gnu,
+          #     # try out newer flatpak since error of "error: Nothing matches org.freedesktop.Platform in remote flathub"
+          #     distro: ubuntu22.04,
+          #     on: [self-hosted, Linux, ARM64],
+          #     arch: aarch64,
+          #     suffix: "",
+          #   }
     steps:
       - name: Checkout source code
         uses: actions/checkout@v4
