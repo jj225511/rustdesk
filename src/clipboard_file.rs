@@ -180,10 +180,7 @@ pub fn msg_2_clip(msg: Cliprdr) -> Option<ClipboardFile> {
     }
 }
 
-#[cfg(all(
-    any(target_os = "linux", target_os = "macos"),
-    feature = "unix-file-copy-paste"
-))]
+#[cfg(feature = "unix-file-copy-paste")]
 pub mod unix_file_clip {
     use super::{
         super::clipboard::{update_clipboard_files, ClipboardSide},

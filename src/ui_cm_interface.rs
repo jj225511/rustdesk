@@ -620,13 +620,6 @@ impl<T: InvokeUiCM> IpcTaskRunner<T> {
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 #[tokio::main(flavor = "current_thread")]
 pub async fn start_ipc<T: InvokeUiCM>(cm: ConnectionManager<T>) {
-    #[cfg(any(
-        target_os = "windows",
-        all(
-            any(target_os = "linux", target_os = "macos"),
-            feature = "unix-file-copy-paste"
-        ),
-    ))]
     #[cfg(target_os = "windows")]
     ContextSend::enable(option2bool(
         OPTION_ENABLE_FILE_TRANSFER,

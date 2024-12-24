@@ -190,6 +190,15 @@ pub fn handle_file_content_response(
     Ok(())
 }
 
+pub fn empty_local_files(is_client: bool) {
+    let ctx = if is_client {
+        FUSE_CONTEXT_CLIENT.lock()
+    } else {
+        FUSE_CONTEXT_SERVER.lock()
+    };
+    ctx.as_ref().map(|c| c.empty_local_files());
+}
+
 struct FuseContext {
     server: Arc<Mutex<FuseServer>>,
     tx: Sender<ClipboardFile>,
@@ -277,6 +286,13 @@ impl Drop for FuseContext {
 }
 
 impl FuseContext {
+    pub fn empty_local_files(&self) {
+        let mut local_files = self.local_files.lock();
+        *local_files = vec![];
+        let mut fuse_guard = self.server.lock();
+        let _ = fuse_guard.load_file_list(vec![]);
+    }
+
     pub fn format_data_response_to_urls(
         &self,
         format_data: Vec<u8>,

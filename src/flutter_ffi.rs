@@ -1948,13 +1948,7 @@ pub fn main_hide_dock() -> SyncReturn<bool> {
 }
 
 pub fn main_has_file_clipboard() -> SyncReturn<bool> {
-    let ret = cfg!(any(
-        target_os = "windows",
-        all(
-            feature = "unix-file-copy-paste",
-            any(target_os = "linux", target_os = "macos")
-        )
-    ));
+    let ret = cfg!(any(target_os = "windows", feature = "unix-file-copy-paste",));
     SyncReturn(ret)
 }
 

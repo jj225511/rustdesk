@@ -361,10 +361,7 @@ impl<T: InvokeUiSession> Session<T> {
             && !self.lc.read().unwrap().disable_clipboard.v
     }
 
-    #[cfg(all(
-        any(target_os = "linux", target_os = "macos"),
-        feature = "unix-file-copy-paste"
-    ))]
+    #[cfg(feature = "unix-file-copy-paste")]
     pub fn is_file_clipboard_required(&self) -> bool {
         println!("REMOVE ME ============================ is_file_clipboard_required, server_file_transfer_enabled: {}, enable_file_copy_paste: {}", self.server_file_transfer_enabled.read().unwrap(), self.lc.read().unwrap().enable_file_copy_paste.v);
         self.is_text_clipboard_required()

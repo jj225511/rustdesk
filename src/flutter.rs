@@ -1277,10 +1277,7 @@ pub fn update_text_clipboard_required() {
 #[cfg(not(target_os = "ios"))]
 pub fn send_text_clipboard_msg(msg: Message, _is_file: bool) {
     for s in sessions::get_sessions() {
-        #[cfg(all(
-            any(target_os = "linux", target_os = "macos"),
-            feature = "unix-file-copy-paste"
-        ))]
+        #[cfg(feature = "unix-file-copy-paste")]
         if _is_file {
             if s.is_file_clipboard_required() {
                 s.send(Data::Message(msg.clone()));

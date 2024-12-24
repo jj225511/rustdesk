@@ -1,9 +1,6 @@
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 use crate::clipboard::{update_clipboard, ClipboardSide};
-#[cfg(all(
-    any(target_os = "linux", target_os = "macos"),
-    feature = "unix-file-copy-paste"
-))]
+#[cfg(feature = "unix-file-copy-paste")]
 use crate::clipboard_file::unix_file_clip;
 #[cfg(not(any(target_os = "ios")))]
 use crate::{audio_service, clipboard::CLIPBOARD_INTERVAL, ConnInner, CLIENT_SERVER};
@@ -15,10 +12,7 @@ use crate::{
     common::get_default_sound_input,
     ui_session_interface::{InvokeUiSession, Session},
 };
-#[cfg(all(
-    any(target_os = "linux", target_os = "macos"),
-    feature = "unix-file-copy-paste"
-))]
+#[cfg(feature = "unix-file-copy-paste")]
 use clipboard::platform::unix::{init_fuse_context, uninit_fuse_context};
 #[cfg(any(target_os = "windows", target_os = "linux", target_os = "macos"))]
 use clipboard::ContextSend;
@@ -359,10 +353,7 @@ impl<T: InvokeUiSession> Remote<T> {
                             log::error!("failed to restart clipboard context: {}", e);
                             // to-do: Show msgbox with "Don't show again" option
                         };
-                        #[cfg(all(
-                            any(target_os = "linux", target_os = "macos"),
-                            feature = "unix-file-copy-paste"
-                        ))]
+                        #[cfg(feature = "unix-file-copy-paste")]
                         let _ = init_fuse_context(true).is_ok();
                         log::debug!("Send system clipboard message to remote");
                         let msg = crate::clipboard_file::clip_2_msg(clip);
@@ -1959,10 +1950,7 @@ impl<T: InvokeUiSession> Remote<T> {
                     .server_clip_file(self.client_conn_id, clip)
                     .map_err(|e| e.into())
             });
-            #[cfg(all(
-                any(target_os = "linux", target_os = "macos"),
-                feature = "unix-file-copy-paste"
-            ))]
+            #[cfg(feature = "unix-file-copy-paste")]
             if init_fuse_context(true).is_ok() {
                 if let Some(msg) = unix_file_clip::serve_clip_messages(true, clip, 0) {
                     allow_err!(_peer.send(&msg).await);

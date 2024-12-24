@@ -75,10 +75,7 @@ pub fn check_clipboard(
     None
 }
 
-#[cfg(all(
-    any(target_os = "linux", target_os = "macos"),
-    feature = "unix-file-copy-paste"
-))]
+#[cfg(feature = "unix-file-copy-paste")]
 pub fn check_clipboard_files(
     ctx: &mut Option<ClipboardContext>,
     side: ClipboardSide,
@@ -102,10 +99,7 @@ pub fn check_clipboard_files(
     None
 }
 
-#[cfg(all(
-    any(target_os = "linux", target_os = "macos"),
-    feature = "unix-file-copy-paste"
-))]
+#[cfg(feature = "unix-file-copy-paste")]
 pub fn get_clipboard_file_urls(
     ctx: &mut Option<ClipboardContext>,
     side: ClipboardSide,
@@ -121,10 +115,7 @@ pub fn get_clipboard_file_urls(
     }
 }
 
-#[cfg(all(
-    any(target_os = "linux", target_os = "macos"),
-    feature = "unix-file-copy-paste"
-))]
+#[cfg(feature = "unix-file-copy-paste")]
 pub fn update_clipboard_files(files: Vec<String>, side: ClipboardSide) {
     if !files.is_empty() {
         std::thread::spawn(move || {
@@ -133,14 +124,12 @@ pub fn update_clipboard_files(files: Vec<String>, side: ClipboardSide) {
     }
 }
 
-#[cfg(all(
-    any(target_os = "linux", target_os = "macos"),
-    feature = "unix-file-copy-paste"
-))]
-pub fn try_empty_clipboard_files() {
+#[cfg(feature = "unix-file-copy-paste")]
+pub fn try_empty_clipboard_files(is_client: bool) {
     std::thread::spawn(move || {
         if let Ok(mut ctx) = ClipboardContext::new() {
             ctx.try_empty_clipboard_files();
+            clipboard::platform::unix::empty_local_files(is_client);
         }
     });
 }
@@ -311,15 +300,14 @@ impl ClipboardContext {
             .into_iter()
             .filter(|c| match c {
                 ClipboardData::Special((s, _)) => s != RUSTDESK_CLIPBOARD_OWNER_FORMAT,
+                // Skip synchronizing empty text to the remote clipboard
+                ClipboardData::Text(text) => !text.is_empty(),
                 _ => true,
             })
             .collect())
     }
 
-    #[cfg(all(
-        any(target_os = "linux", target_os = "macos"),
-        feature = "unix-file-copy-paste"
-    ))]
+    #[cfg(feature = "unix-file-copy-paste")]
     pub fn get_files(
         &mut self,
         side: ClipboardSide,
@@ -346,10 +334,7 @@ impl ClipboardContext {
         Ok(())
     }
 
-    #[cfg(all(
-        any(target_os = "linux", target_os = "macos"),
-        feature = "unix-file-copy-paste"
-    ))]
+    #[cfg(feature = "unix-file-copy-paste")]
     fn try_empty_clipboard_files(&mut self) {
         let _lock = ARBOARD_MTX.lock().unwrap();
         if let Ok(data) = self.get_formats(&[ClipboardFormat::FileUrl]) {
@@ -359,13 +344,17 @@ impl ClipboardContext {
                 .filter_map(|c| match c {
                     ClipboardData::FileUrl(urls) => Some(
                         urls.into_iter()
-                            .filter(|s| exclude_paths.iter().all(|p| !s.starts_with(&**p)))
+                            .filter(|s| exclude_paths.iter().any(|p| s.starts_with(&**p)))
                             .collect::<Vec<_>>(),
                     ),
                     _ => None,
                 })
                 .flatten()
                 .collect::<Vec<_>>();
+            println!(
+                "REMOVE ME ================================ try_empty_clipboard_files urls: {:?}, empty: {}",
+                &urls, urls.is_empty()
+            );
             if !urls.is_empty() {
                 let _ = self.inner.clear();
             }
@@ -577,10 +566,7 @@ mod proto {
             ClipboardData::Rtf(s) => plain_to_proto(s, ClipboardFormat::Rtf),
             ClipboardData::Html(s) => plain_to_proto(s, ClipboardFormat::Html),
             ClipboardData::Image(a) => image_to_proto(a),
-            #[cfg(all(
-                any(target_os = "linux", target_os = "macos"),
-                feature = "unix-file-copy-paste"
-            ))]
+            #[cfg(feature = "unix-file-copy-paste")]
             ClipboardData::FileUrl(urls) => {
                 let exclude_paths = clipboard::platform::unix::get_exclude_paths();
                 let s = urls
@@ -629,10 +615,7 @@ mod proto {
             Ok(ClipboardFormat::ImageSvg) => Some(ClipboardData::Image(arboard::ImageData::svg(
                 std::str::from_utf8(&data).unwrap_or_default(),
             ))),
-            #[cfg(all(
-                any(target_os = "linux", target_os = "macos"),
-                feature = "unix-file-copy-paste"
-            ))]
+            #[cfg(feature = "unix-file-copy-paste")]
             Ok(ClipboardFormat::FileUrl) => String::from_utf8(data)
                 .ok()
                 .map(|s| ClipboardData::FileUrl(s.split('\n').map(|x| x.to_owned()).collect())),

@@ -849,10 +849,7 @@ impl ClipboardHandler for ClientClipboardHandler {
             && TEXT_CLIPBOARD_STATE.lock().unwrap().is_required
         {
             // No need to check if is file clipboard required, because `send_msg()` will check it.
-            #[cfg(all(
-                any(target_os = "linux", target_os = "macos"),
-                feature = "unix-file-copy-paste"
-            ))]
+            #[cfg(feature = "unix-file-copy-paste")]
             if let Some(msg) = check_clipboard_files(&mut self.ctx, ClipboardSide::Client, false) {
                 if !msg.is_empty() {
                     let msg = crate::clipboard_file::clip_2_msg(unix_file_clip::get_format_list());
@@ -1763,6 +1760,10 @@ impl LoginConfigHandler {
                 BoolOption::No
             })
             .into();
+            #[cfg(feature = "unix-file-copy-paste")]
+            if !config.disable_clipboard.v {
+                crate::clipboard::try_empty_clipboard_files(true);
+            }
         } else if name == "lock-after-session-end" {
             config.lock_after_session_end.v = !config.lock_after_session_end.v;
             option.lock_after_session_end = (if config.lock_after_session_end.v {
@@ -1787,6 +1788,10 @@ impl LoginConfigHandler {
                 BoolOption::No
             })
             .into();
+            #[cfg(feature = "unix-file-copy-paste")]
+            if !config.enable_file_copy_paste.v {
+                crate::clipboard::try_empty_clipboard_files(true);
+            }
         } else if name == "block-input" {
             option.block_input = BoolOption::Yes.into();
         } else if name == "unblock-input" {

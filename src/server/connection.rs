@@ -443,25 +443,16 @@ impl Connection {
         std::thread::spawn(move || Self::handle_input(_rx_input, tx_cloned));
         let mut second_timer = crate::rustdesk_interval(time::interval(Duration::from_secs(1)));
 
-        #[cfg(all(
-            any(target_os = "linux", target_os = "macos"),
-            feature = "unix-file-copy-paste"
-        ))]
+        #[cfg(feature = "unix-file-copy-paste")]
         let rx_clip1;
         let mut rx_clip;
         let _tx_clip: mpsc::UnboundedSender<i32>;
-        #[cfg(all(
-            any(target_os = "linux", target_os = "macos"),
-            feature = "unix-file-copy-paste"
-        ))]
+        #[cfg(feature = "unix-file-copy-paste")]
         {
             rx_clip1 = clipboard::get_rx_cliprdr_server(id);
             rx_clip = rx_clip1.lock().await;
         }
-        #[cfg(not(all(
-            any(target_os = "linux", target_os = "macos"),
-            feature = "unix-file-copy-paste"
-        )))]
+        #[cfg(not(feature = "unix-file-copy-paste"))]
         {
             (_tx_clip, rx_clip) = mpsc::unbounded_channel::<i32>();
         }
@@ -525,6 +516,10 @@ impl Connection {
                                         super::clipboard_service::NAME,
                                         conn.inner.clone(), conn.can_sub_clipboard_service());
                                 }
+                                #[cfg(feature = "unix-file-copy-paste")]
+                                if !enabled {
+                                    conn.try_empty_file_clipboard();
+                                }
                             } else if &name == "audio" {
                                 conn.audio = enabled;
                                 conn.send_permission(Permission::Audio, enabled).await;
@@ -538,15 +533,9 @@ impl Connection {
                             } else if &name == "file" {
                                 conn.file = enabled;
                                 conn.send_permission(Permission::File, enabled).await;
-                                #[cfg(all(
-                                    any(target_os = "linux", target_os = "macos"),
-                                    feature = "unix-file-copy-paste"
-                                ))]
+                                #[cfg(feature = "unix-file-copy-paste")]
                                 if !enabled {
-                                    crate::clipboard::try_empty_clipboard_files();
-                                    clipboard::platform::unix::uninit_fuse_context(false);
-                                } else {
-                                    let _ = clipboard::platform::unix::init_fuse_context(false);
+                                    conn.try_empty_file_clipboard();
                                 }
                             } else if &name == "restart" {
                                 conn.restart = enabled;
@@ -773,10 +762,7 @@ impl Connection {
                 }
                 clip_file = rx_clip.recv() => match clip_file {
                     Some(_clip) => {
-                        #[cfg(all(
-                            any(target_os = "linux", target_os = "macos"),
-                            feature = "unix-file-copy-paste"
-                        ))]
+                        #[cfg(feature = "unix-file-copy-paste")]
                         {
                             conn.handle_file_clip(_clip).await;
                         }
@@ -1247,13 +1233,7 @@ impl Connection {
             );
         }
 
-        #[cfg(any(
-            target_os = "windows",
-            all(
-                any(target_os = "linux", target_os = "macos"),
-                feature = "unix-file-copy-paste"
-            )
-        ))]
+        #[cfg(any(target_os = "windows", feature = "unix-file-copy-paste"))]
         {
             platform_additions.insert("has_file_clipboard".into(), json!(true));
         }
@@ -1500,13 +1480,7 @@ impl Connection {
         self.audio && !self.disable_audio
     }
 
-    #[cfg(any(
-        target_os = "windows",
-        all(
-            any(target_os = "linux", target_os = "macos"),
-            feature = "unix-file-copy-paste"
-        )
-    ))]
+    #[cfg(any(target_os = "windows", feature = "unix-file-copy-paste"))]
     fn file_transfer_enabled(&self) -> bool {
         self.file && self.enable_file_transfer
     }
@@ -2170,10 +2144,7 @@ impl Connection {
                     if let Some(clip) = msg_2_clip(_clip) {
                         self.send_to_cm(ipc::Data::ClipboardFile(clip))
                     }
-                    #[cfg(all(
-                        any(target_os = "linux", target_os = "macos"),
-                        feature = "unix-file-copy-paste"
-                    ))]
+                    #[cfg(feature = "unix-file-copy-paste")]
                     if let Some(clip) = msg_2_clip(_clip) {
                         if let Some(msg) =
                             unix_file_clip::serve_clip_messages(false, clip, self.inner.id())
@@ -2972,7 +2943,7 @@ impl Connection {
                 }
             }
         }
-        #[cfg(any(target_os = "windows", target_os = "linux", target_os = "macos"))]
+        #[cfg(any(target_os = "windows", feature = "unix-file-copy-paste"))]
         if let Ok(q) = o.enable_file_transfer.enum_value() {
             if q != BoolOption::NotSet {
                 self.enable_file_transfer = q == BoolOption::Yes;
@@ -2980,6 +2951,10 @@ impl Connection {
                 self.send_to_cm(ipc::Data::ClipboardFileEnabled(
                     self.file_transfer_enabled(),
                 ));
+                #[cfg(feature = "unix-file-copy-paste")]
+                if !self.enable_file_transfer {
+                    self.try_empty_file_clipboard();
+                }
             }
         }
         if let Ok(q) = o.disable_clipboard.enum_value() {
@@ -3386,23 +3361,18 @@ impl Connection {
         }
     }
 
-    #[cfg(all(
-        any(target_os = "linux", target_os = "macos"),
-        feature = "unix-file-copy-paste"
-    ))]
+    #[cfg(feature = "unix-file-copy-paste")]
     async fn handle_file_clip(&mut self, clip: clipboard::ClipboardFile) {
         let is_stopping_allowed = clip.is_stopping_allowed();
         let is_clipboard_enabled = self.clipboard;
-        let file_transfer_enabled = self.file;
-        let file_transfer_enabled_peer = self.file_transfer_enabled();
-        let stop = is_stopping_allowed
-            && !(is_clipboard_enabled && file_transfer_enabled && file_transfer_enabled_peer);
+        let file_transfer_enabled = self.file_transfer_enabled();
+        let stop = is_stopping_allowed && !(is_clipboard_enabled && file_transfer_enabled);
         log::debug!(
-            "Process clipboard message from clip, stop: {}, is_stopping_allowed: {}, is_clipboard_enabled: {}, file_transfer_enabled: {}, file_transfer_enabled_peer: {}",
-            stop, is_stopping_allowed, is_clipboard_enabled, file_transfer_enabled, file_transfer_enabled_peer);
+            "Process clipboard message from clip, stop: {}, is_stopping_allowed: {}, is_clipboard_enabled: {}, file_transfer_enabled: {}",
+            stop, is_stopping_allowed, is_clipboard_enabled, file_transfer_enabled);
         println!(
-                "REMOVE ME =========================== Process clipboard message from clip, stop: {}, is_stopping_allowed: {}, is_clipboard_enabled: {}, file_transfer_enabled: {}, file_transfer_enabled_peer: {}",
-                stop, is_stopping_allowed, is_clipboard_enabled, file_transfer_enabled, file_transfer_enabled_peer);
+                "REMOVE ME =========================== Process clipboard message from clip, stop: {}, is_stopping_allowed: {}, is_clipboard_enabled: {}, file_transfer_enabled: {}",
+                stop, is_stopping_allowed, is_clipboard_enabled, file_transfer_enabled);
         if !stop {
             use hbb_common::config::keys::OPTION_ONE_WAY_FILE_TRANSFER;
             if !clip.is_beginning_message()
@@ -3415,6 +3385,15 @@ impl Connection {
                         .await
                 );
             }
+        }
+    }
+
+    #[cfg(feature = "unix-file-copy-paste")]
+    fn try_empty_file_clipboard(&mut self) {
+        if !(self.clipboard && self.file_transfer_enabled()) {
+            // No need to check if current clipboard files are set by this connection.
+            // It's a rare case.
+            crate::clipboard::try_empty_clipboard_files(false);
         }
     }
 }

@@ -5,10 +5,7 @@ pub use crate::clipboard::{check_clipboard, ClipboardContext, ClipboardSide};
 pub use crate::clipboard::{CLIPBOARD_INTERVAL as INTERVAL, CLIPBOARD_NAME as NAME};
 #[cfg(windows)]
 use crate::ipc::{self, ClipboardFile, ClipboardNonFile, Data};
-#[cfg(all(
-    any(target_os = "linux", target_os = "macos"),
-    feature = "unix-file-copy-paste"
-))]
+#[cfg(feature = "unix-file-copy-paste")]
 use clipboard::platform::unix::{init_fuse_context, uninit_fuse_context};
 #[cfg(not(target_os = "android"))]
 use clipboard_master::{CallbackResult, ClipboardHandler};
@@ -51,10 +48,7 @@ pub fn new() -> GenericService {
 
 #[cfg(not(target_os = "android"))]
 fn run(sp: EmptyExtraFieldService) -> ResultType<()> {
-    #[cfg(all(
-        any(target_os = "linux", target_os = "macos"),
-        feature = "unix-file-copy-paste"
-    ))]
+    #[cfg(feature = "unix-file-copy-paste")]
     let _fuse_call_on_ret = init_fuse_context(false).map(|_| crate::SimpleCallOnReturn {
         b: true,
         f: Box::new(|| {
@@ -162,10 +156,7 @@ impl Handler {
             }
         }
 
-        #[cfg(all(
-            any(target_os = "linux", target_os = "macos"),
-            feature = "unix-file-copy-paste"
-        ))]
+        #[cfg(feature = "unix-file-copy-paste")]
         if clipboard::platform::unix::is_fuse_context_inited(false) {
             if let Some(urls) = check_clipboard_files(&mut self.ctx, ClipboardSide::Host, false) {
                 if !urls.is_empty() {
