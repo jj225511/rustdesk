@@ -10,12 +10,6 @@ use std::{
     time::Duration,
 };
 
-#[cfg(all(
-    any(target_os = "linux", target_os = "macos"),
-    feature = "unix-file-copy-paste"
-))]
-use crate::clipboard_file::unix_file_clip;
-
 pub const CLIPBOARD_NAME: &'static str = "clipboard";
 pub const CLIPBOARD_INTERVAL: u64 = 333;
 
@@ -64,23 +58,6 @@ pub fn check_clipboard(
         *ctx = ClipboardContext::new().ok();
     }
     let ctx2 = ctx.as_mut()?;
-
-    #[cfg(all(
-        any(target_os = "linux", target_os = "macos"),
-        feature = "unix-file-copy-paste"
-    ))]
-    match ctx2.get_files(side, force) {
-        Ok(Some(urls)) => {
-            if !urls.is_empty() {
-                return Some(unix_file_clip::get_file_format_msg());
-            }
-        }
-        Err(e) => {
-            log::error!("Failed to get clipboard file urls. {}", e);
-        }
-        _ => {}
-    }
-
     match ctx2.get(side, force) {
         Ok(content) => {
             if !content.is_empty() {
@@ -102,7 +79,33 @@ pub fn check_clipboard(
     any(target_os = "linux", target_os = "macos"),
     feature = "unix-file-copy-paste"
 ))]
-#[inline]
+pub fn check_clipboard_files(
+    ctx: &mut Option<ClipboardContext>,
+    side: ClipboardSide,
+    force: bool,
+) -> Option<Vec<String>> {
+    if ctx.is_none() {
+        *ctx = ClipboardContext::new().ok();
+    }
+    let ctx2 = ctx.as_mut()?;
+    match ctx2.get_files(side, force) {
+        Ok(Some(urls)) => {
+            if !urls.is_empty() {
+                return Some(urls);
+            }
+        }
+        Err(e) => {
+            log::error!("Failed to get clipboard file urls. {}", e);
+        }
+        _ => {}
+    }
+    None
+}
+
+#[cfg(all(
+    any(target_os = "linux", target_os = "macos"),
+    feature = "unix-file-copy-paste"
+))]
 pub fn get_clipboard_file_urls(
     ctx: &mut Option<ClipboardContext>,
     side: ClipboardSide,
@@ -128,6 +131,18 @@ pub fn update_clipboard_files(files: Vec<String>, side: ClipboardSide) {
             do_update_clipboard_(vec![ClipboardData::FileUrl(files)], side);
         });
     }
+}
+
+#[cfg(all(
+    any(target_os = "linux", target_os = "macos"),
+    feature = "unix-file-copy-paste"
+))]
+pub fn try_empty_clipboard_files() {
+    std::thread::spawn(move || {
+        if let Ok(mut ctx) = ClipboardContext::new() {
+            ctx.try_empty_clipboard_files();
+        }
+    });
 }
 
 #[cfg(target_os = "windows")]
@@ -329,6 +344,32 @@ impl ClipboardContext {
         let _lock = ARBOARD_MTX.lock().unwrap();
         self.inner.set_formats(data)?;
         Ok(())
+    }
+
+    #[cfg(all(
+        any(target_os = "linux", target_os = "macos"),
+        feature = "unix-file-copy-paste"
+    ))]
+    fn try_empty_clipboard_files(&mut self) {
+        let _lock = ARBOARD_MTX.lock().unwrap();
+        if let Ok(data) = self.get_formats(&[ClipboardFormat::FileUrl]) {
+            let exclude_paths = clipboard::platform::unix::get_exclude_paths();
+            let urls = data
+                .into_iter()
+                .filter_map(|c| match c {
+                    ClipboardData::FileUrl(urls) => Some(
+                        urls.into_iter()
+                            .filter(|s| exclude_paths.iter().all(|p| !s.starts_with(&**p)))
+                            .collect::<Vec<_>>(),
+                    ),
+                    _ => None,
+                })
+                .flatten()
+                .collect::<Vec<_>>();
+            if !urls.is_empty() {
+                let _ = self.inner.clear();
+            }
+        }
     }
 }
 

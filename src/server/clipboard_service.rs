@@ -1,4 +1,5 @@
 use super::*;
+use crate::clipboard::check_clipboard_files;
 #[cfg(not(target_os = "android"))]
 pub use crate::clipboard::{check_clipboard, ClipboardContext, ClipboardSide};
 pub use crate::clipboard::{CLIPBOARD_INTERVAL as INTERVAL, CLIPBOARD_NAME as NAME};
@@ -160,6 +161,26 @@ impl Handler {
                 }
             }
         }
+
+        #[cfg(all(
+            any(target_os = "linux", target_os = "macos"),
+            feature = "unix-file-copy-paste"
+        ))]
+        if clipboard::platform::unix::is_fuse_context_inited(false) {
+            if let Some(urls) = check_clipboard_files(&mut self.ctx, ClipboardSide::Host, false) {
+                if !urls.is_empty() {
+                    use crate::clipboard_file::unix_file_clip;
+                    // Use `send_data()` here to reuse `handle_file_clip()` in `connection.rs`.
+                    // If we simply return Option<Message> here, we have to parse the message and call `handle_file_clip()` in `connection.rs`.
+                    hbb_common::allow_err!(clipboard::send_data(
+                        0,
+                        unix_file_clip::get_format_list()
+                    ));
+                    return None;
+                }
+            }
+        }
+
         check_clipboard(&mut self.ctx, ClipboardSide::Host, false)
     }
 

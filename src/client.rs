@@ -67,6 +67,8 @@ use scrap::{
 
 use crate::{
     check_port,
+    clipboard::check_clipboard_files,
+    clipboard_file::unix_file_clip,
     common::input::{MOUSE_BUTTON_LEFT, MOUSE_BUTTON_RIGHT, MOUSE_TYPE_DOWN, MOUSE_TYPE_UP},
     create_symmetric_key_msg, decode_id_pk, get_rs_pk, is_keyboard_mode_supported, secure_tcp,
     ui_interface::{get_builtin_option, use_texture_render},
@@ -779,7 +781,7 @@ impl Client {
                 }
 
                 if let Some(msg) = crate::clipboard::get_clipboards_msg(true) {
-                    crate::flutter::send_text_clipboard_msg(msg);
+                    crate::flutter::send_text_clipboard_msg(msg, false);
                 }
 
                 std::thread::sleep(Duration::from_millis(CLIPBOARD_INTERVAL));
@@ -814,8 +816,8 @@ struct ClientClipboardHandler {
 impl ClientClipboardHandler {
     #[inline]
     #[cfg(feature = "flutter")]
-    fn send_msg(&self, msg: Message) {
-        crate::flutter::send_text_clipboard_msg(msg);
+    fn send_msg(&self, msg: Message, _is_file: bool) {
+        crate::flutter::send_text_clipboard_msg(msg, _is_file);
     }
 
     #[cfg(not(feature = "flutter"))]
@@ -843,19 +845,30 @@ impl ClientClipboardHandler {
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 impl ClipboardHandler for ClientClipboardHandler {
     fn on_clipboard_change(&mut self) -> CallbackResult {
-        println!("REMOVE ME ============================ on_clipboard_change");
         if TEXT_CLIPBOARD_STATE.lock().unwrap().running
             && TEXT_CLIPBOARD_STATE.lock().unwrap().is_required
         {
+            // No need to check if is file clipboard required, because `send_msg()` will check it.
+            #[cfg(all(
+                any(target_os = "linux", target_os = "macos"),
+                feature = "unix-file-copy-paste"
+            ))]
+            if let Some(msg) = check_clipboard_files(&mut self.ctx, ClipboardSide::Client, false) {
+                if !msg.is_empty() {
+                    let msg = crate::clipboard_file::clip_2_msg(unix_file_clip::get_format_list());
+                    self.send_msg(msg, true);
+                    return CallbackResult::Next;
+                }
+            }
+
             if let Some(msg) = check_clipboard(&mut self.ctx, ClipboardSide::Client, false) {
-                self.send_msg(msg);
+                self.send_msg(msg, false);
             }
         }
         CallbackResult::Next
     }
 
     fn on_clipboard_error(&mut self, error: io::Error) -> CallbackResult {
-        println!("REMOVE ME ============================ on_clipboard_error");
         self.tx_cb_result
             .send(CallbackResult::StopWithError(error))
             .ok();

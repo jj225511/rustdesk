@@ -201,18 +201,17 @@ pub mod unix_file_clip {
         static ref CLIPBOARD_CTX: Arc<Mutex<Option<crate::clipboard::ClipboardContext>>> = Arc::new(Mutex::new(None));
     }
 
-    pub fn get_file_format_msg() -> Message {
+    pub fn get_format_list() -> ClipboardFile {
         let fd_format_name = get_local_format(FILEDESCRIPTOR_FORMAT_ID)
             .unwrap_or(FILEDESCRIPTORW_FORMAT_NAME.to_string());
         let fc_format_name = get_local_format(FILECONTENTS_FORMAT_ID)
             .unwrap_or(FILECONTENTS_FORMAT_NAME.to_string());
-        let format_list = ClipboardFile::FormatList {
+        ClipboardFile::FormatList {
             format_list: vec![
                 (FILEDESCRIPTOR_FORMAT_ID, fd_format_name),
                 (FILECONTENTS_FORMAT_ID, fc_format_name),
             ],
-        };
-        clip_2_msg(format_list)
+        }
     }
 
     #[inline]

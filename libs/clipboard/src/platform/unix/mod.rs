@@ -83,16 +83,22 @@ pub fn get_exclude_paths() -> Vec<Arc<String>> {
     ]
 }
 
+pub fn is_fuse_context_inited(is_client: bool) -> bool {
+    if is_client {
+        FUSE_CONTEXT_CLIENT.lock().is_some()
+    } else {
+        FUSE_CONTEXT_SERVER.lock().is_some()
+    }
+}
+
+// No need to consider the race condition here.
 pub fn init_fuse_context(is_client: bool) -> Result<(), CliprdrError> {
+    if is_fuse_context_inited(is_client) {
+        return Ok(());
+    }
     let mount_point = if is_client {
-        if FUSE_CONTEXT_CLIENT.lock().is_some() {
-            return Ok(());
-        }
         FUSE_MOUNT_POINT_CLIENT.clone()
     } else {
-        if FUSE_CONTEXT_SERVER.lock().is_some() {
-            return Ok(());
-        }
         FUSE_MOUNT_POINT_SERVER.clone()
     };
     init_fuse_context_(

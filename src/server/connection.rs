@@ -538,6 +538,16 @@ impl Connection {
                             } else if &name == "file" {
                                 conn.file = enabled;
                                 conn.send_permission(Permission::File, enabled).await;
+                                #[cfg(all(
+                                    any(target_os = "linux", target_os = "macos"),
+                                    feature = "unix-file-copy-paste"
+                                ))]
+                                if !enabled {
+                                    crate::clipboard::try_empty_clipboard_files();
+                                    clipboard::platform::unix::uninit_fuse_context(false);
+                                } else {
+                                    let _ = clipboard::platform::unix::init_fuse_context(false);
+                                }
                             } else if &name == "restart" {
                                 conn.restart = enabled;
                                 conn.send_permission(Permission::Restart, enabled).await;
@@ -3390,6 +3400,9 @@ impl Connection {
         log::debug!(
             "Process clipboard message from clip, stop: {}, is_stopping_allowed: {}, is_clipboard_enabled: {}, file_transfer_enabled: {}, file_transfer_enabled_peer: {}",
             stop, is_stopping_allowed, is_clipboard_enabled, file_transfer_enabled, file_transfer_enabled_peer);
+        println!(
+                "REMOVE ME =========================== Process clipboard message from clip, stop: {}, is_stopping_allowed: {}, is_clipboard_enabled: {}, file_transfer_enabled: {}, file_transfer_enabled_peer: {}",
+                stop, is_stopping_allowed, is_clipboard_enabled, file_transfer_enabled, file_transfer_enabled_peer);
         if !stop {
             use hbb_common::config::keys::OPTION_ONE_WAY_FILE_TRANSFER;
             if !clip.is_beginning_message()
