@@ -17,8 +17,10 @@ use hbb_common::{
 use serde_derive::{Deserialize, Serialize};
 use thiserror::Error;
 
+#[cfg(target_os = "windows")]
 pub mod context_send;
 pub mod platform;
+#[cfg(target_os = "windows")]
 pub use context_send::*;
 
 #[cfg(target_os = "windows")]
@@ -28,8 +30,10 @@ const ERR_CODE_INVALID_PARAMETER: u32 = 0x00000002;
 #[cfg(target_os = "windows")]
 const ERR_CODE_SEND_MSG: u32 = 0x00000003;
 
+#[cfg(target_os = "windows")]
 pub(crate) use platform::create_cliprdr_context;
 
+// to-do: This trait may be removed, because unix file copy paste does not need it.
 /// Ability to handle Clipboard File from remote rustdesk client
 ///
 /// # Note

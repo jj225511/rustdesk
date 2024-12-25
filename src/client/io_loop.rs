@@ -14,7 +14,7 @@ use crate::{
 };
 #[cfg(feature = "unix-file-copy-paste")]
 use clipboard::platform::unix::{init_fuse_context, uninit_fuse_context};
-#[cfg(any(target_os = "windows", target_os = "linux", target_os = "macos"))]
+#[cfg(target_os = "windows")]
 use clipboard::ContextSend;
 use crossbeam_queue::ArrayQueue;
 #[cfg(not(target_os = "ios"))]
@@ -304,7 +304,7 @@ impl<T: InvokeUiSession> Remote<T> {
             Client::try_stop_clipboard();
         }
 
-        #[cfg(any(target_os = "windows", target_os = "linux", target_os = "macos"))]
+        #[cfg(target_os = "windows")]
         if _set_disconnected_ok {
             let conn_id = self.client_conn_id;
             log::debug!("try empty cliprdr for conn_id {}", conn_id);
@@ -346,7 +346,10 @@ impl<T: InvokeUiSession> Remote<T> {
                         view_only, stop, is_stopping_allowed, server_file_transfer_enabled, file_transfer_enabled
                     );
                     if stop {
-                        ContextSend::set_is_stopped();
+                        #[cfg(target_os = "windows")]
+                        {
+                            ContextSend::set_is_stopped();
+                        }
                     } else {
                         #[cfg(target_os = "windows")]
                         if let Err(e) = ContextSend::make_sure_enabled() {
