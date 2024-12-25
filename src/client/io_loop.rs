@@ -1912,7 +1912,7 @@ impl<T: InvokeUiSession> Remote<T> {
         ContextSend::enable(enabled);
     }
 
-    #[cfg(any(target_os = "windows", target_os = "linux", target_os = "macos"))]
+    #[cfg(any(target_os = "windows", feature = "unix-file-copy-paste"))]
     async fn handle_cliprdr_msg(
         &self,
         clip: hbb_common::message_proto::Cliprdr,
@@ -1939,6 +1939,9 @@ impl<T: InvokeUiSession> Remote<T> {
         log::debug!(
                 "Process clipboard message from server peer, stop: {}, is_stopping_allowed: {}, file_transfer_enabled: {}",
                 stop, is_stopping_allowed, file_transfer_enabled);
+        println!(
+            "REMOVE ME ========================== Process clipboard message from server peer, stop: {}, is_stopping_allowed: {}, file_transfer_enabled: {}",
+            stop, is_stopping_allowed, file_transfer_enabled);
         if !stop {
             #[cfg(target_os = "windows")]
             if let Err(e) = ContextSend::make_sure_enabled() {

@@ -572,8 +572,10 @@ class _PrivilegeBoardState extends State<_PrivilegeBoard> {
         ),
         padding: EdgeInsets.all(8.0),
         child: InkWell(
-          onTap: () =>
-              checkClickTime(widget.client.id, () => onTap?.call(!enabled)),
+          onTap: onTap == null
+              ? null
+              : () =>
+                  checkClickTime(widget.client.id, () => onTap?.call(!enabled)),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
@@ -644,6 +646,13 @@ class _PrivilegeBoardState extends State<_PrivilegeBoard> {
                   (enabled) {
                     bind.cmSwitchPermission(
                         connId: client.id, name: "clipboard", enabled: enabled);
+                    if (!enabled) {
+                      if (client.file) {
+                        bind.cmSwitchPermission(
+                            connId: client.id, name: "file", enabled: false);
+                        client.file = false;
+                      }
+                    }
                     setState(() {
                       client.clipboard = enabled;
                     });
@@ -665,13 +674,17 @@ class _PrivilegeBoardState extends State<_PrivilegeBoard> {
                 buildPermissionIcon(
                   client.file,
                   Icons.upload_file_rounded,
-                  (enabled) {
-                    bind.cmSwitchPermission(
-                        connId: client.id, name: "file", enabled: enabled);
-                    setState(() {
-                      client.file = enabled;
-                    });
-                  },
+                  client.clipboard
+                      ? (enabled) {
+                          bind.cmSwitchPermission(
+                              connId: client.id,
+                              name: "file",
+                              enabled: enabled);
+                          setState(() {
+                            client.file = enabled;
+                          });
+                        }
+                      : null,
                   translate('Enable file copy and paste'),
                 ),
                 buildPermissionIcon(

@@ -24,14 +24,16 @@ impl ContextSend {
     }
 
     pub fn enable(enabled: bool) {
+        println!("REMOVE ME ==================================== enable, {}", enabled);
         let mut lock = CONTEXT_SEND.addr.lock().unwrap();
+        println!("REMOVE ME ==================================== lock is some, {}", lock.is_some());
         if enabled {
             if lock.is_some() {
                 return;
             }
             match crate::create_cliprdr_context(true, false, CLIPBOARD_RESPONSE_WAIT_TIMEOUT_SECS) {
                 Ok(context) => {
-                    log::info!("clipboard context for file transfer created.");
+                    log::info!("REMOVE ME ================== clipboard context for file transfer created.");
                     *lock = Some(context)
                 }
                 Err(err) => {
@@ -56,7 +58,7 @@ impl ContextSend {
 
         let ctx = crate::create_cliprdr_context(true, false, CLIPBOARD_RESPONSE_WAIT_TIMEOUT_SECS)?;
         *lock = Some(ctx);
-        log::info!("clipboard context for file transfer recreated.");
+        log::info!("REMOVE ME ========================= clipboard context for file transfer recreated.");
         Ok(())
     }
 

@@ -6,10 +6,10 @@
 #![allow(deref_nullptr)]
 
 use crate::{
-    allow_err, send_data, ClipboardFile, CliprdrError, CliprdrServiceContext, ResultType,
+    send_data, ClipboardFile, CliprdrError, CliprdrServiceContext, ResultType,
     ERR_CODE_INVALID_PARAMETER, ERR_CODE_SEND_MSG, ERR_CODE_SERVER_FUNCTION_NONE, VEC_MSG_CHANNEL,
 };
-use hbb_common::log;
+use hbb_common::{allow_err, log};
 use std::{
     boxed::Box,
     ffi::{CStr, CString},
@@ -565,6 +565,7 @@ impl CliprdrClientContext {
             LastRequestedFormatId: 0,
         };
         let mut context = Box::new(context);
+        println!("REMOVE ME ====================================init_cliprdr");
         unsafe {
             if FALSE == init_cliprdr(&mut (*context)) {
                 println!("Failed to init cliprdr");
@@ -1033,6 +1034,11 @@ extern "C" fn client_format_list(
     }
     log::debug!(
         "client_format_list called, client id: {}, format_list: {:?}",
+        conn_id,
+        &format_list
+    );
+    println!(
+        "REMOVE ME ======================== client_format_list called, client id: {}, format_list: {:?}",
         conn_id,
         &format_list
     );

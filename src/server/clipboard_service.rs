@@ -1,4 +1,5 @@
 use super::*;
+#[cfg(feature = "unix-file-copy-paste")]
 use crate::clipboard::check_clipboard_files;
 #[cfg(not(target_os = "android"))]
 pub use crate::clipboard::{check_clipboard, ClipboardContext, ClipboardSide};

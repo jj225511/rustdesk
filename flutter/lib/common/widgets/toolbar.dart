@@ -547,6 +547,11 @@ Future<List<TToggleMenu>> toolbarDisplayToggle(
         },
         child: Text(translate('Mute'))));
   }
+
+  final optDisableClipboard = 'disable-clipboard';
+  var isClipboardDisabled = bind.sessionGetToggleOptionSync(
+      sessionId: sessionId, arg: optDisableClipboard);
+  if (ffiModel.viewOnly) isClipboardDisabled = true;
   // file copy and paste
   // If the version is less than 1.2.4, file copy and paste is supported on Windows only.
   final isSupportIfPeer_1_2_3 = versionCmp(pi.version, '1.2.4') < 0 &&
@@ -559,9 +564,22 @@ Future<List<TToggleMenu>> toolbarDisplayToggle(
   if (ffiModel.keyboard &&
       perms['file'] != false &&
       (isSupportIfPeer_1_2_3 || isSupportIfPeer_1_2_4)) {
-    final enabled = !ffiModel.viewOnly;
-    final value = bind.sessionGetToggleOptionSync(
+    // `!isClipboardDisabled` contains `!ffiModel.viewOnly` condition, but we still use it to make the code more clear.
+    final enabled = !ffiModel.viewOnly && !isClipboardDisabled;
+    var value = bind.sessionGetToggleOptionSync(
         sessionId: sessionId, arg: kOptionEnableFileCopyPaste);
+    // Disable file copy and paste if clipboard is disabled.
+    // Users can still use the file transfer feature(connection).
+    if (!(perms['clipboard'] != false && !isClipboardDisabled)) {
+      if (value) {
+        value = false;
+        await bind.sessionToggleOption(
+            sessionId: sessionId, value: kOptionEnableFileCopyPaste);
+        // Fetch agin to get the latest value.
+        value = bind.sessionGetToggleOptionSync(
+            sessionId: sessionId, arg: kOptionEnableFileCopyPaste);
+      }
+    }
     v.add(TToggleMenu(
         value: value,
         onChanged: enabled
@@ -576,16 +594,13 @@ Future<List<TToggleMenu>> toolbarDisplayToggle(
   // disable clipboard
   if (ffiModel.keyboard && perms['clipboard'] != false) {
     final enabled = !ffiModel.viewOnly;
-    final option = 'disable-clipboard';
-    var value =
-        bind.sessionGetToggleOptionSync(sessionId: sessionId, arg: option);
-    if (ffiModel.viewOnly) value = true;
     v.add(TToggleMenu(
-        value: value,
+        value: isClipboardDisabled,
         onChanged: enabled
             ? (value) {
                 if (value == null) return;
-                bind.sessionToggleOption(sessionId: sessionId, value: option);
+                bind.sessionToggleOption(
+                    sessionId: sessionId, value: optDisableClipboard);
               }
             : null,
         child: Text(translate('Disable clipboard'))));

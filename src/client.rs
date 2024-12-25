@@ -27,6 +27,15 @@ use std::{
 };
 use uuid::Uuid;
 
+use crate::{
+    check_port,
+    common::input::{MOUSE_BUTTON_LEFT, MOUSE_BUTTON_RIGHT, MOUSE_TYPE_DOWN, MOUSE_TYPE_UP},
+    create_symmetric_key_msg, decode_id_pk, get_rs_pk, is_keyboard_mode_supported, secure_tcp,
+    ui_interface::{get_builtin_option, use_texture_render},
+    ui_session_interface::{InvokeUiSession, Session},
+};
+#[cfg(feature = "unix-file-copy-paste")]
+use crate::{clipboard::check_clipboard_files, clipboard_file::unix_file_clip};
 pub use file_trait::FileManager;
 #[cfg(not(feature = "flutter"))]
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
@@ -63,16 +72,6 @@ use scrap::{
     codec::Decoder,
     record::{Recorder, RecorderContext},
     CodecFormat, ImageFormat, ImageRgb, ImageTexture,
-};
-
-use crate::{
-    check_port,
-    clipboard::check_clipboard_files,
-    clipboard_file::unix_file_clip,
-    common::input::{MOUSE_BUTTON_LEFT, MOUSE_BUTTON_RIGHT, MOUSE_TYPE_DOWN, MOUSE_TYPE_UP},
-    create_symmetric_key_msg, decode_id_pk, get_rs_pk, is_keyboard_mode_supported, secure_tcp,
-    ui_interface::{get_builtin_option, use_texture_render},
-    ui_session_interface::{InvokeUiSession, Session},
 };
 
 #[cfg(not(target_os = "ios"))]
@@ -1763,6 +1762,13 @@ impl LoginConfigHandler {
             #[cfg(feature = "unix-file-copy-paste")]
             if !config.disable_clipboard.v {
                 crate::clipboard::try_empty_clipboard_files(true);
+            }
+            // Make sure that the file copy&maste is disabled when clipboard is disabled.
+            if config.disable_clipboard.v {
+                if config.enable_file_copy_paste.v {
+                    config.enable_file_copy_paste.v = false;
+                    option.enable_file_transfer = BoolOption::No.into();
+                }
             }
         } else if name == "lock-after-session-end" {
             config.lock_after_session_end.v = !config.lock_after_session_end.v;

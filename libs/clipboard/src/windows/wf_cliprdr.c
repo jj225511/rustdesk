@@ -137,16 +137,16 @@ typedef struct _FORMAT_IDS FORMAT_IDS;
 
 #define TAG "windows"
 
-#ifdef WITH_DEBUG_CLIPRDR
+//#ifdef WITH_DEBUG_CLIPRDR
 #define DEBUG_CLIPRDR(fmt, ...)                                                                  \
 	fprintf(stderr, "DEBUG %s[%d] %s() " fmt "\n", __FILE__, __LINE__, __func__, ##__VA_ARGS__); \
 	fflush(stderr)
-#else
-#define DEBUG_CLIPRDR(fmt, ...) \
-	do                          \
-	{                           \
-	} while (0)
-#endif
+// #else
+// #define DEBUG_CLIPRDR(fmt, ...) \
+// 	do                          \
+// 	{                           \
+// 	} while (0)
+// #endif
 
 typedef BOOL(WINAPI *fnAddClipboardFormatListener)(HWND hwnd);
 typedef BOOL(WINAPI *fnRemoveClipboardFormatListener)(HWND hwnd);
@@ -1429,13 +1429,18 @@ static UINT cliprdr_send_format_list(wfClipboard *clipboard, UINT32 connID)
 	CLIPRDR_FORMAT *formats = NULL;
 	CLIPRDR_FORMAT_LIST formatList = {0};
 
+	DEBUG_CLIPRDR("REMOVE ME ========================== send format list aaa ");
+
 	if (!clipboard)
 		return ERROR_INTERNAL_ERROR;
+
+		DEBUG_CLIPRDR("REMOVE ME ========================== send format list bbb ");
 
 	if (!IsClipboardFormatAvailable(CF_HDROP))
 	{
 		return ERROR_SUCCESS;
 	}
+	DEBUG_CLIPRDR("REMOVE ME ========================== send format list ccc ");
 
 	ZeroMemory(&formatList, sizeof(CLIPRDR_FORMAT_LIST));
 
@@ -1451,6 +1456,7 @@ static UINT cliprdr_send_format_list(wfClipboard *clipboard, UINT32 connID)
 			CloseClipboard();
 			return CHANNEL_RC_NULL_DATA;
 		}
+		DEBUG_CLIPRDR("REMOVE ME ========================== send format list ddd ");
 
 		numFormats = (UINT32)count;
 		formats = (CLIPRDR_FORMAT *)calloc(numFormats, sizeof(CLIPRDR_FORMAT));
@@ -1460,6 +1466,7 @@ static UINT cliprdr_send_format_list(wfClipboard *clipboard, UINT32 connID)
 			CloseClipboard();
 			return CHANNEL_RC_NO_MEMORY;
 		}
+		DEBUG_CLIPRDR("REMOVE ME ========================== send format list eee ");
 
 		index = 0;
 		// IsClipboardFormatAvailable(CF_HDROP) is checked above
@@ -1474,6 +1481,7 @@ static UINT cliprdr_send_format_list(wfClipboard *clipboard, UINT32 connID)
 			free(formats);
 			return ERROR_INTERNAL_ERROR;
 		}
+		DEBUG_CLIPRDR("REMOVE ME ========================== send format list fff ");
 
 		for (index = 0; index < numFormats; index++)
 		{
@@ -1493,10 +1501,14 @@ static UINT cliprdr_send_format_list(wfClipboard *clipboard, UINT32 connID)
 	formatList.formats = formats;
 	formatList.msgType = CB_FORMAT_LIST;
 
+	DEBUG_CLIPRDR("REMOVE ME ========================== send format list ggg");
+
 	// send
 	rc = clipboard->context->ClientFormatList(clipboard->context, &formatList);
 	// No need to check `rc`, `copied` is only used to indicate `Ctrl+C` is pressed.
 	clipboard->copied = TRUE;
+
+	DEBUG_CLIPRDR("REMOVE ME ========================== send format list hhh ");
 
 	for (index = 0; index < numFormats; index++)
 	{
