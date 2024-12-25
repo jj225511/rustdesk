@@ -10,6 +10,8 @@ use std::{
 };
 
 pub const CLIPBOARD_NAME: &'static str = "clipboard";
+#[cfg(feature = "unix-file-copy-paste")]
+pub const FILE_CLIPBOARD_NAME: &'static str = "file-clipboard";
 pub const CLIPBOARD_INTERVAL: u64 = 333;
 
 // This format is used to store the flag in the clipboard.
@@ -47,111 +49,6 @@ const SUPPORTED_FORMATS: &[ClipboardFormat] = &[
     ClipboardFormat::Special(RUSTDESK_CLIPBOARD_OWNER_FORMAT),
 ];
 
-#[cfg(all(target_os = "linux", feature = "unix-file-copy-paste"))]
-static X11_CLIPBOARD: once_cell::sync::OnceCell<x11_clipboard::Clipboard> =
-    once_cell::sync::OnceCell::new();
-
-#[cfg(all(target_os = "linux", feature = "unix-file-copy-paste"))]
-fn get_clipboard() -> Result<&'static x11_clipboard::Clipboard, String> {
-    X11_CLIPBOARD
-        .get_or_try_init(|| x11_clipboard::Clipboard::new())
-        .map_err(|e| e.to_string())
-}
-
-#[cfg(all(target_os = "linux", feature = "unix-file-copy-paste"))]
-pub struct ClipboardContext {
-    string_setter: x11rb::protocol::xproto::Atom,
-    string_getter: x11rb::protocol::xproto::Atom,
-    text_uri_list: x11rb::protocol::xproto::Atom,
-
-    clip: x11rb::protocol::xproto::Atom,
-    prop: x11rb::protocol::xproto::Atom,
-}
-
-#[cfg(all(target_os = "linux", feature = "unix-file-copy-paste"))]
-fn parse_plain_uri_list(v: Vec<u8>) -> Result<String, String> {
-    let text = String::from_utf8(v).map_err(|_| "ConversionFailure".to_owned())?;
-    let mut list = String::new();
-    for line in text.lines() {
-        if !line.starts_with("file://") {
-            continue;
-        }
-        let decoded = percent_encoding::percent_decode_str(line)
-            .decode_utf8()
-            .map_err(|_| "ConversionFailure".to_owned())?;
-        list = list + "\n" + decoded.trim_start_matches("file://");
-    }
-    list = list.trim().to_owned();
-    Ok(list)
-}
-
-#[cfg(all(target_os = "linux", feature = "unix-file-copy-paste"))]
-impl ClipboardContext {
-    pub fn new() -> Result<Self, String> {
-        let clipboard = get_clipboard()?;
-        let string_getter = clipboard
-            .getter
-            .get_atom("UTF8_STRING")
-            .map_err(|e| e.to_string())?;
-        let string_setter = clipboard
-            .setter
-            .get_atom("UTF8_STRING")
-            .map_err(|e| e.to_string())?;
-        let text_uri_list = clipboard
-            .getter
-            .get_atom("text/uri-list")
-            .map_err(|e| e.to_string())?;
-        let prop = clipboard.getter.atoms.property;
-        let clip = clipboard.getter.atoms.clipboard;
-        Ok(Self {
-            text_uri_list,
-            string_setter,
-            string_getter,
-            clip,
-            prop,
-        })
-    }
-
-    pub fn get_text(&mut self) -> Result<String, String> {
-        let clip = self.clip;
-        let prop = self.prop;
-
-        const TIMEOUT: std::time::Duration = std::time::Duration::from_millis(120);
-
-        let text_content = get_clipboard()?
-            .load(clip, self.string_getter, prop, TIMEOUT)
-            .map_err(|e| e.to_string())?;
-
-        let file_urls = get_clipboard()?.load(clip, self.text_uri_list, prop, TIMEOUT)?;
-
-        if file_urls.is_err() || file_urls.as_ref().is_empty() {
-            log::trace!("clipboard get text, no file urls");
-            return String::from_utf8(text_content).map_err(|e| e.to_string());
-        }
-
-        let file_urls = parse_plain_uri_list(file_urls)?;
-
-        let text_content = String::from_utf8(text_content).map_err(|e| e.to_string())?;
-
-        if text_content.trim() == file_urls.trim() {
-            log::trace!("clipboard got text but polluted");
-            return Err(String::from("polluted text"));
-        }
-
-        Ok(text_content)
-    }
-
-    pub fn set_text(&mut self, content: String) -> Result<(), String> {
-        let clip = self.clip;
-
-        let value = content.clone().into_bytes();
-        get_clipboard()?
-            .store(clip, self.string_setter, value)
-            .map_err(|e| e.to_string())?;
-        Ok(())
-    }
-}
-
 #[cfg(not(target_os = "android"))]
 pub fn check_clipboard(
     ctx: &mut Option<ClipboardContext>,
@@ -179,6 +76,65 @@ pub fn check_clipboard(
     None
 }
 
+#[cfg(feature = "unix-file-copy-paste")]
+pub fn check_clipboard_files(
+    ctx: &mut Option<ClipboardContext>,
+    side: ClipboardSide,
+    force: bool,
+) -> Option<Vec<String>> {
+    if ctx.is_none() {
+        *ctx = ClipboardContext::new().ok();
+    }
+    let ctx2 = ctx.as_mut()?;
+    match ctx2.get_files(side, force) {
+        Ok(Some(urls)) => {
+            if !urls.is_empty() {
+                return Some(urls);
+            }
+        }
+        Err(e) => {
+            log::error!("Failed to get clipboard file urls. {}", e);
+        }
+        _ => {}
+    }
+    None
+}
+
+#[cfg(feature = "unix-file-copy-paste")]
+pub fn get_clipboard_file_urls(
+    ctx: &mut Option<ClipboardContext>,
+    side: ClipboardSide,
+    force: bool,
+) -> ResultType<Option<Vec<String>>> {
+    if ctx.is_none() {
+        *ctx = ClipboardContext::new().ok();
+    }
+    if let Some(ctx) = ctx.as_mut() {
+        ctx.get_files(side, force)
+    } else {
+        bail!("Failed to create clipboard context")
+    }
+}
+
+#[cfg(feature = "unix-file-copy-paste")]
+pub fn update_clipboard_files(files: Vec<String>, side: ClipboardSide) {
+    if !files.is_empty() {
+        std::thread::spawn(move || {
+            do_update_clipboard_(vec![ClipboardData::FileUrl(files)], side);
+        });
+    }
+}
+
+#[cfg(feature = "unix-file-copy-paste")]
+pub fn try_empty_clipboard_files(side: ClipboardSide) {
+    std::thread::spawn(move || {
+        if let Ok(mut ctx) = ClipboardContext::new() {
+            ctx.try_empty_clipboard_files();
+            clipboard::platform::unix::empty_local_files(side == ClipboardSide::Client);
+        }
+    });
+}
+
 #[cfg(target_os = "windows")]
 pub fn check_clipboard_cm() -> ResultType<MultiClipboards> {
     let mut ctx = CLIPBOARD_CTX.lock().unwrap();
@@ -203,10 +159,15 @@ pub fn check_clipboard_cm() -> ResultType<MultiClipboards> {
 
 #[cfg(not(target_os = "android"))]
 fn update_clipboard_(multi_clipboards: Vec<Clipboard>, side: ClipboardSide) {
-    let mut to_update_data = proto::from_multi_clipbards(multi_clipboards);
+    let to_update_data = proto::from_multi_clipbards(multi_clipboards);
     if to_update_data.is_empty() {
         return;
     }
+    do_update_clipboard_(to_update_data, side);
+}
+
+#[cfg(not(target_os = "android"))]
+fn do_update_clipboard_(mut to_update_data: Vec<ClipboardData>, side: ClipboardSide) {
     let mut ctx = CLIPBOARD_CTX.lock().unwrap();
     if ctx.is_none() {
         match ClipboardContext::new() {
@@ -240,13 +201,11 @@ pub fn update_clipboard(multi_clipboards: Vec<Clipboard>, side: ClipboardSide) {
 }
 
 #[cfg(not(target_os = "android"))]
-#[cfg(not(any(all(target_os = "linux", feature = "unix-file-copy-paste"))))]
 pub struct ClipboardContext {
     inner: arboard::Clipboard,
 }
 
 #[cfg(not(target_os = "android"))]
-#[cfg(not(any(all(target_os = "linux", feature = "unix-file-copy-paste"))))]
 #[allow(unreachable_code)]
 impl ClipboardContext {
     pub fn new() -> ResultType<ClipboardContext> {
@@ -293,7 +252,7 @@ impl ClipboardContext {
         // https://github.com/rustdesk/rustdesk/issues/9263
         // https://github.com/rustdesk/rustdesk/issues/9222#issuecomment-2329233175
         for i in 0..CLIPBOARD_GET_MAX_RETRY {
-            match self.inner.get_formats(SUPPORTED_FORMATS) {
+            match self.inner.get_formats(formats) {
                 Ok(data) => {
                     return Ok(data
                         .into_iter()
@@ -316,8 +275,17 @@ impl ClipboardContext {
     }
 
     pub fn get(&mut self, side: ClipboardSide, force: bool) -> ResultType<Vec<ClipboardData>> {
+        self.get_formats_filter(SUPPORTED_FORMATS, side, force)
+    }
+
+    fn get_formats_filter(
+        &mut self,
+        formats: &[ClipboardFormat],
+        side: ClipboardSide,
+        force: bool,
+    ) -> ResultType<Vec<ClipboardData>> {
         let _lock = ARBOARD_MTX.lock().unwrap();
-        let data = self.get_formats(SUPPORTED_FORMATS)?;
+        let data = self.get_formats(formats)?;
         if data.is_empty() {
             return Ok(data);
         }
@@ -334,15 +302,61 @@ impl ClipboardContext {
             .into_iter()
             .filter(|c| match c {
                 ClipboardData::Special((s, _)) => s != RUSTDESK_CLIPBOARD_OWNER_FORMAT,
+                // Skip synchronizing empty text to the remote clipboard
+                ClipboardData::Text(text) => !text.is_empty(),
                 _ => true,
             })
             .collect())
+    }
+
+    #[cfg(feature = "unix-file-copy-paste")]
+    pub fn get_files(
+        &mut self,
+        side: ClipboardSide,
+        force: bool,
+    ) -> ResultType<Option<Vec<String>>> {
+        let data = self.get_formats_filter(
+            &[
+                ClipboardFormat::FileUrl,
+                ClipboardFormat::Special(RUSTDESK_CLIPBOARD_OWNER_FORMAT),
+            ],
+            side,
+            force,
+        )?;
+        println!("REMOVE ME ============================ data: {:?}", &data);
+        Ok(data.into_iter().find_map(|c| match c {
+            ClipboardData::FileUrl(urls) => Some(urls),
+            _ => None,
+        }))
     }
 
     fn set(&mut self, data: &[ClipboardData]) -> ResultType<()> {
         let _lock = ARBOARD_MTX.lock().unwrap();
         self.inner.set_formats(data)?;
         Ok(())
+    }
+
+    #[cfg(feature = "unix-file-copy-paste")]
+    fn try_empty_clipboard_files(&mut self) {
+        let _lock = ARBOARD_MTX.lock().unwrap();
+        if let Ok(data) = self.get_formats(&[ClipboardFormat::FileUrl]) {
+            let exclude_paths = clipboard::platform::unix::get_exclude_paths();
+            let urls = data
+                .into_iter()
+                .filter_map(|c| match c {
+                    ClipboardData::FileUrl(urls) => Some(
+                        urls.into_iter()
+                            .filter(|s| exclude_paths.iter().any(|p| s.starts_with(&**p)))
+                            .collect::<Vec<_>>(),
+                    ),
+                    _ => None,
+                })
+                .flatten()
+                .collect::<Vec<_>>();
+            if !urls.is_empty() {
+                let _ = self.inner.clear();
+            }
+        }
     }
 }
 

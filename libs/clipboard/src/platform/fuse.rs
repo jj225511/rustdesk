@@ -527,14 +527,6 @@ impl FuseServer {
         size: u32,
     ) -> Result<Vec<u8>, std::io::Error> {
         // todo: async and concurrent read, generate stream_id per request
-        log::debug!(
-            "reading {:?} offset {} size {} on stream: {}",
-            node.name,
-            offset,
-            size,
-            node.stream_id
-        );
-
         let cb_requested = unsafe {
             // convert `size` from u32 to i32
             // yet with same bit representation
@@ -554,13 +546,10 @@ impl FuseServer {
             clip_data_id: 0,
         };
 
-        send_data(node.conn_id, request.clone());
-
-        log::debug!(
-            "waiting for read reply for {:?} on stream: {}",
-            node.name,
-            node.stream_id
-        );
+        send_data(node.conn_id, request.clone()).map_err(|e| {
+            log::error!("failed to send file list to channel: {:?}", e);
+            std::io::Error::new(std::io::ErrorKind::Other, e)
+        })?;
 
         let mut retry_times = 0;
 
@@ -590,7 +579,10 @@ impl FuseServer {
                             ));
                         }
 
-                        send_data(node.conn_id, request.clone());
+                        send_data(node.conn_id, request.clone()).map_err(|e| {
+                            log::error!("failed to send file list to channel: {:?}", e);
+                            std::io::Error::new(std::io::ErrorKind::Other, e)
+                        })?;
                         continue;
                     }
                     return Ok(requested_data);
@@ -881,7 +873,7 @@ impl FuseNode {
                     format!("invalid file name {}", file.name.display()),
                 );
                 CliprdrError::FileError {
-                    path: file.name.clone(),
+                    path: file.name.to_string_lossy().to_string(),
                     err,
                 }
             })?;
@@ -1064,8 +1056,6 @@ impl FileHandles {
 
 #[cfg(test)]
 mod fuse_test {
-    use std::str::FromStr;
-
     use super::*;
 
     // todo: more tests needed!
