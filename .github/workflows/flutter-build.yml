@@ -1523,7 +1523,9 @@ jobs:
                rpm \
                unzip \
                wget \
-               xz-utils
+               xz-utils \
+               fuse \
+               libfuse-dev
             # we have libopus compiled by us.
             apt-get remove -y libopus-dev || true
             # output devs
@@ -1549,13 +1551,20 @@ jobs:
             # start build
             pushd /workspace
             export VCPKG_ROOT=/opt/artifacts/vcpkg
+            # # build libfuse for feature "unix-file-copy-paste", we can use `apt install fuse3,libfuse3-dev` if we use ubuntu 20.04
+            # sudo apt install -y meson ninja-build
+            # git clone https://github.com/libfuse/libfuse.git
+            # pushd libfuse
+            # git checkout fuse-3.16.2
+            # mkdir build && cd build && meson .. && ninja install
+            # popd
             if [[ "${{ matrix.job.arch }}" == "aarch64" ]]; then
               export JOBS="--jobs 3"
             else
               export JOBS=""
             fi
             echo $JOBS
-            cargo build --lib $JOBS --features hwcodec,flutter --release
+            cargo build --lib $JOBS --features hwcodec,flutter,unix-file-copy-paste --release
             rm -rf target/release/deps target/release/build
             rm -rf ~/.cargo
 
@@ -1708,7 +1717,7 @@ jobs:
               deb_arch: amd64,
               sciter_arch: x64,
               vcpkg-triplet: x64-linux,
-              extra_features: ",hwcodec",
+              extra_features: ",hwcodec,unix-file-copy-paste",
             }
           - {
               arch: armv7,
@@ -1718,7 +1727,7 @@ jobs:
               deb_arch: armhf,
               sciter_arch: arm32,
               vcpkg-triplet: arm-linux,
-              extra_features: "",
+              extra_features: ",unix-file-copy-paste",
             }
     steps:
       - name: Export GitHub Actions cache environment variables
@@ -1794,7 +1803,9 @@ jobs:
                unzip \
                wget \
                xz-utils \
-               zip
+               zip \
+               fuse \
+               libfuse-dev
             # arm-linux needs CMake and vcokg built from source as there
             # are no prebuilts available from Kitware and Microsoft
             if [ "${{ matrix.job.vcpkg-triplet }}" = "arm-linux" ]; then
@@ -1871,6 +1882,13 @@ jobs:
               exit 1
             fi
             head -n 100 "${VCPKG_ROOT}/buildtrees/ffmpeg/build-${{ matrix.job.vcpkg-triplet }}-rel-out.log" || true
+            # # build libfuse for feature "unix-file-copy-paste", we can use `apt install fuse3,libfuse3-dev` if we use ubuntu 20.04
+            # sudo apt install -y meson ninja-build
+            # git clone https://github.com/libfuse/libfuse.git
+            # pushd libfuse
+            # git checkout fuse-3.16.2
+            # mkdir build && cd build && meson .. && ninja install
+            # popd
             # build rustdesk
             python3 ./res/inline-sciter.py
             export CARGO_INCREMENTAL=0
