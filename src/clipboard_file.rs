@@ -235,16 +235,11 @@ pub mod unix_file_clip {
         conn_id: i32,
     ) -> Option<Message> {
         log::debug!("got clipfile from client peer");
-        println!("REMVOE ME ============================= got clipfile from client peer, is_client: {}, clip: {:?}", is_client, &clip);
         match clip {
             ClipboardFile::MonitorReady => {
                 log::debug!("client is ready for clipboard");
             }
             ClipboardFile::FormatList { format_list } => {
-                log::info!(
-                    "REMOVE ME ========================= supported formats: {:?}",
-                    &format_list
-                );
                 if !format_list
                     .iter()
                     .find(|(_, name)| name == FILECONTENTS_FORMAT_NAME)
@@ -319,10 +314,6 @@ pub mod unix_file_clip {
                 log::debug!("parsing file descriptors");
                 match format_data_response_to_urls(is_client, format_data, conn_id) {
                     Ok(files) => {
-                        log::info!(
-                            "REMOVE ME =============================== load file list: {:?}",
-                            files
-                        );
                         update_clipboard_files(files, ClipboardSide::Host);
                     }
                     Err(e) => {
@@ -376,6 +367,7 @@ pub mod unix_file_clip {
                 title,
                 text,
             } => {
+                // unreachable, but still log it
                 log::debug!(
                     "notify callback: type: {}, title: {}, text: {}",
                     r#type,

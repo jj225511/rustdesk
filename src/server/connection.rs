@@ -8,8 +8,6 @@ use crate::clipboard_file::*;
 #[cfg(target_os = "android")]
 use crate::keyboard::client::map_key_to_control_key;
 #[cfg(target_os = "linux")]
-use crate::platform::linux::is_x11;
-#[cfg(target_os = "linux")]
 use crate::platform::linux_desktop_manager;
 #[cfg(any(target_os = "windows", target_os = "linux"))]
 use crate::platform::WallPaperRemover;
@@ -540,6 +538,14 @@ impl Connection {
                                 #[cfg(feature = "unix-file-copy-paste")]
                                 if !enabled {
                                     conn.try_empty_file_clipboard();
+                                }
+                                #[cfg(feature = "unix-file-copy-paste")]
+                                if let Some(s) = conn.server.upgrade() {
+                                    s.write().unwrap().subscribe(
+                                        super::clipboard_service::FILE_NAME,
+                                        conn.inner.clone(),
+                                        conn.can_sub_file_clipboard_service(),
+                                    );
                                 }
                             } else if &name == "restart" {
                                 conn.restart = enabled;
@@ -1508,8 +1514,9 @@ impl Connection {
 
     #[cfg(feature = "unix-file-copy-paste")]
     fn can_sub_file_clipboard_service(&self) -> bool {
-        self.file_transfer_enabled()
-            && crate::get_builtin_option(keys::OPTION_ONE_WAY_CLIPBOARD_REDIRECTION) != "Y"
+        self.clipboard_enabled()
+            && self.file_transfer_enabled()
+            && crate::get_builtin_option(keys::OPTION_ONE_WAY_FILE_TRANSFER) != "Y"
     }
 
     fn try_start_cm(&mut self, peer_id: String, name: String, authorized: bool) {
@@ -3405,20 +3412,22 @@ impl Connection {
     #[cfg(feature = "unix-file-copy-paste")]
     async fn handle_file_clip(&mut self, clip: clipboard::ClipboardFile) {
         let is_stopping_allowed = clip.is_stopping_allowed();
-        let is_clipboard_enabled = self.clipboard;
+        let is_keyboard_enabled = self.peer_keyboard_enabled();
         let file_transfer_enabled = self.file_transfer_enabled();
-        let stop = is_stopping_allowed && !(is_clipboard_enabled && file_transfer_enabled);
+        let stop = is_stopping_allowed && !file_transfer_enabled;
         log::debug!(
-            "Process clipboard message from clip, stop: {}, is_stopping_allowed: {}, is_clipboard_enabled: {}, file_transfer_enabled: {}",
-            stop, is_stopping_allowed, is_clipboard_enabled, file_transfer_enabled);
-        println!(
-                "REMOVE ME =========================== Process clipboard message from clip, stop: {}, is_stopping_allowed: {}, is_clipboard_enabled: {}, file_transfer_enabled: {}",
-                stop, is_stopping_allowed, is_clipboard_enabled, file_transfer_enabled);
+            "Process clipboard message from clip, stop: {}, is_stopping_allowed: {}, file_transfer_enabled: {}",
+            stop, is_stopping_allowed, file_transfer_enabled);
         if !stop {
             use hbb_common::config::keys::OPTION_ONE_WAY_FILE_TRANSFER;
-            if !clip.is_beginning_message()
-                || crate::get_builtin_option(OPTION_ONE_WAY_FILE_TRANSFER) != "Y"
+            // Note: Code will not reach here if `crate::get_builtin_option(OPTION_ONE_WAY_FILE_TRANSFER) == "Y"` is true.
+            // Because `file-clipboard` service will not be subscribed.
+            // But we still check it here to keep the same logic to windows version in `ui_cm_interface.rs`.
+            if clip.is_beginning_message()
+                && crate::get_builtin_option(OPTION_ONE_WAY_FILE_TRANSFER) == "Y"
             {
+                // If one way file transfer is enabled, don't send clipboard file to client
+            } else {
                 // Maybe we should end the connection, because copy&paste files causes everything to wait.
                 allow_err!(
                     self.stream

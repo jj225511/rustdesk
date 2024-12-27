@@ -150,9 +150,9 @@ impl fuser::Filesystem for FuseClient {
         server.release(req, ino, fh, _flags, _lock_owner, _flush, reply)
     }
 
-    fn getattr(&mut self, req: &fuser::Request<'_>, ino: u64, reply: fuser::ReplyAttr) {
+    fn getattr(&mut self, req: &fuser::Request<'_>, ino: u64, fh: Option<u64>, reply: fuser::ReplyAttr) {
         let mut server = self.server.lock();
-        server.getattr(req, ino, reply)
+        server.getattr(req, ino, fh, reply)
     }
 
     fn statfs(&mut self, req: &fuser::Request<'_>, ino: u64, reply: fuser::ReplyStatfs) {
@@ -247,7 +247,6 @@ impl fuser::Filesystem for FuseServer {
 
         if parent_entry.attributes.kind != FileType::Directory {
             log::error!("fuse: parent is not a directory");
-
             reply.error(libc::ENOTDIR);
             return;
         }
@@ -480,7 +479,7 @@ impl fuser::Filesystem for FuseServer {
         reply.ok();
     }
 
-    fn getattr(&mut self, _req: &fuser::Request<'_>, ino: u64, reply: fuser::ReplyAttr) {
+    fn getattr(&mut self, _req: &fuser::Request<'_>, ino: u64, _fh: Option<u64>, reply: fuser::ReplyAttr) {
         let files = &self.files;
         let Some(entry) = files.get(ino as usize - 1) else {
             reply.error(libc::ENOENT);
@@ -553,6 +552,7 @@ impl FuseServer {
 
         let mut retry_times = 0;
 
+        // to-do: more tests needed
         loop {
             let reply = self.rx.recv_timeout(self.timeout).map_err(|e| {
                 log::error!("failed to receive file list from channel: {:?}", e);

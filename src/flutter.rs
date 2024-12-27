@@ -1279,7 +1279,7 @@ pub fn update_file_clipboard_required() {
     let is_required = sessions::get_sessions()
         .iter()
         .any(|s| s.is_file_clipboard_required());
-    Client::set_is_text_clipboard_required(is_required);
+    Client::set_is_file_clipboard_required(is_required);
 }
 
 #[cfg(not(target_os = "ios"))]

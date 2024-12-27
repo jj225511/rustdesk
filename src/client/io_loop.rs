@@ -1969,14 +1969,11 @@ impl<T: InvokeUiSession> Remote<T> {
         };
 
         let is_stopping_allowed = clip.is_beginning_message();
-        let file_transfer_enabled = self.handler.lc.read().unwrap().enable_file_copy_paste.v;
+        let file_transfer_enabled = self.handler.is_file_clipboard_required();
         let stop = is_stopping_allowed && !file_transfer_enabled;
         log::debug!(
                 "Process clipboard message from server peer, stop: {}, is_stopping_allowed: {}, file_transfer_enabled: {}",
                 stop, is_stopping_allowed, file_transfer_enabled);
-        println!(
-            "REMOVE ME ========================== Process clipboard message from server peer, stop: {}, is_stopping_allowed: {}, file_transfer_enabled: {}",
-            stop, is_stopping_allowed, file_transfer_enabled);
         if !stop {
             #[cfg(target_os = "windows")]
             if let Err(e) = ContextSend::make_sure_enabled() {
