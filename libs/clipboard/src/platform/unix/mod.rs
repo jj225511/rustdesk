@@ -78,9 +78,13 @@ pub fn is_fuse_context_inited(is_client: bool) -> bool {
     }
 }
 
-// No need to consider the race condition here.
 pub fn init_fuse_context(is_client: bool) -> Result<(), CliprdrError> {
-    if is_fuse_context_inited(is_client) {
+    let mut fuse_context_lock = if is_client {
+        FUSE_CONTEXT_CLIENT.lock()
+    } else {
+        FUSE_CONTEXT_SERVER.lock()
+    };
+    if fuse_context_lock.is_some() {
         return Ok(());
     }
     let mount_point = if is_client {
@@ -88,11 +92,38 @@ pub fn init_fuse_context(is_client: bool) -> Result<(), CliprdrError> {
     } else {
         FUSE_MOUNT_POINT_SERVER.clone()
     };
-    init_fuse_context_(
-        is_client,
-        FUSE_TIMEOUT,
-        std::path::PathBuf::from(&*mount_point),
+
+    let mount_point = std::path::PathBuf::from(&*mount_point);
+    let (server, tx) = FuseServer::new(FUSE_TIMEOUT);
+    let server = Arc::new(Mutex::new(server));
+
+    prepare_fuse_mount_point(&mount_point);
+    let mnt_opts = [
+        MountOption::FSName("rustdesk-cliprdr-fs".to_string()),
+        MountOption::NoAtime,
+        MountOption::RO,
+    ];
+    log::info!("mounting clipboard FUSE to {}", mount_point.display());
+    let session = fuser::spawn_mount2(
+        FuseServer::client(server.clone()),
+        mount_point.clone(),
+        &mnt_opts,
     )
+    .map_err(|e| {
+        log::error!("failed to mount cliprdr fuse: {:?}", e);
+        CliprdrError::CliprdrInit
+    })?;
+    let session = Mutex::new(Some(session));
+
+    let ctx = FuseContext {
+        server,
+        tx,
+        mount_point,
+        session,
+        local_files: Mutex::new(vec![]),
+    };
+    *fuse_context_lock = Some(ctx);
+    Ok(())
 }
 
 pub fn uninit_fuse_context(is_client: bool) {
@@ -159,7 +190,6 @@ pub fn handle_file_content_response(
     is_client: bool,
     clip: ClipboardFile,
 ) -> Result<(), CliprdrError> {
-    log::info!("REMOVE ME ================================= server_file_contents_response called");
     // we don't know its corresponding request, no resend can be performed
     let ctx = if is_client {
         FUSE_CONTEXT_CLIENT.lock()
@@ -209,53 +239,13 @@ fn prepare_fuse_mount_point(mount_point: &PathBuf) {
     fs::create_dir(mount_point).ok();
     fs::set_permissions(mount_point, Permissions::from_mode(0o777)).ok();
 
+    log::info!("REMOVE ME ========================== try to umount {:?}", &mount_point);
     if let Err(e) = std::process::Command::new("umount")
         .arg(mount_point)
         .status()
     {
         log::warn!("umount {:?} may fail: {:?}", mount_point, e);
     }
-}
-
-fn init_fuse_context_(
-    is_client: bool,
-    timeout: Duration,
-    mount_point: PathBuf,
-) -> Result<(), CliprdrError> {
-    let (server, tx) = FuseServer::new(timeout);
-    let server = Arc::new(Mutex::new(server));
-
-    prepare_fuse_mount_point(&mount_point);
-    let mnt_opts = [
-        MountOption::FSName("rustdesk-cliprdr-fs".to_string()),
-        MountOption::NoAtime,
-        MountOption::RO,
-    ];
-    log::info!("mounting clipboard FUSE to {}", mount_point.display());
-    let session = fuser::spawn_mount2(
-        FuseServer::client(server.clone()),
-        mount_point.clone(),
-        &mnt_opts,
-    )
-    .map_err(|e| {
-        log::error!("failed to mount cliprdr fuse: {:?}", e);
-        CliprdrError::CliprdrInit
-    })?;
-    let session = Mutex::new(Some(session));
-
-    let ctx = FuseContext {
-        server,
-        tx,
-        mount_point,
-        session,
-        local_files: Mutex::new(vec![]),
-    };
-    if is_client {
-        *FUSE_CONTEXT_CLIENT.lock() = Some(ctx);
-    } else {
-        *FUSE_CONTEXT_SERVER.lock() = Some(ctx);
-    }
-    Ok(())
 }
 
 fn uninit_fuse_context_(is_client: bool) {

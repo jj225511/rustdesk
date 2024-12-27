@@ -8,8 +8,6 @@ use crate::clipboard_file::*;
 #[cfg(target_os = "android")]
 use crate::keyboard::client::map_key_to_control_key;
 #[cfg(target_os = "linux")]
-use crate::platform::linux::is_x11;
-#[cfg(target_os = "linux")]
 use crate::platform::linux_desktop_manager;
 #[cfg(any(target_os = "windows", target_os = "linux"))]
 use crate::platform::WallPaperRemover;
@@ -3411,9 +3409,6 @@ impl Connection {
         log::debug!(
             "Process clipboard message from clip, stop: {}, is_stopping_allowed: {}, is_clipboard_enabled: {}, file_transfer_enabled: {}",
             stop, is_stopping_allowed, is_clipboard_enabled, file_transfer_enabled);
-        println!(
-                "REMOVE ME =========================== Process clipboard message from clip, stop: {}, is_stopping_allowed: {}, is_clipboard_enabled: {}, file_transfer_enabled: {}",
-                stop, is_stopping_allowed, is_clipboard_enabled, file_transfer_enabled);
         if !stop {
             use hbb_common::config::keys::OPTION_ONE_WAY_FILE_TRANSFER;
             if !clip.is_beginning_message()

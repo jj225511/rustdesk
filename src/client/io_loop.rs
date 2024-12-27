@@ -1974,9 +1974,6 @@ impl<T: InvokeUiSession> Remote<T> {
         log::debug!(
                 "Process clipboard message from server peer, stop: {}, is_stopping_allowed: {}, file_transfer_enabled: {}",
                 stop, is_stopping_allowed, file_transfer_enabled);
-        println!(
-            "REMOVE ME ========================== Process clipboard message from server peer, stop: {}, is_stopping_allowed: {}, file_transfer_enabled: {}",
-            stop, is_stopping_allowed, file_transfer_enabled);
         if !stop {
             #[cfg(target_os = "windows")]
             if let Err(e) = ContextSend::make_sure_enabled() {

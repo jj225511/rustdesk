@@ -150,9 +150,9 @@ impl fuser::Filesystem for FuseClient {
         server.release(req, ino, fh, _flags, _lock_owner, _flush, reply)
     }
 
-    fn getattr(&mut self, req: &fuser::Request<'_>, ino: u64, reply: fuser::ReplyAttr) {
+    fn getattr(&mut self, req: &fuser::Request<'_>, ino: u64, fh: Option<u64>, reply: fuser::ReplyAttr) {
         let mut server = self.server.lock();
-        server.getattr(req, ino, reply)
+        server.getattr(req, ino, fh, reply)
     }
 
     fn statfs(&mut self, req: &fuser::Request<'_>, ino: u64, reply: fuser::ReplyStatfs) {
@@ -216,6 +216,7 @@ impl fuser::Filesystem for FuseServer {
             let root = FuseNode::new_root();
             self.files.push(root);
         }
+        println!("REMOVE ME ========================== init");
         Ok(())
     }
 
@@ -226,8 +227,10 @@ impl fuser::Filesystem for FuseServer {
         name: &std::ffi::OsStr,
         reply: fuser::ReplyEntry,
     ) {
+        println!("REMOVE ME ========================== fuse: lookup, parent: {}, name: {:?}", parent, name);
         if name.len() > MAX_NAME_LEN {
             log::debug!("fuse: name too long");
+            println!("REMOVE ME ========================== fuse: name too long");
             reply.error(libc::ENAMETOOLONG);
             return;
         }
@@ -240,6 +243,7 @@ impl fuser::Filesystem for FuseServer {
             Some(f) => f,
             None => {
                 log::error!("fuse: parent not found");
+                println!("REMOVE ME ========================== fuse: parent not found");
                 reply.error(libc::ENOENT);
                 return;
             }
@@ -247,7 +251,7 @@ impl fuser::Filesystem for FuseServer {
 
         if parent_entry.attributes.kind != FileType::Directory {
             log::error!("fuse: parent is not a directory");
-
+            println!("REMOVE ME ========================== fuse: parent is not a directory");
             reply.error(libc::ENOTDIR);
             return;
         }
@@ -262,12 +266,14 @@ impl fuser::Filesystem for FuseServer {
                 let ttl = std::time::Duration::new(0, 0);
                 reply.entry(&ttl, &(&child.attributes).into(), generation);
                 log::debug!("fuse: found child");
+                println!("REMOVE ME ========================== fuse: found child");
                 return;
             }
         }
         // error
         reply.error(libc::ENOENT);
         log::debug!("fuse: child not found");
+        println!("REMOVE ME ========================== fuse: child not found");
     }
 
     fn opendir(
@@ -277,20 +283,24 @@ impl fuser::Filesystem for FuseServer {
         _flags: i32,
         reply: fuser::ReplyOpen,
     ) {
+        println!("REMOVE ME ========================== fuse: opendir, ino: {}", ino);
         let files = &self.files;
         let Some(entry) = files.get(ino as usize - 1) else {
             reply.error(libc::ENOENT);
             log::error!("fuse: opendir: entry not found");
+            println!("REMOVE ME ========================== fuse: opendir: entry not found");
             return;
         };
         if entry.attributes.kind != FileType::Directory {
             reply.error(libc::ENOTDIR);
             log::error!("fuse: opendir: entry is not a directory");
+            println!("REMOVE ME ========================== fuse: opendir: entry is not a directory");
             return;
         }
         // in gc, deny open
         if entry.marked() {
             log::error!("fuse: opendir: entry is in gc");
+            println!("REMOVE ME ========================== fuse: opendir: entry is in gc");
             reply.error(libc::EBUSY);
             return;
         }
@@ -298,6 +308,7 @@ impl fuser::Filesystem for FuseServer {
         let fh = self.alloc_fd();
         entry.add_handler(fh);
         reply.opened(fh, 0);
+        println!("REMOVE ME ========================== fuse: opendir: opened");
     }
 
     fn readdir(
@@ -308,20 +319,24 @@ impl fuser::Filesystem for FuseServer {
         offset: i64,
         mut reply: ReplyDirectory,
     ) {
+        println!("REMOVE ME ========================== fuse: readdir, ino: {}, fh: {}, offset: {}", ino, fh, offset);
         let files = &self.files;
         let Some(entry) = files.get(ino as usize - 1) else {
             reply.error(libc::ENOENT);
             log::error!("fuse: readdir: entry not found");
+            println!("REMOVE ME ========================== fuse: readdir: entry not found");
             return;
         };
         if !entry.have_handler(fh) {
             reply.error(libc::EBADF);
             log::error!("fuse: readdir: entry has no such handler");
+            println!("REMOVE ME ========================== fuse: readdir: entry has no such handler");
             return;
         }
         if entry.attributes.kind != FileType::Directory {
             reply.error(libc::ENOTDIR);
             log::error!("fuse: readdir: entry is not a directory");
+            println!("REMOVE ME ========================== fuse: readdir: entry is not a directory");
             return;
         }
 
@@ -360,32 +375,39 @@ impl fuser::Filesystem for FuseServer {
         _flags: i32,
         reply: fuser::ReplyEmpty,
     ) {
+        println!("REMOVE ME ========================== fuse: releasedir, ino: {}, fh: {}", ino, fh);
         let files = &self.files;
         let Some(entry) = files.get(ino as usize - 1) else {
             reply.error(libc::ENOENT);
             log::error!("fuse: releasedir: entry not found");
+            println!("REMOVE ME ========================== fuse: releasedir: entry not found");
             return;
         };
         if entry.attributes.kind != FileType::Directory {
             reply.error(libc::ENOTDIR);
             log::error!("fuse: releasedir: entry is not a directory");
+            println!("REMOVE ME ========================== fuse: releasedir: entry is not a directory");
             return;
         }
         if !entry.have_handler(fh) {
             reply.error(libc::EBADF);
             log::error!("fuse: releasedir: entry has no such handler");
+            println!("REMOVE ME ========================== fuse: releasedir: entry has no such handler");
             return;
         }
 
         let _ = entry.unregister_handler(fh);
         reply.ok();
+        println!("REMOVE ME ========================== fuse: releasedir: ok");
     }
 
     fn open(&mut self, _req: &fuser::Request<'_>, ino: u64, _flags: i32, reply: fuser::ReplyOpen) {
+        println!("REMOVE ME ========================== fuse: open, ino: {}", ino);
         let files = &self.files;
         let Some(entry) = files.get(ino as usize - 1) else {
             reply.error(libc::ENOENT);
             log::error!("fuse: open: entry not found");
+            println!("REMOVE ME ========================== fuse: open: entry not found");
             return;
         };
 
@@ -393,6 +415,7 @@ impl fuser::Filesystem for FuseServer {
         if entry.attributes.kind != FileType::File {
             reply.error(libc::ENFILE);
             log::error!("fuse: open: entry is not a file");
+            println!("REMOVE ME ========================== fuse: open: entry is not a file");
             return;
         }
 
@@ -400,6 +423,7 @@ impl fuser::Filesystem for FuseServer {
         if entry.marked() {
             reply.error(libc::EBUSY);
             log::error!("fuse: open: entry is in gc");
+            println!("REMOVE ME ========================== fuse: open: entry is in gc");
             return;
         }
 
@@ -420,26 +444,31 @@ impl fuser::Filesystem for FuseServer {
         _lock_owner: Option<u64>,
         reply: fuser::ReplyData,
     ) {
+        println!("REMOVE ME ========================== fuse: read, ino: {}, fh: {}, offset: {}, size: {}", ino, fh, offset, size);
         let files = &self.files;
         let Some(entry) = files.get(ino as usize - 1) else {
             reply.error(libc::ENOENT);
             log::error!("fuse: read: entry not found");
+            println!("REMOVE ME ========================== fuse: read: entry not found");
             return;
         };
         if !entry.have_handler(fh) {
             reply.error(libc::EBADF);
             log::error!("fuse: read: entry has no such handler");
+            println!("REMOVE ME ========================== fuse: read: entry has no such handler");
             return;
         }
         if entry.attributes.kind != FileType::File {
             reply.error(libc::ENFILE);
             log::error!("fuse: read: entry is not a file");
+            println!("REMOVE ME ========================== fuse: read: entry is not a file");
             return;
         }
 
         if entry.marked() {
             reply.error(libc::EBUSY);
             log::error!("fuse: read: entry is in gc");
+            println!("REMOVE ME ========================== fuse: read: entry is in gc");
             return;
         }
 
@@ -453,6 +482,7 @@ impl fuser::Filesystem for FuseServer {
         };
 
         reply.data(bytes.as_slice());
+        println!("REMOVE ME ========================== fuse: read: ok");
     }
 
     fn release(
@@ -465,34 +495,42 @@ impl fuser::Filesystem for FuseServer {
         _flush: bool,
         reply: fuser::ReplyEmpty,
     ) {
+        println!("REMOVE ME ========================== fuse: release, ino: {}, fh: {}", ino, fh);
         let files = &self.files;
         let Some(entry) = files.get(ino as usize - 1) else {
             reply.error(libc::ENOENT);
             log::error!("fuse: release: entry not found");
+            println!("REMOVE ME ========================== fuse: release: entry not found");
             return;
         };
 
         if entry.unregister_handler(fh).is_err() {
             reply.error(libc::EBADF);
             log::error!("fuse: release: entry has no such handler");
+            println!("REMOVE ME ========================== fuse: release: entry has no such handler");
             return;
         }
         reply.ok();
+        println!("REMOVE ME ========================== fuse: release: ok");
     }
 
-    fn getattr(&mut self, _req: &fuser::Request<'_>, ino: u64, reply: fuser::ReplyAttr) {
+    fn getattr(&mut self, _req: &fuser::Request<'_>, ino: u64, _fh: Option<u64>, reply: fuser::ReplyAttr) {
+        println!("REMOVE ME ========================== fuse: getattr, ino: {}", ino);
         let files = &self.files;
         let Some(entry) = files.get(ino as usize - 1) else {
             reply.error(libc::ENOENT);
             log::error!("fuse: getattr: entry not found");
+            println!("REMOVE ME ========================== fuse: getattr: entry not found");
             return;
         };
 
         let attr = (&entry.attributes).into();
+        println!("REMOVE ME ========================== fuse: getattr: ok");
         reply.attr(&std::time::Duration::default(), &attr)
     }
 
     fn statfs(&mut self, _req: &fuser::Request<'_>, _ino: u64, reply: fuser::ReplyStatfs) {
+        println!("REMOVE ME ========================== fuse: statfs");
         let mut blocks = 0;
         for file in self.files.iter() {
             blocks += file.attributes.size / (BLOCK_SIZE as u64)
@@ -553,6 +591,7 @@ impl FuseServer {
 
         let mut retry_times = 0;
 
+        // to-do: more tests needed
         loop {
             let reply = self.rx.recv_timeout(self.timeout).map_err(|e| {
                 log::error!("failed to receive file list from channel: {:?}", e);

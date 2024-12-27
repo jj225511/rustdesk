@@ -60,6 +60,7 @@ AppDir:
     - libcanberra-gtk3-module
     - libpam0g
     - libdrm2
+    - libfuse2
     exclude:
     - humanity-icon-theme
     - hicolor-icon-theme
