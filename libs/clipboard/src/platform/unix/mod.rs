@@ -1,6 +1,6 @@
 use std::{
     path::PathBuf,
-    sync::{mpsc::Sender, Arc},
+    sync::{mpsc::Sender, Arc, Mutex},
     time::Duration,
 };
 
@@ -12,7 +12,6 @@ use hbb_common::{
     log,
 };
 use lazy_static::lazy_static;
-use parking_lot::Mutex;
 
 use crate::{
     platform::{fuse::FileDescription, unix::local_file::construct_file_list},
@@ -72,10 +71,12 @@ pub fn get_exclude_paths() -> Vec<Arc<String>> {
 
 pub fn is_fuse_context_inited(is_client: bool) -> bool {
     if is_client {
-        FUSE_CONTEXT_CLIENT.lock().is_some()
+        FUSE_CONTEXT_CLIENT.lock()
     } else {
-        FUSE_CONTEXT_SERVER.lock().is_some()
+        FUSE_CONTEXT_SERVER.lock()
     }
+    .unwrap()
+    .is_some()
 }
 
 pub fn init_fuse_context(is_client: bool) -> Result<(), CliprdrError> {
@@ -83,7 +84,8 @@ pub fn init_fuse_context(is_client: bool) -> Result<(), CliprdrError> {
         FUSE_CONTEXT_CLIENT.lock()
     } else {
         FUSE_CONTEXT_SERVER.lock()
-    };
+    }
+    .unwrap();
     if fuse_context_lock.is_some() {
         return Ok(());
     }
@@ -139,7 +141,8 @@ pub fn format_data_response_to_urls(
         FUSE_CONTEXT_CLIENT.lock()
     } else {
         FUSE_CONTEXT_SERVER.lock()
-    };
+    }
+    .unwrap();
     ctx.as_ref()
         .ok_or(CliprdrError::CliprdrInit)?
         .format_data_response_to_urls(format_data, conn_id)
@@ -180,7 +183,8 @@ pub fn read_file_contents(
         FUSE_CONTEXT_CLIENT.lock()
     } else {
         FUSE_CONTEXT_SERVER.lock()
-    };
+    }
+    .unwrap();
     ctx.as_ref()
         .ok_or(CliprdrError::CliprdrInit)?
         .serve_file_contents(conn_id, fcr)
@@ -195,7 +199,8 @@ pub fn handle_file_content_response(
         FUSE_CONTEXT_CLIENT.lock()
     } else {
         FUSE_CONTEXT_SERVER.lock()
-    };
+    }
+    .unwrap();
     ctx.as_ref()
         .ok_or(CliprdrError::CliprdrInit)?
         .tx
@@ -212,7 +217,8 @@ pub fn empty_local_files(is_client: bool) {
         FUSE_CONTEXT_CLIENT.lock()
     } else {
         FUSE_CONTEXT_SERVER.lock()
-    };
+    }
+    .unwrap();
     ctx.as_ref().map(|c| c.empty_local_files());
 }
 
@@ -248,24 +254,26 @@ fn prepare_fuse_mount_point(mount_point: &PathBuf) {
 }
 
 fn uninit_fuse_context_(is_client: bool) {
-    if is_client {
-        let _ = FUSE_CONTEXT_CLIENT.lock().take();
+    let _ = if is_client {
+        FUSE_CONTEXT_CLIENT.lock()
     } else {
-        let _ = FUSE_CONTEXT_SERVER.lock().take();
+        FUSE_CONTEXT_SERVER.lock()
     }
+    .unwrap()
+    .take();
 }
 
 impl Drop for FuseContext {
     fn drop(&mut self) {
-        self.session.lock().take().map(|s| s.join());
+        self.session.lock().unwrap().take().map(|s| s.join());
     }
 }
 
 impl FuseContext {
     pub fn empty_local_files(&self) {
-        let mut local_files = self.local_files.lock();
+        let mut local_files = self.local_files.lock().unwrap();
         *local_files = vec![];
-        let mut fuse_guard = self.server.lock();
+        let mut fuse_guard = self.server.lock().unwrap();
         let _ = fuse_guard.load_file_list(vec![]);
     }
 
@@ -277,7 +285,7 @@ impl FuseContext {
         let files = FileDescription::parse_file_descriptors(format_data, conn_id)?;
 
         let paths = {
-            let mut fuse_guard = self.server.lock();
+            let mut fuse_guard = self.server.lock().unwrap();
             fuse_guard.load_file_list(files)?;
 
             fuse_guard.list_root()
@@ -295,7 +303,7 @@ impl FuseContext {
             .iter()
             .map(|s| PathBuf::from(s))
             .collect::<Vec<_>>();
-        let mut local_files = self.local_files.lock();
+        let mut local_files = self.local_files.lock().unwrap();
         let local_file_list: Vec<PathBuf> = local_files.iter().map(|f| f.path.clone()).collect();
         if local_file_list == clipboard_files {
             return Ok(());
@@ -310,7 +318,7 @@ impl FuseContext {
         conn_id: i32,
         request: FileContentsRequest,
     ) -> Result<ClipboardFile, CliprdrError> {
-        let mut file_list = self.local_files.lock();
+        let mut file_list = self.local_files.lock().unwrap();
 
         let (file_idx, file_contents_resp) = match request {
             FileContentsRequest::Size {
@@ -482,12 +490,13 @@ pub fn build_file_list_format_data(
         FUSE_CONTEXT_CLIENT.lock()
     } else {
         FUSE_CONTEXT_SERVER.lock()
-    };
+    }
+    .unwrap();
     match &*ctx {
         None => Err(CliprdrError::CliprdrInit),
         Some(ctx) => {
             ctx.sync_local_files(files)?;
-            Ok(build_file_list_pdu(&ctx.local_files.lock()))
+            Ok(build_file_list_pdu(&ctx.local_files.lock().unwrap()))
         }
     }
 }

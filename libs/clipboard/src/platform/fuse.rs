@@ -25,7 +25,7 @@ use std::{
     sync::{
         atomic::{AtomicBool, AtomicU64, Ordering},
         mpsc::{Receiver, Sender},
-        Arc,
+        Arc, Condvar, Mutex,
     },
     time::{Duration, SystemTime},
 };
@@ -35,7 +35,6 @@ use hbb_common::{
     bytes::{Buf, Bytes},
     log,
 };
-use parking_lot::{Condvar, Mutex};
 use utf16string::WStr;
 
 use crate::{send_data, ClipboardFile, CliprdrError};
@@ -72,7 +71,7 @@ impl fuser::Filesystem for FuseClient {
         req: &fuser::Request<'_>,
         config: &mut fuser::KernelConfig,
     ) -> Result<(), libc::c_int> {
-        let mut server = self.server.lock();
+        let mut server = self.server.lock().unwrap();
         server.init(req, config)
     }
 
@@ -83,12 +82,12 @@ impl fuser::Filesystem for FuseClient {
         name: &std::ffi::OsStr,
         reply: fuser::ReplyEntry,
     ) {
-        let mut server = self.server.lock();
+        let mut server = self.server.lock().unwrap();
         server.lookup(req, parent, name, reply)
     }
 
     fn opendir(&mut self, req: &fuser::Request<'_>, ino: u64, flags: i32, reply: fuser::ReplyOpen) {
-        let mut server = self.server.lock();
+        let mut server = self.server.lock().unwrap();
         server.opendir(req, ino, flags, reply)
     }
 
@@ -100,7 +99,7 @@ impl fuser::Filesystem for FuseClient {
         offset: i64,
         reply: fuser::ReplyDirectory,
     ) {
-        let mut server = self.server.lock();
+        let mut server = self.server.lock().unwrap();
         server.readdir(req, ino, fh, offset, reply)
     }
 
@@ -112,12 +111,12 @@ impl fuser::Filesystem for FuseClient {
         _flags: i32,
         reply: fuser::ReplyEmpty,
     ) {
-        let mut server = self.server.lock();
+        let mut server = self.server.lock().unwrap();
         server.releasedir(req, ino, fh, _flags, reply)
     }
 
     fn open(&mut self, req: &fuser::Request<'_>, ino: u64, flags: i32, reply: fuser::ReplyOpen) {
-        let mut server = self.server.lock();
+        let mut server = self.server.lock().unwrap();
         server.open(req, ino, flags, reply)
     }
 
@@ -132,7 +131,7 @@ impl fuser::Filesystem for FuseClient {
         lock_owner: Option<u64>,
         reply: fuser::ReplyData,
     ) {
-        let mut server = self.server.lock();
+        let mut server = self.server.lock().unwrap();
         server.read(req, ino, fh, offset, size, flags, lock_owner, reply)
     }
 
@@ -146,17 +145,23 @@ impl fuser::Filesystem for FuseClient {
         _flush: bool,
         reply: fuser::ReplyEmpty,
     ) {
-        let mut server = self.server.lock();
+        let mut server = self.server.lock().unwrap();
         server.release(req, ino, fh, _flags, _lock_owner, _flush, reply)
     }
 
-    fn getattr(&mut self, req: &fuser::Request<'_>, ino: u64, fh: Option<u64>, reply: fuser::ReplyAttr) {
-        let mut server = self.server.lock();
+    fn getattr(
+        &mut self,
+        req: &fuser::Request<'_>,
+        ino: u64,
+        fh: Option<u64>,
+        reply: fuser::ReplyAttr,
+    ) {
+        let mut server = self.server.lock().unwrap();
         server.getattr(req, ino, fh, reply)
     }
 
     fn statfs(&mut self, req: &fuser::Request<'_>, ino: u64, reply: fuser::ReplyStatfs) {
-        let mut server = self.server.lock();
+        let mut server = self.server.lock().unwrap();
         server.statfs(req, ino, reply)
     }
 }
@@ -479,7 +484,13 @@ impl fuser::Filesystem for FuseServer {
         reply.ok();
     }
 
-    fn getattr(&mut self, _req: &fuser::Request<'_>, ino: u64, _fh: Option<u64>, reply: fuser::ReplyAttr) {
+    fn getattr(
+        &mut self,
+        _req: &fuser::Request<'_>,
+        ino: u64,
+        _fh: Option<u64>,
+        reply: fuser::ReplyAttr,
+    ) {
         let files = &self.files;
         let Some(entry) = files.get(ino as usize - 1) else {
             reply.error(libc::ENOENT);
@@ -1028,7 +1039,7 @@ impl FileHandles {
         if self.marked() {
             panic!("adding new handler to a marked ref counter");
         }
-        self.handlers.lock().push(fh);
+        self.handlers.lock().unwrap().push(fh);
     }
 
     pub fn marked(&self) -> bool {
@@ -1036,12 +1047,12 @@ impl FileHandles {
     }
 
     pub fn have_handler(&self, handler: u64) -> bool {
-        let handlers = self.handlers.lock();
+        let handlers = self.handlers.lock().unwrap();
         handlers.binary_search(&handler).is_ok()
     }
 
     pub fn unregister(&self, handler: u64) -> Result<(), std::io::Error> {
-        let mut handlers = self.handlers.lock();
+        let mut handlers = self.handlers.lock().unwrap();
 
         let Ok(idx) = handlers.binary_search(&handler) else {
             let e = std::io::Error::new(std::io::ErrorKind::InvalidInput, "invalid handler");

@@ -983,7 +983,6 @@ dependencies = [
  "lazy_static",
  "libc",
  "once_cell",
- "parking_lot",
  "percent-encoding",
  "rand 0.8.5",
  "serde 1.0.203",
