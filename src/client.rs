@@ -676,7 +676,7 @@ impl Client {
         if crate::flutter::sessions::has_sessions_running(ConnType::DEFAULT_CONN) {
             return;
         }
-        TEXT_CLIPBOARD_STATE.lock().unwrap().running = false;
+        TEXT_CLIPBOARD_STATE.lock().unwrap().stop();
     }
 
     // `try_start_clipboard` is called by all session when connection is established. (When handling peer info).
@@ -753,7 +753,7 @@ impl Client {
             log::info!("Stop text clipboard loop");
             shutdown.signal();
             h.join().ok();
-            TEXT_CLIPBOARD_STATE.lock().unwrap().running = false;
+            TEXT_CLIPBOARD_STATE.lock().unwrap().stop();
         });
 
         Some(rx_started)
@@ -785,7 +785,7 @@ impl Client {
                 std::thread::sleep(Duration::from_millis(CLIPBOARD_INTERVAL));
             }
             log::info!("Stop text clipboard loop");
-            TEXT_CLIPBOARD_STATE.lock().unwrap().running = false;
+            TEXT_CLIPBOARD_STATE.lock().unwrap().stop();
         });
 
         None
@@ -799,6 +799,11 @@ impl TextClipboardState {
             is_required: true,
             running: false,
         }
+    }
+
+    fn stop(&mut self) {
+        self.running = false;
+        self.is_required = true;
     }
 }
 
