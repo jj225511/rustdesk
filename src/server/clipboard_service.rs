@@ -1,17 +1,17 @@
 use super::*;
-#[cfg(feature = "unix-file-copy-paste")]
+#[cfg(all(feature = "unix-file-copy-paste", target_os = "linux"))]
 use crate::clipboard::check_clipboard_files;
 #[cfg(not(target_os = "android"))]
 use crate::clipboard::clipboard_listener;
-#[cfg(feature = "unix-file-copy-paste")]
+#[cfg(all(feature = "unix-file-copy-paste", target_os = "linux"))]
 pub use crate::clipboard::FILE_CLIPBOARD_NAME as FILE_NAME;
 #[cfg(not(target_os = "android"))]
 pub use crate::clipboard::{check_clipboard, ClipboardContext, ClipboardSide};
 pub use crate::clipboard::{CLIPBOARD_INTERVAL as INTERVAL, CLIPBOARD_NAME as NAME};
 #[cfg(windows)]
 use crate::ipc::{self, ClipboardFile, ClipboardNonFile, Data};
-#[cfg(feature = "unix-file-copy-paste")]
-use clipboard::platform::unix::{init_fuse_context, uninit_fuse_context};
+#[cfg(all(feature = "unix-file-copy-paste", target_os = "linux"))]
+use clipboard::platform::unix::fuse::{init_fuse_context, uninit_fuse_context};
 #[cfg(not(target_os = "android"))]
 use clipboard_master::CallbackResult;
 #[cfg(target_os = "android")]
@@ -51,7 +51,7 @@ pub fn new(name: String) -> GenericService {
 
 #[cfg(not(target_os = "android"))]
 fn run(sp: EmptyExtraFieldService) -> ResultType<()> {
-    #[cfg(feature = "unix-file-copy-paste")]
+    #[cfg(all(feature = "unix-file-copy-paste", target_os = "linux"))]
     let _fuse_call_on_ret = {
         if sp.name() == FILE_NAME {
             Some(init_fuse_context(false).map(|_| crate::SimpleCallOnReturn {
@@ -79,7 +79,7 @@ fn run(sp: EmptyExtraFieldService) -> ResultType<()> {
     while sp.ok() {
         match rx_cb_result.recv_timeout(Duration::from_millis(INTERVAL)) {
             Ok(CallbackResult::Next) => {
-                #[cfg(feature = "unix-file-copy-paste")]
+                #[cfg(all(feature = "unix-file-copy-paste", target_os = "linux"))]
                 if sp.name() == FILE_NAME {
                     handler.check_clipboard_file();
                     continue;
@@ -110,9 +110,9 @@ fn run(sp: EmptyExtraFieldService) -> ResultType<()> {
 
 #[cfg(not(target_os = "android"))]
 impl Handler {
-    #[cfg(feature = "unix-file-copy-paste")]
+    #[cfg(all(feature = "unix-file-copy-paste", target_os = "linux"))]
     fn check_clipboard_file(&mut self) {
-        if clipboard::platform::unix::is_fuse_context_inited(false) {
+        if clipboard::platform::unix::fuse::is_fuse_context_inited(false) {
             if let Some(urls) = check_clipboard_files(&mut self.ctx, ClipboardSide::Host, false) {
                 if !urls.is_empty() {
                     use crate::clipboard_file::unix_file_clip;

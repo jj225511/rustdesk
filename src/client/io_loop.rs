@@ -12,8 +12,8 @@ use crate::{
 };
 #[cfg(feature = "unix-file-copy-paste")]
 use crate::{clipboard::try_empty_clipboard_files, clipboard_file::unix_file_clip};
-#[cfg(feature = "unix-file-copy-paste")]
-use clipboard::platform::unix::{init_fuse_context, uninit_fuse_context};
+#[cfg(all(feature = "unix-file-copy-paste", target_os = "linux"))]
+use clipboard::platform::unix::fuse::{init_fuse_context, uninit_fuse_context};
 #[cfg(target_os = "windows")]
 use clipboard::ContextSend;
 use crossbeam_queue::ArrayQueue;
@@ -378,7 +378,7 @@ impl<T: InvokeUiSession> Remote<T> {
                             log::error!("failed to restart clipboard context: {}", e);
                             // to-do: Show msgbox with "Don't show again" option
                         };
-                        #[cfg(feature = "unix-file-copy-paste")]
+                        #[cfg(all(feature = "unix-file-copy-paste", target_os = "linux"))]
                         let _ = init_fuse_context(true).is_ok();
                         log::debug!("Send system clipboard message to remote");
                         let msg = crate::clipboard_file::clip_2_msg(clip);
@@ -1990,7 +1990,7 @@ impl<T: InvokeUiSession> Remote<T> {
                     .server_clip_file(self.client_conn_id, clip)
                     .map_err(|e| e.into())
             });
-            #[cfg(feature = "unix-file-copy-paste")]
+            #[cfg(all(feature = "unix-file-copy-paste", target_os = "linux"))]
             if init_fuse_context(true).is_ok() {
                 if let Some(msg) = unix_file_clip::serve_clip_messages(true, clip, 0) {
                     allow_err!(_peer.send(&msg).await);

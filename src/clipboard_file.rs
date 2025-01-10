@@ -186,7 +186,12 @@ pub mod unix_file_clip {
         super::clipboard::{update_clipboard_files, ClipboardSide},
         *,
     };
-    use clipboard::platform::unix::*;
+    #[cfg(target_os = "linux")]
+    use clipboard::platform::unix::fuse;
+    use clipboard::platform::unix::{
+        get_local_format, FILECONTENTS_FORMAT_ID, FILECONTENTS_FORMAT_NAME,
+        FILEDESCRIPTORW_FORMAT_NAME, FILEDESCRIPTOR_FORMAT_ID,
+    };
     use hbb_common::{log, message_proto::*};
     use std::{
         collections::HashMap,
@@ -212,6 +217,7 @@ pub mod unix_file_clip {
     }
 
     #[inline]
+    #[cfg(target_os = "linux")]
     fn msg_resp_format_data_failure() -> Message {
         clip_2_msg(ClipboardFile::FormatDataResponse {
             msg_flags: 0x2,
@@ -220,6 +226,7 @@ pub mod unix_file_clip {
     }
 
     #[inline]
+    #[cfg(target_os = "linux")]
     fn resp_file_contents_fail(stream_id: i32) -> Message {
         clip_2_msg(ClipboardFile::FileContentsResponse {
             msg_flags: 0x2,
@@ -229,6 +236,7 @@ pub mod unix_file_clip {
     }
 
     // to-do: conn_id may not be needed
+    #[cfg(target_os = "linux")]
     pub fn serve_clip_messages(
         is_client: bool,
         clip: ClipboardFile,
@@ -277,7 +285,7 @@ pub mod unix_file_clip {
                 ) {
                     Ok(Some(files)) => {
                         if !files.is_empty() {
-                            match clipboard::platform::unix::build_file_list_format_data(
+                            match clipboard::platform::unix::fuse::build_file_list_format_data(
                                 is_client, &files,
                             ) {
                                 Ok(format_data) => {

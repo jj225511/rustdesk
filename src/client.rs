@@ -1855,7 +1855,7 @@ impl LoginConfigHandler {
             return None;
         }
 
-        #[cfg(feature = "unix-file-copy-paste")]
+        #[cfg(all(feature = "unix-file-copy-paste", target_os = "linux"))]
         if option.enable_file_transfer.enum_value() == Ok(BoolOption::No) {
             crate::clipboard::try_empty_clipboard_files(crate::clipboard::ClipboardSide::Client);
         }

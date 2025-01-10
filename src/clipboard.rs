@@ -8,7 +8,7 @@ use std::{
 };
 
 pub const CLIPBOARD_NAME: &'static str = "clipboard";
-#[cfg(feature = "unix-file-copy-paste")]
+#[cfg(all(feature = "unix-file-copy-paste", target_os = "linux"))]
 pub const FILE_CLIPBOARD_NAME: &'static str = "file-clipboard";
 pub const CLIPBOARD_INTERVAL: u64 = 333;
 
@@ -130,7 +130,10 @@ pub fn try_empty_clipboard_files(side: ClipboardSide) {
     std::thread::spawn(move || {
         if let Ok(mut ctx) = ClipboardContext::new() {
             ctx.try_empty_clipboard_files();
-            clipboard::platform::unix::empty_local_files(side == ClipboardSide::Client);
+            #[cfg(target_os = "linux")]
+            {
+                clipboard::platform::unix::fuse::empty_local_files(side == ClipboardSide::Client);
+            }
         }
     });
 }
@@ -348,7 +351,10 @@ impl ClipboardContext {
     fn try_empty_clipboard_files(&mut self) {
         let _lock = ARBOARD_MTX.lock().unwrap();
         if let Ok(data) = self.get_formats(&[ClipboardFormat::FileUrl]) {
-            let exclude_paths = clipboard::platform::unix::get_exclude_paths();
+            #[cfg(target_os = "linux")]
+            let exclude_paths = clipboard::platform::unix::fuse::get_exclude_paths();
+            #[cfg(target_os = "macos")]
+            let exclude_paths: Vec<Arc<String>> = vec![];
             let urls = data
                 .into_iter()
                 .filter_map(|c| match c {
