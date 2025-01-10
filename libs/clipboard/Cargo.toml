@@ -47,4 +47,3 @@ fuser = {version = "0.15", default-features = false, optional = true}
 
 [target.'cfg(target_os = "macos")'.dependencies]
 cacao = {git="https://github.com/clslaid/cacao", branch = "feat/set-file-urls", optional = true}
-fuser = {version = "0.15", optional = true}

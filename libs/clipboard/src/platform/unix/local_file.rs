@@ -8,16 +8,13 @@ use std::{
     time::SystemTime,
 };
 
+use super::{BLOCK_SIZE, LDAP_EPOCH_DELTA};
+use crate::CliprdrError;
 use hbb_common::{
     bytes::{BufMut, BytesMut},
     log,
 };
 use utf16string::WString;
-
-use crate::{
-    platform::{fuse::BLOCK_SIZE, LDAP_EPOCH_DELTA},
-    CliprdrError,
-};
 
 /// has valid file attributes
 const FLAGS_FD_ATTRIBUTES: u32 = 0x04;
@@ -274,7 +271,7 @@ mod file_list_test {
 
     use hbb_common::bytes::{BufMut, BytesMut};
 
-    use crate::{platform::fuse::FileDescription, CliprdrError};
+    use crate::{platform::unix::filetype::FileDescription, CliprdrError};
 
     use super::LocalFile;
 
