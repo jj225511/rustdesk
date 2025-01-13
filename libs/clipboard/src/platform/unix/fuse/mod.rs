@@ -111,7 +111,7 @@ pub fn init_fuse_context(is_client: bool) -> Result<(), CliprdrError> {
         tx,
         mount_point,
         session,
-        local_files: Mutex::new(vec![]),
+        local_files: Mutex::new(ClipFiles::default()),
     };
     *fuse_context_lock = Some(ctx);
     Ok(())
@@ -207,6 +207,12 @@ pub fn empty_local_files(is_client: bool) {
     ctx.as_ref().map(|c| c.empty_local_files());
 }
 
+#[derive(Default)]
+struct ClipFiles {
+    files: Vec<String>,
+    file_list: Vec<LocalFile>,
+}
+
 struct FuseContext {
     server: Arc<Mutex<FuseServer>>,
     tx: Sender<ClipboardFile>,
@@ -217,7 +223,7 @@ struct FuseContext {
     // Because `CliprdrFileContentsRequest` only contains the index of the file in the list.
     // We need to keep the file list in the same order as the remote side.
     // We may add a `FileId` field to `CliprdrFileContentsRequest` in the future.
-    local_files: Mutex<Vec<LocalFile>>,
+    local_files: Mutex<ClipFiles>,
 }
 
 // this function must be called after the main IPC is up
@@ -255,7 +261,7 @@ impl Drop for FuseContext {
 impl FuseContext {
     pub fn empty_local_files(&self) {
         let mut local_files = self.local_files.lock();
-        *local_files = vec![];
+        *local_files = ClipFiles::default();
         let mut fuse_guard = self.server.lock();
         let _ = fuse_guard.load_file_list(vec![]);
     }
@@ -282,17 +288,19 @@ impl FuseContext {
     }
 
     fn sync_local_files(&self, clipboard_files: &[String]) -> Result<(), CliprdrError> {
-        let clipboard_files = clipboard_files
+        let mut local_files = self.local_files.lock();
+        if local_files.files == clipboard_files {
+            return Ok(());
+        }
+        let clipboard_paths = clipboard_files
             .iter()
             .map(|s| PathBuf::from(s))
             .collect::<Vec<_>>();
-        let mut local_files = self.local_files.lock();
-        let local_file_list: Vec<PathBuf> = local_files.iter().map(|f| f.path.clone()).collect();
-        if local_file_list == clipboard_files {
-            return Ok(());
-        }
-        let new_files = construct_file_list(&clipboard_files)?;
-        *local_files = new_files;
+        let file_list = construct_file_list(&clipboard_paths)?;
+        *local_files = ClipFiles {
+            files: clipboard_files.to_vec(),
+            file_list,
+        };
         Ok(())
     }
 
@@ -301,7 +309,7 @@ impl FuseContext {
         conn_id: i32,
         request: FileContentsRequest,
     ) -> Result<ClipboardFile, CliprdrError> {
-        let mut file_list = self.local_files.lock();
+        let mut local_files = self.local_files.lock();
 
         let (file_idx, file_contents_resp) = match request {
             FileContentsRequest::Size {
@@ -309,7 +317,7 @@ impl FuseContext {
                 file_idx,
             } => {
                 log::debug!("file contents (size) requested from conn: {}", conn_id);
-                let Some(file) = file_list.get(file_idx) else {
+                let Some(file) = local_files.file_list.get(file_idx) else {
                     log::error!(
                         "invalid file index {} requested from conn: {}",
                         file_idx,
@@ -354,7 +362,7 @@ impl FuseContext {
                     length,
                     conn_id
                 );
-                let Some(file) = file_list.get_mut(file_idx) else {
+                let Some(file) = local_files.file_list.get_mut(file_idx) else {
                     log::error!(
                         "invalid file index {} requested from conn: {}",
                         file_idx,
@@ -409,7 +417,7 @@ impl FuseContext {
 
         log::debug!("file contents sent to conn: {}", conn_id);
         // hot reload next file
-        for next_file in file_list.iter_mut().skip(file_idx + 1) {
+        for next_file in local_files.file_list.iter_mut().skip(file_idx + 1) {
             if !next_file.is_dir {
                 next_file.load_handle()?;
                 break;
@@ -432,7 +440,7 @@ pub fn build_file_list_format_data(
         None => Err(CliprdrError::CliprdrInit),
         Some(ctx) => {
             ctx.sync_local_files(files)?;
-            Ok(build_file_list_pdu(&ctx.local_files.lock()))
+            Ok(build_file_list_pdu(&ctx.local_files.lock().file_list))
         }
     }
 }
