@@ -129,11 +129,14 @@ pub fn update_clipboard_files(files: Vec<String>, side: ClipboardSide) {
 pub fn try_empty_clipboard_files(side: ClipboardSide) {
     std::thread::spawn(move || {
         if let Ok(mut ctx) = ClipboardContext::new() {
+            use clipboard::platform::unix;
+
             ctx.try_empty_clipboard_files();
             #[cfg(target_os = "linux")]
             {
-                clipboard::platform::unix::fuse::empty_local_files(side == ClipboardSide::Client);
+                unix::fuse::empty_local_files(side == ClipboardSide::Client);
             }
+            unix::serv_files::clear_files();
         }
     });
 }

@@ -189,7 +189,7 @@ pub mod unix_file_clip {
     #[cfg(target_os = "linux")]
     use clipboard::platform::unix::fuse;
     use clipboard::platform::unix::{
-        get_local_format, FILECONTENTS_FORMAT_ID, FILECONTENTS_FORMAT_NAME,
+        get_local_format, serv_files, FILECONTENTS_FORMAT_ID, FILECONTENTS_FORMAT_NAME,
         FILEDESCRIPTORW_FORMAT_NAME, FILEDESCRIPTOR_FORMAT_ID,
     };
     use hbb_common::{log, message_proto::*};
@@ -236,13 +236,13 @@ pub mod unix_file_clip {
     }
 
     // to-do: conn_id may not be needed
-    #[cfg(target_os = "linux")]
     pub fn serve_clip_messages(
         is_client: bool,
         clip: ClipboardFile,
         conn_id: i32,
     ) -> Option<Message> {
         log::debug!("got clipfile from client peer");
+        println!("REMOVE ME ================================== serve_clip_messages, clip: {:?} ", &clip);
         match clip {
             ClipboardFile::MonitorReady => {
                 log::debug!("client is ready for clipboard");
@@ -285,9 +285,7 @@ pub mod unix_file_clip {
                 ) {
                     Ok(Some(files)) => {
                         if !files.is_empty() {
-                            match clipboard::platform::unix::fuse::build_file_list_format_data(
-                                is_client, &files,
-                            ) {
+                            match serv_files::build_file_list_format_data(&files) {
                                 Ok(format_data) => {
                                     return Some(clip_2_msg(ClipboardFile::FormatDataResponse {
                                         msg_flags: 1,
@@ -309,6 +307,7 @@ pub mod unix_file_clip {
                 }
                 return Some(msg_resp_format_data_failure());
             }
+            #[cfg(target_os = "linux")]
             ClipboardFile::FormatDataResponse {
                 msg_flags,
                 format_data,
@@ -339,8 +338,7 @@ pub mod unix_file_clip {
                 ..
             } => {
                 log::debug!("file contents request: stream_id: {}, list_index: {}, dw_flags: {}, n_position_low: {}, n_position_high: {}, cb_requested: {}", stream_id, list_index, dw_flags, n_position_low, n_position_high, cb_requested);
-                match fuse::read_file_contents(
-                    is_client,
+                match serv_files::read_file_contents(
                     conn_id,
                     stream_id,
                     list_index,
@@ -358,6 +356,7 @@ pub mod unix_file_clip {
                     }
                 }
             }
+            #[cfg(target_os = "linux")]
             ClipboardFile::FileContentsResponse {
                 msg_flags,
                 stream_id,
@@ -382,6 +381,9 @@ pub mod unix_file_clip {
                     title,
                     text
                 );
+            }
+            _ => {
+                log::error!("unsupported clipboard file type");
             }
         }
         None

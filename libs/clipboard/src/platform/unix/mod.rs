@@ -9,6 +9,19 @@ mod filetype;
 #[cfg(target_os = "linux")]
 pub mod fuse;
 pub mod local_file;
+pub mod serv_files;
+
+/// has valid file attributes
+pub const FLAGS_FD_ATTRIBUTES: u32 = 0x04;
+/// has valid file size
+pub const FLAGS_FD_SIZE: u32 = 0x40;
+/// has valid last write time
+pub const FLAGS_FD_LAST_WRITE: u32 = 0x20;
+/// show progress
+pub const FLAGS_FD_PROGRESSUI: u32 = 0x4000;
+/// transferred from unix, contains file mode
+/// P.S. this flag is not used in windows
+pub const FLAGS_FD_UNIX_MODE: u32 = 0x08;
 
 // not actual format id, just a placeholder
 pub const FILEDESCRIPTOR_FORMAT_ID: i32 = 49334;

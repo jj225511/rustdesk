@@ -1245,20 +1245,7 @@ impl Connection {
 
         #[cfg(any(target_os = "windows", feature = "unix-file-copy-paste"))]
         {
-            // to-do: support cross-platform file clipboard
-            let is_same_platform = if cfg!(target_os = "windows") {
-                self.lr.my_platform == whoami::Platform::Windows.to_string()
-            } else if cfg!(target_os = "linux") {
-                self.lr.my_platform == whoami::Platform::Linux.to_string()
-            } else {
-                // to-do: We do not support file clipboard on macOS for now.
-                // Though copy&paste works fine between macOS and Linux.
-                // Because https://github.com/macfuse/macfuse/wiki/Getting-Started#enabling-support-for-third-party-kernel-extensions-apple-silicon-macs
-                false
-            };
-            if is_same_platform {
-                platform_additions.insert("has_file_clipboard".into(), json!(is_same_platform));
-            }
+            platform_additions.insert("has_file_clipboard".into(), json!(true));
         }
 
         #[cfg(any(target_os = "linux", target_os = "windows", target_os = "macos"))]
