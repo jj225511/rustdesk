@@ -18,8 +18,8 @@ use utf16string::WString;
 
 /// has valid file attributes
 const FLAGS_FD_ATTRIBUTES: u32 = 0x04;
-/// has valid file size
-const FLAGS_FD_SIZE: u32 = 0x40;
+// /// has valid file size
+// const FLAGS_FD_SIZE: u32 = 0x40;
 /// has valid last write time
 const FLAGS_FD_LAST_WRITE: u32 = 0x20;
 /// show progress
@@ -30,6 +30,7 @@ const FLAGS_FD_UNIX_MODE: u32 = 0x08;
 
 #[derive(Debug)]
 pub(super) struct LocalFile {
+    pub relative_root: PathBuf,
     pub path: PathBuf,
 
     pub handle: Option<BufReader<File>>,
@@ -48,7 +49,7 @@ pub(super) struct LocalFile {
 }
 
 impl LocalFile {
-    pub fn try_open(path: &Path) -> Result<Self, CliprdrError> {
+    pub fn try_open(relative_root: &Path, path: &Path) -> Result<Self, CliprdrError> {
         let mt = std::fs::metadata(path).map_err(|e| CliprdrError::FileError {
             path: path.to_string_lossy().to_string(),
             err: e,
@@ -76,6 +77,7 @@ impl LocalFile {
 
         Ok(Self {
             name,
+            relative_root: relative_root.to_path_buf(),
             path: path.to_path_buf(),
             handle,
             offset,
@@ -118,7 +120,12 @@ impl LocalFile {
         let size_high = (self.size >> 32) as u32;
         let size_low = (self.size & (u32::MAX as u64)) as u32;
 
-        let path = self.path.to_string_lossy().to_string();
+        let path = self
+            .path
+            .strip_prefix(&self.relative_root)
+            .unwrap_or(&self.path)
+            .to_string_lossy()
+            .into_owned();
 
         let wstr: WString<utf16string::LE> = WString::from(&path);
         let name = wstr.as_bytes();
@@ -129,11 +136,8 @@ impl LocalFile {
             &self.name
         );
 
-        let flags = FLAGS_FD_SIZE
-            | FLAGS_FD_LAST_WRITE
-            | FLAGS_FD_ATTRIBUTES
-            | FLAGS_FD_PROGRESSUI
-            | FLAGS_FD_UNIX_MODE;
+        let flags =
+            FLAGS_FD_LAST_WRITE | FLAGS_FD_ATTRIBUTES | FLAGS_FD_PROGRESSUI | FLAGS_FD_UNIX_MODE;
 
         // flags, 4 bytes
         buf.put_u32_le(flags);
@@ -221,6 +225,7 @@ impl LocalFile {
 
 pub(super) fn construct_file_list(paths: &[PathBuf]) -> Result<Vec<LocalFile>, CliprdrError> {
     fn constr_file_lst(
+        relative_root: &Path,
         path: &Path,
         file_list: &mut Vec<LocalFile>,
         visited: &mut HashSet<PathBuf>,
@@ -231,7 +236,7 @@ pub(super) fn construct_file_list(paths: &[PathBuf]) -> Result<Vec<LocalFile>, C
         }
         visited.insert(path.to_path_buf());
 
-        let local_file = LocalFile::try_open(path)?;
+        let local_file = LocalFile::try_open(relative_root, path)?;
         file_list.push(local_file);
 
         let mt = std::fs::metadata(path).map_err(|e| CliprdrError::FileError {
@@ -250,7 +255,7 @@ pub(super) fn construct_file_list(paths: &[PathBuf]) -> Result<Vec<LocalFile>, C
                     err: e,
                 })?;
                 let path = entry.path();
-                constr_file_lst(&path, file_list, visited)?;
+                constr_file_lst(relative_root, &path, file_list, visited)?;
             }
         }
         Ok(())
@@ -259,8 +264,18 @@ pub(super) fn construct_file_list(paths: &[PathBuf]) -> Result<Vec<LocalFile>, C
     let mut file_list = Vec::new();
     let mut visited = HashSet::new();
 
+    let relative_root = paths
+        .first()
+        .ok_or(CliprdrError::InvalidRequest {
+            description: "empty file list".to_string(),
+        })?
+        .parent()
+        .ok_or(CliprdrError::InvalidRequest {
+            description: "empty parent".to_string(),
+        })?
+        .to_path_buf();
     for path in paths {
-        constr_file_lst(path, &mut file_list, &mut visited)?;
+        constr_file_lst(&relative_root, path, &mut file_list, &mut visited)?;
     }
     Ok(file_list)
 }
@@ -285,6 +300,7 @@ mod file_list_test {
         #[inline]
         fn generate_file(path: &str, name: &str, is_dir: bool) -> LocalFile {
             LocalFile {
+                relative_root: PathBuf::from("."),
                 path: PathBuf::from(path),
                 handle: None,
                 name: name.to_string(),

@@ -320,7 +320,7 @@ pub mod unix_file_clip {
                 }
 
                 log::debug!("parsing file descriptors");
-                match format_data_response_to_urls(is_client, format_data, conn_id) {
+                match fuse::format_data_response_to_urls(is_client, format_data, conn_id) {
                     Ok(files) => {
                         update_clipboard_files(files, ClipboardSide::Host);
                     }
@@ -339,7 +339,7 @@ pub mod unix_file_clip {
                 ..
             } => {
                 log::debug!("file contents request: stream_id: {}, list_index: {}, dw_flags: {}, n_position_low: {}, n_position_high: {}, cb_requested: {}", stream_id, list_index, dw_flags, n_position_low, n_position_high, cb_requested);
-                match read_file_contents(
+                match fuse::read_file_contents(
                     is_client,
                     conn_id,
                     stream_id,
@@ -368,7 +368,7 @@ pub mod unix_file_clip {
                     msg_flags,
                     stream_id,
                 );
-                hbb_common::allow_err!(handle_file_content_response(is_client, clip));
+                hbb_common::allow_err!(fuse::handle_file_content_response(is_client, clip));
             }
             ClipboardFile::NotifyCallback {
                 r#type,
