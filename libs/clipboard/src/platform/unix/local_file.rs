@@ -1,3 +1,15 @@
+use super::{BLOCK_SIZE, LDAP_EPOCH_DELTA};
+use crate::{
+    platform::unix::{
+        FLAGS_FD_ATTRIBUTES, FLAGS_FD_LAST_WRITE, FLAGS_FD_PROGRESSUI, FLAGS_FD_SIZE,
+        FLAGS_FD_UNIX_MODE,
+    },
+    CliprdrError,
+};
+use hbb_common::{
+    bytes::{BufMut, BytesMut},
+    log,
+};
 use std::{
     collections::HashSet,
     fs::File,
@@ -7,26 +19,7 @@ use std::{
     sync::atomic::{AtomicU64, Ordering},
     time::SystemTime,
 };
-
-use super::{BLOCK_SIZE, LDAP_EPOCH_DELTA};
-use crate::CliprdrError;
-use hbb_common::{
-    bytes::{BufMut, BytesMut},
-    log,
-};
 use utf16string::WString;
-
-/// has valid file attributes
-const FLAGS_FD_ATTRIBUTES: u32 = 0x04;
-// /// has valid file size
-// const FLAGS_FD_SIZE: u32 = 0x40;
-/// has valid last write time
-const FLAGS_FD_LAST_WRITE: u32 = 0x20;
-/// show progress
-const FLAGS_FD_PROGRESSUI: u32 = 0x4000;
-/// transferred from unix, contains file mode
-/// P.S. this flag is not used in windows
-const FLAGS_FD_UNIX_MODE: u32 = 0x08;
 
 #[derive(Debug)]
 pub(super) struct LocalFile {
@@ -136,8 +129,11 @@ impl LocalFile {
             &self.name
         );
 
-        let flags =
-            FLAGS_FD_LAST_WRITE | FLAGS_FD_ATTRIBUTES | FLAGS_FD_PROGRESSUI | FLAGS_FD_UNIX_MODE;
+        let flags = FLAGS_FD_SIZE
+            | FLAGS_FD_LAST_WRITE
+            | FLAGS_FD_ATTRIBUTES
+            | FLAGS_FD_PROGRESSUI
+            | FLAGS_FD_UNIX_MODE;
 
         // flags, 4 bytes
         buf.put_u32_le(flags);

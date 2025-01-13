@@ -1,4 +1,4 @@
-use super::LDAP_EPOCH_DELTA;
+use super::{FLAGS_FD_ATTRIBUTES, FLAGS_FD_SIZE, FLAGS_FD_UNIX_MODE, LDAP_EPOCH_DELTA};
 use crate::CliprdrError;
 use hbb_common::{
     bytes::{Buf, Bytes},
@@ -78,9 +78,9 @@ impl FileDescription {
             CliprdrError::ConversionFailure
         })?;
 
-        let from_unix = flags & 0x08 != 0;
+        let from_unix = flags & FLAGS_FD_UNIX_MODE != 0;
 
-        let valid_attributes = flags & 0x04 != 0;
+        let valid_attributes = flags & FLAGS_FD_ATTRIBUTES != 0;
         if !valid_attributes {
             return Err(CliprdrError::InvalidRequest {
                 description: "file description must have valid attributes".to_string(),
@@ -115,7 +115,7 @@ impl FileDescription {
             FileType::File
         };
 
-        let valid_size = flags & 0x40 != 0;
+        let valid_size = flags & FLAGS_FD_SIZE != 0;
         let size = if valid_size {
             ((file_size_high as u64) << 32) + file_size_low as u64
         } else {

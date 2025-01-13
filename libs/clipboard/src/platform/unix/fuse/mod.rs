@@ -1,17 +1,10 @@
 mod cs;
 
-use super::{filetype::FileDescription, local_file::LocalFile};
-use crate::{
-    platform::unix::{local_file::construct_file_list, resp_file_contents_fail},
-    ClipboardFile, CliprdrError,
-};
+use super::filetype::FileDescription;
+use crate::{ClipboardFile, CliprdrError};
 use cs::FuseServer;
 use fuser::MountOption;
-use hbb_common::{
-    bytes::{BufMut, BytesMut},
-    config::APP_NAME,
-    log,
-};
+use hbb_common::{config::APP_NAME, log};
 use parking_lot::Mutex;
 use std::{
     path::PathBuf,
@@ -34,25 +27,9 @@ lazy_static::lazy_static! {
 
     static ref FUSE_CONTEXT_CLIENT: Arc<Mutex<Option<FuseContext>>> = Arc::new(Mutex::new(None));
     static ref FUSE_CONTEXT_SERVER: Arc<Mutex<Option<FuseContext>>> = Arc::new(Mutex::new(None));
-
 }
 
 static FUSE_TIMEOUT: Duration = Duration::from_secs(3);
-
-#[derive(Debug)]
-enum FileContentsRequest {
-    Size {
-        stream_id: i32,
-        file_idx: usize,
-    },
-
-    Range {
-        stream_id: i32,
-        file_idx: usize,
-        offset: u64,
-        length: u64,
-    },
-}
 
 pub fn get_exclude_paths() -> Vec<Arc<String>> {
     vec![
@@ -111,7 +88,6 @@ pub fn init_fuse_context(is_client: bool) -> Result<(), CliprdrError> {
         tx,
         mount_point,
         session,
-        local_files: Mutex::new(ClipFiles::default()),
     };
     *fuse_context_lock = Some(ctx);
     Ok(())
@@ -134,47 +110,6 @@ pub fn format_data_response_to_urls(
     ctx.as_ref()
         .ok_or(CliprdrError::CliprdrInit)?
         .format_data_response_to_urls(format_data, conn_id)
-}
-
-pub fn read_file_contents(
-    is_client: bool,
-    conn_id: i32,
-    stream_id: i32,
-    list_index: i32,
-    dw_flags: i32,
-    n_position_low: i32,
-    n_position_high: i32,
-    cb_requested: i32,
-) -> Result<ClipboardFile, CliprdrError> {
-    let fcr = if dw_flags == 0x1 {
-        FileContentsRequest::Size {
-            stream_id,
-            file_idx: list_index as usize,
-        }
-    } else if dw_flags == 0x2 {
-        let offset = (n_position_high as u64) << 32 | n_position_low as u64;
-        let length = cb_requested as u64;
-
-        FileContentsRequest::Range {
-            stream_id,
-            file_idx: list_index as usize,
-            offset,
-            length,
-        }
-    } else {
-        return Err(CliprdrError::InvalidRequest {
-            description: format!("got invalid FileContentsRequest, dw_flats: {dw_flags}"),
-        });
-    };
-
-    let ctx = if is_client {
-        FUSE_CONTEXT_CLIENT.lock()
-    } else {
-        FUSE_CONTEXT_SERVER.lock()
-    };
-    ctx.as_ref()
-        .ok_or(CliprdrError::CliprdrInit)?
-        .serve_file_contents(conn_id, fcr)
 }
 
 pub fn handle_file_content_response(
@@ -207,23 +142,12 @@ pub fn empty_local_files(is_client: bool) {
     ctx.as_ref().map(|c| c.empty_local_files());
 }
 
-#[derive(Default)]
-struct ClipFiles {
-    files: Vec<String>,
-    file_list: Vec<LocalFile>,
-}
-
 struct FuseContext {
     server: Arc<Mutex<FuseServer>>,
     tx: Sender<ClipboardFile>,
     mount_point: PathBuf,
     // stores fuse background session handle
     session: Mutex<Option<fuser::BackgroundSession>>,
-    // local files are cached, this value should not be changed when copying files
-    // Because `CliprdrFileContentsRequest` only contains the index of the file in the list.
-    // We need to keep the file list in the same order as the remote side.
-    // We may add a `FileId` field to `CliprdrFileContentsRequest` in the future.
-    local_files: Mutex<ClipFiles>,
 }
 
 // this function must be called after the main IPC is up
@@ -260,8 +184,6 @@ impl Drop for FuseContext {
 
 impl FuseContext {
     pub fn empty_local_files(&self) {
-        let mut local_files = self.local_files.lock();
-        *local_files = ClipFiles::default();
         let mut fuse_guard = self.server.lock();
         let _ = fuse_guard.load_file_list(vec![]);
     }
@@ -286,171 +208,4 @@ impl FuseContext {
             .map(|p| prefix.join(p).to_string_lossy().to_string())
             .collect())
     }
-
-    fn sync_local_files(&self, clipboard_files: &[String]) -> Result<(), CliprdrError> {
-        let mut local_files = self.local_files.lock();
-        if local_files.files == clipboard_files {
-            return Ok(());
-        }
-        let clipboard_paths = clipboard_files
-            .iter()
-            .map(|s| PathBuf::from(s))
-            .collect::<Vec<_>>();
-        let file_list = construct_file_list(&clipboard_paths)?;
-        *local_files = ClipFiles {
-            files: clipboard_files.to_vec(),
-            file_list,
-        };
-        Ok(())
-    }
-
-    fn serve_file_contents(
-        &self,
-        conn_id: i32,
-        request: FileContentsRequest,
-    ) -> Result<ClipboardFile, CliprdrError> {
-        let mut local_files = self.local_files.lock();
-
-        let (file_idx, file_contents_resp) = match request {
-            FileContentsRequest::Size {
-                stream_id,
-                file_idx,
-            } => {
-                log::debug!("file contents (size) requested from conn: {}", conn_id);
-                let Some(file) = local_files.file_list.get(file_idx) else {
-                    log::error!(
-                        "invalid file index {} requested from conn: {}",
-                        file_idx,
-                        conn_id
-                    );
-                    let _ = resp_file_contents_fail(conn_id, stream_id);
-
-                    return Err(CliprdrError::InvalidRequest {
-                        description: format!(
-                            "invalid file index {} requested from conn: {}",
-                            file_idx, conn_id
-                        ),
-                    });
-                };
-
-                log::debug!(
-                    "conn {} requested file-{}: {}",
-                    conn_id,
-                    file_idx,
-                    file.name
-                );
-
-                let size = file.size;
-                (
-                    file_idx,
-                    ClipboardFile::FileContentsResponse {
-                        msg_flags: 0x1,
-                        stream_id,
-                        requested_data: size.to_le_bytes().to_vec(),
-                    },
-                )
-            }
-            FileContentsRequest::Range {
-                stream_id,
-                file_idx,
-                offset,
-                length,
-            } => {
-                log::debug!(
-                    "file contents (range from {} length {}) request from conn: {}",
-                    offset,
-                    length,
-                    conn_id
-                );
-                let Some(file) = local_files.file_list.get_mut(file_idx) else {
-                    log::error!(
-                        "invalid file index {} requested from conn: {}",
-                        file_idx,
-                        conn_id
-                    );
-                    let _ = resp_file_contents_fail(conn_id, stream_id);
-                    return Err(CliprdrError::InvalidRequest {
-                        description: format!(
-                            "invalid file index {} requested from conn: {}",
-                            file_idx, conn_id
-                        ),
-                    });
-                };
-                log::debug!(
-                    "conn {} requested file-{}: {}",
-                    conn_id,
-                    file_idx,
-                    file.name
-                );
-
-                if offset > file.size {
-                    log::error!("invalid reading offset requested from conn: {}", conn_id);
-                    let _ = resp_file_contents_fail(conn_id, stream_id);
-
-                    return Err(CliprdrError::InvalidRequest {
-                        description: format!(
-                            "invalid reading offset requested from conn: {}",
-                            conn_id
-                        ),
-                    });
-                }
-                let read_size = if offset + length > file.size {
-                    file.size - offset
-                } else {
-                    length
-                };
-
-                let mut buf = vec![0u8; read_size as usize];
-
-                file.read_exact_at(&mut buf, offset)?;
-
-                (
-                    file_idx,
-                    ClipboardFile::FileContentsResponse {
-                        msg_flags: 0x1,
-                        stream_id,
-                        requested_data: buf,
-                    },
-                )
-            }
-        };
-
-        log::debug!("file contents sent to conn: {}", conn_id);
-        // hot reload next file
-        for next_file in local_files.file_list.iter_mut().skip(file_idx + 1) {
-            if !next_file.is_dir {
-                next_file.load_handle()?;
-                break;
-            }
-        }
-        Ok(file_contents_resp)
-    }
-}
-
-pub fn build_file_list_format_data(
-    is_client: bool,
-    files: &[String],
-) -> Result<Vec<u8>, CliprdrError> {
-    let ctx = if is_client {
-        FUSE_CONTEXT_CLIENT.lock()
-    } else {
-        FUSE_CONTEXT_SERVER.lock()
-    };
-    match &*ctx {
-        None => Err(CliprdrError::CliprdrInit),
-        Some(ctx) => {
-            ctx.sync_local_files(files)?;
-            Ok(build_file_list_pdu(&ctx.local_files.lock().file_list))
-        }
-    }
-}
-
-fn build_file_list_pdu(files: &[LocalFile]) -> Vec<u8> {
-    let mut data = BytesMut::with_capacity(4 + 592 * files.len());
-    data.put_u32_le(files.len() as u32);
-    for file in files.iter() {
-        data.put(file.as_bin().as_slice());
-    }
-
-    data.to_vec()
 }
