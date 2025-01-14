@@ -1,4 +1,4 @@
-use super::{FLAGS_FD_ATTRIBUTES, FLAGS_FD_SIZE, FLAGS_FD_UNIX_MODE, LDAP_EPOCH_DELTA};
+use super::{FLAGS_FD_ATTRIBUTES, FLAGS_FD_LAST_WRITE, FLAGS_FD_UNIX_MODE, LDAP_EPOCH_DELTA};
 use crate::CliprdrError;
 use hbb_common::{
     bytes::{Buf, Bytes},
@@ -115,14 +115,17 @@ impl FileDescription {
             FileType::File
         };
 
-        let valid_size = flags & FLAGS_FD_SIZE != 0;
+        // to-do: use `let valid_size = flags & FLAGS_FD_SIZE != 0;`
+        // We use `true` to for compatibility with Windows.
+        // let valid_size = flags & FLAGS_FD_SIZE != 0;
+        let valid_size = true;
         let size = if valid_size {
             ((file_size_high as u64) << 32) + file_size_low as u64
         } else {
             0
         };
 
-        let valid_write_time = flags & 0x20 != 0;
+        let valid_write_time = flags & FLAGS_FD_LAST_WRITE != 0;
         let last_modified = if valid_write_time && last_write_time >= LDAP_EPOCH_DELTA {
             let last_write_time = (last_write_time - LDAP_EPOCH_DELTA) * 100;
             let last_write_time = Duration::from_nanos(last_write_time);

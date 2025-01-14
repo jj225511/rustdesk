@@ -109,7 +109,7 @@ pub fn new() -> ServerPtr {
         server.add_service(Box::new(clipboard_service::new(
             clipboard_service::NAME.to_owned(),
         )));
-        #[cfg(all(feature = "unix-file-copy-paste", target_os = "linux"))]
+        #[cfg(feature = "unix-file-copy-paste")]
         server.add_service(Box::new(clipboard_service::new(
             clipboard_service::FILE_NAME.to_owned(),
         )));

@@ -504,7 +504,7 @@ impl Connection {
                                     s.write().unwrap().subscribe(
                                         super::clipboard_service::NAME,
                                         conn.inner.clone(), conn.can_sub_clipboard_service());
-                                    #[cfg(all(feature = "unix-file-copy-paste", target_os = "linux"))]
+                                    #[cfg(feature = "unix-file-copy-paste")]
                                     s.write().unwrap().subscribe(
                                         super::clipboard_service::FILE_NAME,
                                         conn.inner.clone(),
@@ -539,7 +539,7 @@ impl Connection {
                                 if !enabled {
                                     conn.try_empty_file_clipboard();
                                 }
-                                #[cfg(all(feature = "unix-file-copy-paste", target_os = "linux"))]
+                                #[cfg(feature = "unix-file-copy-paste")]
                                 if let Some(s) = conn.server.upgrade() {
                                     s.write().unwrap().subscribe(
                                         super::clipboard_service::FILE_NAME,
@@ -1410,7 +1410,7 @@ impl Connection {
                 if !self.can_sub_clipboard_service() {
                     noperms.push(super::clipboard_service::NAME);
                 }
-                #[cfg(all(feature = "unix-file-copy-paste", target_os = "linux"))]
+                #[cfg(feature = "unix-file-copy-paste")]
                 if !self.can_sub_file_clipboard_service() {
                     noperms.push(super::clipboard_service::FILE_NAME);
                 }
@@ -2165,7 +2165,7 @@ impl Connection {
                     if let Some(clip) = msg_2_clip(_clip) {
                         self.send_to_cm(ipc::Data::ClipboardFile(clip))
                     }
-                    #[cfg(all(feature = "unix-file-copy-paste", target_os = "linux"))]
+                    #[cfg(feature = "unix-file-copy-paste")]
                     if let Some(clip) = msg_2_clip(_clip) {
                         if let Some(msg) =
                             unix_file_clip::serve_clip_messages(false, clip, self.inner.id())
@@ -2976,7 +2976,7 @@ impl Connection {
                 if !self.enable_file_transfer {
                     self.try_empty_file_clipboard();
                 }
-                #[cfg(all(feature = "unix-file-copy-paste", target_os = "linux"))]
+                #[cfg(feature = "unix-file-copy-paste")]
                 if let Some(s) = self.server.upgrade() {
                     s.write().unwrap().subscribe(
                         super::clipboard_service::FILE_NAME,
@@ -3007,7 +3007,7 @@ impl Connection {
                         self.inner.clone(),
                         self.can_sub_clipboard_service(),
                     );
-                    #[cfg(all(feature = "unix-file-copy-paste", target_os = "linux"))]
+                    #[cfg(feature = "unix-file-copy-paste")]
                     s.write().unwrap().subscribe(
                         super::clipboard_service::FILE_NAME,
                         self.inner.clone(),
