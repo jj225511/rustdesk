@@ -55,7 +55,7 @@ pub fn get_local_format(remote_id: i32) -> Option<String> {
     REMOTE_FORMAT_MAP.get(&remote_id).map(|s| s.clone())
 }
 
-fn resp_file_contents_fail(conn_id: i32, stream_id: i32) -> Result<(), CliprdrError> {
+fn send_failed_resp_file_contents(conn_id: i32, stream_id: i32) -> Result<(), CliprdrError> {
     let resp = ClipboardFile::FileContentsResponse {
         msg_flags: 0x2,
         stream_id,

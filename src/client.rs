@@ -672,7 +672,7 @@ impl Client {
     }
 
     #[inline]
-    #[cfg(all(feature = "unix-file-copy-paste", feature = "flutter"))]
+    #[cfg(all(feature = "flutter", feature = "unix-file-copy-paste"))]
     pub fn set_is_file_clipboard_required(b: bool) {
         CLIPBOARD_STATE.lock().unwrap().is_file_required = b;
     }
@@ -1855,7 +1855,7 @@ impl LoginConfigHandler {
             return None;
         }
 
-        #[cfg(all(feature = "unix-file-copy-paste", target_os = "linux"))]
+        #[cfg(feature = "unix-file-copy-paste")]
         if option.enable_file_transfer.enum_value() == Ok(BoolOption::No) {
             crate::clipboard::try_empty_clipboard_files(crate::clipboard::ClipboardSide::Client);
         }

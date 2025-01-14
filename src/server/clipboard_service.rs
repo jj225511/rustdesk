@@ -1,12 +1,10 @@
 use super::*;
-#[cfg(all(feature = "unix-file-copy-paste", target_os = "linux"))]
-use crate::clipboard::check_clipboard_files;
 #[cfg(not(target_os = "android"))]
 use crate::clipboard::clipboard_listener;
-#[cfg(all(feature = "unix-file-copy-paste", target_os = "linux"))]
-pub use crate::clipboard::FILE_CLIPBOARD_NAME as FILE_NAME;
 #[cfg(not(target_os = "android"))]
 pub use crate::clipboard::{check_clipboard, ClipboardContext, ClipboardSide};
+#[cfg(feature = "unix-file-copy-paste")]
+pub use crate::clipboard::{check_clipboard_files, FILE_CLIPBOARD_NAME as FILE_NAME};
 pub use crate::clipboard::{CLIPBOARD_INTERVAL as INTERVAL, CLIPBOARD_NAME as NAME};
 #[cfg(windows)]
 use crate::ipc::{self, ClipboardFile, ClipboardNonFile, Data};
@@ -79,7 +77,7 @@ fn run(sp: EmptyExtraFieldService) -> ResultType<()> {
     while sp.ok() {
         match rx_cb_result.recv_timeout(Duration::from_millis(INTERVAL)) {
             Ok(CallbackResult::Next) => {
-                #[cfg(all(feature = "unix-file-copy-paste", target_os = "linux"))]
+                #[cfg(feature = "unix-file-copy-paste")]
                 if sp.name() == FILE_NAME {
                     handler.check_clipboard_file();
                     continue;
@@ -110,18 +108,13 @@ fn run(sp: EmptyExtraFieldService) -> ResultType<()> {
 
 #[cfg(not(target_os = "android"))]
 impl Handler {
-    #[cfg(all(feature = "unix-file-copy-paste", target_os = "linux"))]
+    #[cfg(feature = "unix-file-copy-paste")]
     fn check_clipboard_file(&mut self) {
-        if clipboard::platform::unix::fuse::is_fuse_context_inited(false) {
-            if let Some(urls) = check_clipboard_files(&mut self.ctx, ClipboardSide::Host, false) {
-                if !urls.is_empty() {
-                    use crate::clipboard_file::unix_file_clip;
-                    // Use `send_data()` here to reuse `handle_file_clip()` in `connection.rs`.
-                    hbb_common::allow_err!(clipboard::send_data(
-                        0,
-                        unix_file_clip::get_format_list()
-                    ));
-                }
+        if let Some(urls) = check_clipboard_files(&mut self.ctx, ClipboardSide::Host, false) {
+            if !urls.is_empty() {
+                use crate::clipboard_file::unix_file_clip;
+                // Use `send_data()` here to reuse `handle_file_clip()` in `connection.rs`.
+                hbb_common::allow_err!(clipboard::send_data(0, unix_file_clip::get_format_list()));
             }
         }
     }

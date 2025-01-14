@@ -2089,7 +2089,10 @@ static FILEDESCRIPTORW *wf_cliprdr_get_file_descriptor(WCHAR *file_name, size_t 
 		return NULL;
 	}
 
-	fd->dwFlags = FD_ATTRIBUTES | FD_FILESIZE | FD_WRITESTIME | FD_PROGRESSUI;
+	// to-do: use `fd->dwFlags = FD_ATTRIBUTES | FD_FILESIZE | FD_WRITESTIME | FD_PROGRESSUI`.
+	// We keep `fd->dwFlags = FD_ATTRIBUTES | FD_WRITESTIME | FD_PROGRESSUI` for compatibility.
+	// fd->dwFlags = FD_ATTRIBUTES | FD_FILESIZE | FD_WRITESTIME | FD_PROGRESSUI;
+	fd->dwFlags = FD_ATTRIBUTES | FD_WRITESTIME | FD_PROGRESSUI;
 	fd->dwFileAttributes = GetFileAttributesW(file_name);
 	if (fd->dwFileAttributes == INVALID_FILE_ATTRIBUTES)
 	{

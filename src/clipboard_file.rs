@@ -217,7 +217,6 @@ pub mod unix_file_clip {
     }
 
     #[inline]
-    #[cfg(target_os = "linux")]
     fn msg_resp_format_data_failure() -> Message {
         clip_2_msg(ClipboardFile::FormatDataResponse {
             msg_flags: 0x2,
@@ -226,7 +225,6 @@ pub mod unix_file_clip {
     }
 
     #[inline]
-    #[cfg(target_os = "linux")]
     fn resp_file_contents_fail(stream_id: i32) -> Message {
         clip_2_msg(ClipboardFile::FileContentsResponse {
             msg_flags: 0x2,
@@ -242,7 +240,6 @@ pub mod unix_file_clip {
         conn_id: i32,
     ) -> Option<Message> {
         log::debug!("got clipfile from client peer");
-        println!("REMOVE ME ================================== serve_clip_messages, clip: {:?} ", &clip);
         match clip {
             ClipboardFile::MonitorReady => {
                 log::debug!("client is ready for clipboard");
@@ -319,13 +316,17 @@ pub mod unix_file_clip {
                 }
 
                 log::debug!("parsing file descriptors");
-                match fuse::format_data_response_to_urls(is_client, format_data, conn_id) {
-                    Ok(files) => {
-                        update_clipboard_files(files, ClipboardSide::Host);
+                if fuse::init_fuse_context(true).is_ok() {
+                    match fuse::format_data_response_to_urls(is_client, format_data, conn_id) {
+                        Ok(files) => {
+                            update_clipboard_files(files, ClipboardSide::Host);
+                        }
+                        Err(e) => {
+                            log::error!("failed to parse file descriptors: {:?}", e);
+                        }
                     }
-                    Err(e) => {
-                        log::error!("failed to parse file descriptors: {:?}", e);
-                    }
+                } else {
+                    // send error message to server
                 }
             }
             ClipboardFile::FileContentsRequest {
@@ -367,7 +368,11 @@ pub mod unix_file_clip {
                     msg_flags,
                     stream_id,
                 );
-                hbb_common::allow_err!(fuse::handle_file_content_response(is_client, clip));
+                if fuse::init_fuse_context(true).is_ok() {
+                    hbb_common::allow_err!(fuse::handle_file_content_response(is_client, clip));
+                } else {
+                    // send error message to server
+                }
             }
             ClipboardFile::NotifyCallback {
                 r#type,

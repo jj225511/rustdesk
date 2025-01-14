@@ -8,7 +8,7 @@ use std::{
 };
 
 pub const CLIPBOARD_NAME: &'static str = "clipboard";
-#[cfg(all(feature = "unix-file-copy-paste", target_os = "linux"))]
+#[cfg(feature = "unix-file-copy-paste")]
 pub const FILE_CLIPBOARD_NAME: &'static str = "file-clipboard";
 pub const CLIPBOARD_INTERVAL: u64 = 333;
 
