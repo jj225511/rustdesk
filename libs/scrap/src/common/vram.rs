@@ -407,6 +407,7 @@ pub(crate) fn check_available_vram() -> (Vec<FeatureContext>, Vec<DecodeContext>
         gop: MAX_GOP as _,
     };
     let encoders = encode::available(d);
+    return (vec![], vec![], "".to_string());
     let decoders = decode::available();
     let available = Available {
         e: encoders.clone(),
