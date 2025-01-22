@@ -516,7 +516,6 @@ extern "C" {
     pub(crate) fn init_cliprdr(context: *mut CliprdrClientContext) -> BOOL;
     pub(crate) fn uninit_cliprdr(context: *mut CliprdrClientContext) -> BOOL;
     pub(crate) fn empty_cliprdr(context: *mut CliprdrClientContext, connID: UINT32) -> BOOL;
-    pub(crate) fn clear_cliprdr_conn_id(context: *mut CliprdrClientContext);
 }
 
 unsafe impl Send for CliprdrClientContext {}
@@ -599,10 +598,6 @@ impl CliprdrServiceContext for CliprdrClientContext {
         Ok(empty_clipboard(self, conn_id))
     }
 
-    fn clear_clipboarod_conn_id(&mut self) {
-        clear_clipboard_conn_id(self);
-    }
-
     fn server_clip_file(&mut self, conn_id: i32, msg: ClipboardFile) -> Result<(), CliprdrError> {
         let ret = server_clip_file(self, conn_id, msg);
         ret_to_result(ret)
@@ -622,10 +617,6 @@ fn ret_to_result(ret: u32) -> Result<(), CliprdrError> {
 
 pub fn empty_clipboard(context: &mut CliprdrClientContext, conn_id: i32) -> bool {
     unsafe { TRUE == empty_cliprdr(context, conn_id as u32) }
-}
-
-pub fn clear_clipboard_conn_id(context: &mut CliprdrClientContext) {
-    unsafe { clear_cliprdr_conn_id(context) }
 }
 
 pub fn server_clip_file(
@@ -754,7 +745,11 @@ pub fn server_clip_file(
         ClipboardFile::TryEmpty => {
             log::debug!("empty_clipboard called");
             let ret = empty_clipboard(context, conn_id);
-            log::debug!("empty_clipboard called, conn_id {}, return {}", conn_id, ret);
+            log::debug!(
+                "empty_clipboard called, conn_id {}, return {}",
+                conn_id,
+                ret
+            );
         }
     }
     ret
@@ -1014,7 +1009,7 @@ extern "C" fn notify_callback(conn_id: UINT32, msg: *const NOTIFICATION_MESSAGE)
         }
     };
     // no need to handle result here
-    allow_err!(send_data(Some(conn_id as _), None, data));
+    allow_err!(send_data(conn_id as _, data));
 
     0
 }
@@ -1061,7 +1056,7 @@ extern "C" fn client_format_list(
             .iter()
             .for_each(|msg_channel| allow_err!(msg_channel.sender.send(data.clone())));
     } else {
-        match send_data(Some(conn_id), None, data) {
+        match send_data(conn_id as _, data) {
             Ok(_) => {}
             Err(e) => {
                 log::error!("failed to send format list: {:?}", e);
@@ -1089,7 +1084,7 @@ extern "C" fn client_format_list_response(
         msg_flags
     );
     let data = ClipboardFile::FormatListResponse { msg_flags };
-    match send_data(Some(conn_id), None, data) {
+    match send_data(conn_id as _, data) {
         Ok(_) => 0,
         Err(e) => {
             log::error!("failed to send format list response: {:?}", e);
@@ -1116,7 +1111,7 @@ extern "C" fn client_format_data_request(
         conn_id,
         requested_format_id
     );
-    match send_data(Some(conn_id), None, data) {
+    match send_data(conn_id as _, data) {
         Ok(_) => 0,
         Err(e) => {
             log::error!("failed to send format data request: {:?}", e);
@@ -1154,7 +1149,7 @@ extern "C" fn client_format_data_response(
         msg_flags,
         format_data,
     };
-    match send_data(Some(conn_id), None, data) {
+    match send_data(conn_id as _, data) {
         Ok(_) => 0,
         Err(e) => {
             log::error!("failed to send format data response: {:?}", e);
@@ -1208,7 +1203,7 @@ extern "C" fn client_file_contents_request(
         clip_data_id,
     };
     log::debug!("client_file_contents_request called, data: {:?}", &data);
-    match send_data(Some(conn_id), None, data) {
+    match send_data(conn_id as _, data) {
         Ok(_) => 0,
         Err(e) => {
             log::error!("failed to send file contents request: {:?}", e);
@@ -1250,7 +1245,7 @@ extern "C" fn client_file_contents_response(
         msg_flags,
         stream_id
     );
-    match send_data(Some(conn_id), None, data) {
+    match send_data(conn_id as _, data) {
         Ok(_) => 0,
         Err(e) => {
             log::error!("failed to send file contents response: {:?}", e);

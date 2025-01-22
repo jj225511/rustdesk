@@ -1751,18 +1751,12 @@ static LRESULT CALLBACK cliprdr_proc(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM 
 		{
 			if (!is_set_by_instance(clipboard))
 			{
-				CliprdrDataObject *instance = NULL;
 				if (clipboard->hmem)
 				{
 					GlobalFree(clipboard->hmem);
 					clipboard->hmem = NULL;
 				}
 
-				instance = clipboard->data_obj;
-				if (instance)
-				{
-					instance->m_connID = 0;
-				}
 				cliprdr_send_format_list(clipboard, 0);
 			}
 		}
@@ -3276,29 +3270,6 @@ BOOL init_cliprdr(CliprdrClientContext *context)
 BOOL uninit_cliprdr(CliprdrClientContext *context)
 {
 	return wf_cliprdr_uninit(&clipboard, context);
-}
-
-VOID clear_cliprdr_conn_id(CliprdrClientContext *context)
-{
-	wfClipboard *clipboard = NULL;
-	CliprdrDataObject *instance = NULL;
-	BOOL rc = FALSE;
-	if (!context)
-	{
-		return;
-	}
-
-	clipboard = (wfClipboard *)context->Custom;
-	if (!clipboard)
-	{
-		return;
-	}
-
-	instance = clipboard->data_obj;
-	if (instance)
-	{
-		instance->m_connID = 0;
-	}
 }
 
 BOOL empty_cliprdr(CliprdrClientContext *context, UINT32 connID)
