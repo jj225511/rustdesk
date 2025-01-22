@@ -281,7 +281,7 @@ impl RendezvousMediator {
                         self.handle_uuid_mismatch(sink).await?;
                     }
                     _ => {
-                        log::error!("unknown RegisterPkResponse");
+                        log::error!("unknown RegisterPkResponse, {:?}", rpr.result.enum_value());
                     }
                 }
                 if rpr.keep_alive > 0 {
