@@ -266,15 +266,19 @@ impl KeyboardControllable for Enigo {
     }
 
     fn key_down(&mut self, key: Key) -> crate::ResultType {
+        log::info!("REMOVE ME ============= enigo, key down: key: {:?}", &key);
         if self.is_x11 {
+            log::info!("REMOVE ME ============= enigo, try, tfc simulate: {:?}", &key);
             let has_down = self.tfc_key_down_or_up(key, true, false);
             if !has_down {
+                log::info!("REMOVE ME ============= enigo, use xdo, key down: {:?}", &key);
                 self.xdo.key_down(key)
             } else {
                 Ok(())
             }
         } else {
             if let Some(keyboard) = &mut self.custom_keyboard {
+                log::info!("REMOVE ME ============= enigo, uinput simulate: {:?}", &key);
                 keyboard.key_down(key)
             } else {
                 Ok(())

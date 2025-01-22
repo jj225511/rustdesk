@@ -1221,6 +1221,10 @@ fn sim_rdev_rawkey_position(code: KeyCode, keydown: bool) {
     // map mode(1): Send keycode according to the peer platform.
     record_pressed_key(KeysDown::RdevKey(rawkey), keydown);
 
+    if keydown {
+        log::info!("REMOVE ME ============= rdev simulate: event: {:?}", &rawkey);
+    }
+    
     let event_type = if keydown {
         EventType::KeyPress(RdevKey::RawKey(rawkey))
     } else {
@@ -1666,6 +1670,7 @@ fn is_legacy_mode(evt: &KeyEvent) -> bool {
 }
 
 pub fn handle_key_(evt: &KeyEvent) {
+    log::info!("REMOVE ME ============= handle key: {:?}", &evt);
     if EXITING.load(Ordering::SeqCst) {
         return;
     }
