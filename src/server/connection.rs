@@ -535,7 +535,7 @@ impl Connection {
                                 conn.send_permission(Permission::File, enabled).await;
                                 #[cfg(feature = "unix-file-copy-paste")]
                                 if !enabled {
-                                    conn.try_empty_file_clipboard(conn.inner.id);
+                                    conn.try_empty_file_clipboard();
                                 }
                                 #[cfg(feature = "unix-file-copy-paste")]
                                 if let Some(s) = conn.server.upgrade() {
@@ -784,6 +784,11 @@ impl Connection {
                     }
                 },
             }
+        }
+
+        #[cfg(feature = "unix-file-copy-paste")]
+        {
+            conn.try_empty_file_clipboard();
         }
 
         if let Some(video_privacy_conn_id) = privacy_mode::get_privacy_mode_conn_id() {
@@ -2172,9 +2177,11 @@ impl Connection {
                             self.send_to_cm(ipc::Data::ClipboardFile(clip));
                         }
                         #[cfg(feature = "unix-file-copy-paste")]
-                        if let Some(msg) =
-                            unix_file_clip::serve_clip_messages(false, clip, self.inner.id(), "")
-                        {
+                        if let Some(msg) = unix_file_clip::serve_clip_messages(
+                            ClipboardSide::Host,
+                            clip,
+                            self.inner.id(),
+                        ) {
                             self.send(msg).await;
                         }
                     }
@@ -2979,7 +2986,7 @@ impl Connection {
                 ));
                 #[cfg(feature = "unix-file-copy-paste")]
                 if !self.enable_file_transfer {
-                    self.try_empty_file_clipboard(self.inner.id);
+                    self.try_empty_file_clipboard();
                 }
                 #[cfg(feature = "unix-file-copy-paste")]
                 if let Some(s) = self.server.upgrade() {
@@ -3439,8 +3446,8 @@ impl Connection {
 
     #[inline]
     #[cfg(feature = "unix-file-copy-paste")]
-    fn try_empty_file_clipboard(&mut self, conn_id: i32) {
-        try_empty_clipboard_files(ClipboardSide::Host, conn_id);
+    fn try_empty_file_clipboard(&mut self) {
+        try_empty_clipboard_files(ClipboardSide::Host, self.inner.id());
     }
 }
 
