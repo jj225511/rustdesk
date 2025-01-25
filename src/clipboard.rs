@@ -128,7 +128,19 @@ pub fn update_clipboard_files(files: Vec<String>, side: ClipboardSide) {
 pub fn try_empty_clipboard_files(_side: ClipboardSide, _conn_id: i32) {
     #[cfg(target_os = "linux")]
     std::thread::spawn(move || {
-        if let Ok(mut ctx) = ClipboardContext::new() {
+        let mut ctx = CLIPBOARD_CTX.lock().unwrap();
+        if ctx.is_none() {
+            match ClipboardContext::new() {
+                Ok(x) => {
+                    *ctx = Some(x);
+                }
+                Err(e) => {
+                    log::error!("Failed to create clipboard context: {}", e);
+                    return;
+                }
+            }
+        }
+        if let Some(mut ctx) = ctx.as_mut() {
             use clipboard::platform::unix;
             if unix::fuse::empty_local_files(_side == ClipboardSide::Client, _conn_id) {
                 ctx.try_empty_clipboard_files(_side);
@@ -377,7 +389,29 @@ impl ClipboardContext {
                 .flatten()
                 .collect::<Vec<_>>();
             if !urls.is_empty() {
-                let _ = self.inner.clear();
+                // FIXME:
+                // The host-side clear file clipboard `let _ = self.inner.clear();`,
+                // does not work on KDE Plasma for the installed version.
+
+                // Don't use `hbb_common::platform::linux::is_kde()` here.
+                // It's not correct in the server process.
+                let is_kde = std::process::Command::new("sh")
+                    .arg("-c")
+                    .arg("ps -e | grep -E kded[0-9]+ | grep -v grep")
+                    .stdout(std::process::Stdio::piped())
+                    .output()
+                    .map(|o| !o.stdout.is_empty())
+                    .unwrap_or(false);
+                let is_kde_x11 = is_kde && crate::platform::linux::is_x11();
+                let clear_holder_text = if is_kde_x11 {
+                    "RustDesk placeholder to clear the file clipbard"
+                } else {
+                    ""
+                }
+                .to_string();
+                self.inner
+                    .set_formats(&[ClipboardData::Text(clear_holder_text)])
+                    .ok();
             }
         }
     }

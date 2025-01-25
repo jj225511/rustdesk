@@ -1,5 +1,5 @@
 use clipboard::ClipboardFile;
-use hbb_common::message_proto::*;
+use hbb_common::{log, message_proto::*};
 
 pub fn clip_2_msg(clip: ClipboardFile) -> Message {
     match clip {
@@ -246,10 +246,9 @@ pub mod unix_file_clip {
     }
 
     pub fn serve_clip_messages(
-        is_client: bool,
+        side: ClipboardSide,
         clip: ClipboardFile,
         conn_id: i32,
-        peer_id: &str,
     ) -> Option<Message> {
         log::debug!("got clipfile from client peer");
         match clip {
@@ -287,33 +286,14 @@ pub mod unix_file_clip {
                 requested_format_id: _requested_format_id,
             } => {
                 log::debug!("requested format id: {}", _requested_format_id);
-                match crate::clipboard::get_clipboard_file_urls(
-                    &mut CLIPBOARD_CTX.lock().unwrap(),
-                    crate::clipboard::ClipboardSide::Host,
-                    false,
-                ) {
-                    Ok(Some(files)) => {
-                        if !files.is_empty() {
-                            match serv_files::build_file_list_format_data(&files) {
-                                Ok(format_data) => {
-                                    return Some(clip_2_msg(ClipboardFile::FormatDataResponse {
-                                        msg_flags: 1,
-                                        format_data,
-                                    }));
-                                }
-                                Err(e) => {
-                                    log::error!("build file list format data error: {:?}", e);
-                                }
-                            }
-                        }
-                    }
-                    Ok(None) => {
-                        log::error!("no file list found");
-                    }
-                    Err(e) => {
-                        log::error!("get file list error: {:?}", e);
-                    }
+                let format_data = serv_files::get_file_list_pdu();
+                if !format_data.is_empty() {
+                    return Some(clip_2_msg(ClipboardFile::FormatDataResponse {
+                        msg_flags: 1,
+                        format_data,
+                    }));
                 }
+                // empty file list, send failure message
                 return Some(msg_resp_format_data_failure());
             }
             #[cfg(target_os = "linux")]
@@ -329,9 +309,13 @@ pub mod unix_file_clip {
 
                 log::debug!("parsing file descriptors");
                 if fuse::init_fuse_context(true).is_ok() {
-                    match fuse::format_data_response_to_urls(is_client, format_data, conn_id) {
+                    match fuse::format_data_response_to_urls(
+                        side == ClipboardSide::Client,
+                        format_data,
+                        conn_id,
+                    ) {
                         Ok(files) => {
-                            update_clipboard_files(files, ClipboardSide::Host);
+                            update_clipboard_files(files, side);
                         }
                         Err(e) => {
                             log::error!("failed to parse file descriptors: {:?}", e);
@@ -381,7 +365,10 @@ pub mod unix_file_clip {
                     stream_id,
                 );
                 if fuse::init_fuse_context(true).is_ok() {
-                    hbb_common::allow_err!(fuse::handle_file_content_response(is_client, clip));
+                    hbb_common::allow_err!(fuse::handle_file_content_response(
+                        side == ClipboardSide::Client,
+                        clip
+                    ));
                 } else {
                     // send error message to server
                 }
@@ -400,14 +387,7 @@ pub mod unix_file_clip {
                 );
             }
             ClipboardFile::TryEmpty => {
-                try_empty_clipboard_files(
-                    if is_client {
-                        ClipboardSide::Client
-                    } else {
-                        ClipboardSide::Host
-                    },
-                    conn_id,
-                );
+                try_empty_clipboard_files(side, conn_id);
             }
             _ => {
                 log::error!("unsupported clipboard file type");
