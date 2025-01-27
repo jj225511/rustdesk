@@ -395,22 +395,8 @@ impl ClipboardContext {
 
                 // Don't use `hbb_common::platform::linux::is_kde()` here.
                 // It's not correct in the server process.
-                let is_kde = std::process::Command::new("sh")
-                    .arg("-c")
-                    .arg("ps -e | grep -E kded[0-9]+ | grep -v grep")
-                    .stdout(std::process::Stdio::piped())
-                    .output()
-                    .map(|o| !o.stdout.is_empty())
-                    .unwrap_or(false);
-                let is_kde_x11 = is_kde && crate::platform::linux::is_x11();
-                let clear_holder_text = if is_kde_x11 {
-                    "RustDesk placeholder to clear the file clipbard"
-                } else {
-                    ""
-                }
-                .to_string();
                 self.inner
-                    .set_formats(&[ClipboardData::Text(clear_holder_text)])
+                    .set_formats(&[ClipboardData::Text("".to_owned())])
                     .ok();
             }
         }
