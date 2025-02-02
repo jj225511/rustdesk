@@ -1,11 +1,18 @@
 #![windows_subsystem = "windows"]
 
 use std::{
+    ffi::CString,
+    io,
     path::{Path, PathBuf},
     process::{Command, Stdio},
 };
 
 use bin_reader::BinaryReader;
+use winapi::shared::minwindef::{BOOL, DWORD, FALSE};
+use winapi::um::libloaderapi::{
+    GetProcAddress, LoadLibraryExW, LOAD_LIBRARY_SEARCH_SYSTEM32, LOAD_LIBRARY_SEARCH_USER_DIRS,
+};
+use winapi::um::winbase::SetDllDirectoryW;
 
 pub mod bin_reader;
 #[cfg(windows)]
@@ -134,7 +141,70 @@ fn execute(path: PathBuf, args: Vec<String>, _ui: bool) {
     }
 }
 
+pub fn wide_string(s: &str) -> Vec<u16> {
+    use std::os::windows::prelude::OsStrExt;
+    std::ffi::OsStr::new(s)
+        .encode_wide()
+        .chain(Some(0).into_iter())
+        .collect()
+}
+
+fn set_safe_load_dll() -> bool {
+    if !unsafe { set_default_dll_directories() } {
+        return false;
+    }
+
+    // `SetDllDirectoryW` should never fail.
+    // https://docs.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-setdlldirectoryw
+    if unsafe { SetDllDirectoryW(wide_string("").as_ptr()) == FALSE } {
+        eprintln!("SetDllDirectoryW failed: {}", io::Error::last_os_error());
+        return false;
+    }
+
+    true
+}
+
+// https://docs.microsoft.com/en-us/windows/win32/api/libloaderapi/nf-libloaderapi-setdefaultdlldirectories
+unsafe fn set_default_dll_directories() -> bool {
+    let module = LoadLibraryExW(
+        wide_string("Kernel32.dll").as_ptr(),
+        0 as _,
+        LOAD_LIBRARY_SEARCH_SYSTEM32,
+    );
+    if module.is_null() {
+        return false;
+    }
+
+    match CString::new("SetDefaultDllDirectories") {
+        Err(e) => {
+            eprintln!("CString::new failed: {}", e);
+            return false;
+        }
+        Ok(func_name) => {
+            let func = GetProcAddress(module, func_name.as_ptr());
+            if func.is_null() {
+                eprintln!("GetProcAddress failed: {}", io::Error::last_os_error());
+                return false;
+            }
+            type SetDefaultDllDirectories = unsafe extern "system" fn(DWORD) -> BOOL;
+            let func: SetDefaultDllDirectories = std::mem::transmute(func);
+            if func(LOAD_LIBRARY_SEARCH_SYSTEM32 | LOAD_LIBRARY_SEARCH_USER_DIRS) == FALSE {
+                eprintln!(
+                    "SetDefaultDllDirectories failed: {}",
+                    io::Error::last_os_error()
+                );
+                return false;
+            }
+        }
+    }
+    true
+}
+
 fn main() {
+    if !set_safe_load_dll() {
+        return;
+    }
+
     let mut args = Vec::new();
     let mut arg_exe = Default::default();
     let mut i = 0;
