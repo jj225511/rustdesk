@@ -132,7 +132,7 @@ class InputService : AccessibilityService() {
         }
 
         if (mask == RIGHT_UP) {
-            performGlobalAction(GLOBAL_ACTION_BACK)
+            // performGlobalAction(GLOBAL_ACTION_BACK)
             return
         }
 
