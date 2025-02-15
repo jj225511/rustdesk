@@ -54,10 +54,10 @@ jobs:
       matrix:
         job:
           - {
-              arch: aarch64,
-              target: aarch64-apple-ios,
+              arch: x86_64,
+              target: x86_64-apple-ios,
               os: macos-13,
-              vcpkg-triplet: arm64-ios,
+              vcpkg-triplet: x64-ios,
             }
     steps:
       - name: Export GitHub Actions cache environment variables
@@ -131,27 +131,13 @@ jobs:
       - name: Build rustdesk lib
         run: |
           rustup target add ${{ matrix.job.target }}
-          cargo build --features flutter,hwcodec --release --target aarch64-apple-ios --lib
+          cargo build --features flutter,hwcodec --release --target x86_64-apple-ios --lib
           
       - name: Upload liblibrustdesk.a Artifacts
         uses: actions/upload-artifact@master
         with:
           name: liblibrustdesk.a
-          path: target/aarch64-apple-ios/release/liblibrustdesk.a
-
-      - name: Build rustdesk
-        shell: bash
-        run: |
-          pushd flutter
-          # flutter build ipa --release --obfuscate --split-debug-info=./split-debug-info --no-codesign
-          # for easy debugging
-          flutter build ipa --release --no-codesign
-
-      - name: Upload Artifacts
-        uses: actions/upload-artifact@master
-        with:
-          name: rustdesk-${{ env.VERSION }}-${{ matrix.job.arch }}.apk
-          path: flutter/build/ios/ipa/*.ipa
+          path: target/x86_64-apple-ios/release/liblibrustdesk.a
 
       - name: Publish lib package
         uses: softprops/action-gh-release@v1
@@ -159,5 +145,4 @@ jobs:
           prerelease: true
           tag_name: ${{ env.TAG_NAME }}
           files: |
-            target/aarch64-apple-ios/release/liblibrustdesk.a
-            flutter/build/ios/ipa/*.ipa
+            target/x86_64-apple-ios/release/liblibrustdesk.a
