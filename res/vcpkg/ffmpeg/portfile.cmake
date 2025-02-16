@@ -164,13 +164,14 @@ elseif(VCPKG_TARGET_IS_OSX)
 ")
 elseif(VCPKG_TARGET_IS_IOS)
     string(APPEND OPTIONS "\
---arch=arm64 \
+--arch=x86_64 \
+--disable-asm \
 --disable-autodetect \
 --disable-hwaccels \
 --disable-encoders \
 --disable-videotoolbox \
---extra-cflags=\"-arch arm64 -mios-version-min=8.0 -fembed-bitcode\" \
---extra-ldflags=\"-arch arm64 -mios-version-min=8.0 -fembed-bitcode\" \
+--extra-cflags=\"-arch x86_64 -mios-version-min=8.0 -fembed-bitcode\" \
+--extra-ldflags=\"-arch x86_64 -mios-version-min=8.0 -fembed-bitcode\" \
 ")
 elseif(VCPKG_CMAKE_SYSTEM_NAME STREQUAL "Android")
     string(APPEND OPTIONS "\
