@@ -163,14 +163,27 @@ elseif(VCPKG_TARGET_IS_OSX)
 --enable-hwaccel=h264_videotoolbox,hevc_videotoolbox \
 ")
 elseif(VCPKG_TARGET_IS_IOS)
+
+    set(vcpkg_osx_deployment_target "${VCPKG_OSX_DEPLOYMENT_TARGET}")
+    if (NOT VCPKG_OSX_DEPLOYMENT_TARGET)
+        set(vcpkg_osx_deployment_target 11.0)
+    elseif (VCPKG_OSX_DEPLOYMENT_TARGET LESS 11.0) # nowadays ffmpeg needs to be built for ios 11.0 and later
+        message(FATAL_ERROR "ffmpeg can be built only for iOS 11.0 and later but you set VCPKG_OSX_DEPLOYMENT_TARGET to
+                            ${VCPKG_OSX_DEPLOYMENT_TARGET}")
+    endif ()
+
+    if (VCPKG_OSX_SYSROOT STREQUAL "iphonesimulator")
+        set(simulator "-simulator")
+    endif ()
+
     string(APPEND OPTIONS "\
 --arch=arm64 \
 --disable-autodetect \
 --disable-hwaccels \
 --disable-encoders \
 --disable-videotoolbox \
---extra-cflags=\"-arch arm64 -mios-version-min=8.0 -fembed-bitcode\" \
---extra-ldflags=\"-arch arm64 -mios-version-min=8.0 -fembed-bitcode\" \
+--extra-cflags=\"-arch arm64 -mios-version-min=8.0 -fembed-bitcode --target=${vcpkg_target_arch}-apple-ios${vcpkg_osx_deployment_target}${simulator}\" \
+--extra-ldflags=\"-arch arm64 -mios-version-min=8.0 -fembed-bitcode --target=${vcpkg_target_arch}-apple-ios${vcpkg_osx_deployment_target}${simulator}\" \
 ")
 elseif(VCPKG_CMAKE_SYSTEM_NAME STREQUAL "Android")
     string(APPEND OPTIONS "\

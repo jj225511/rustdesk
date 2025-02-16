@@ -26,6 +26,7 @@ fn link_pkg_config(_name: &str) -> Vec<PathBuf> {
 /// Link vcpkg package.
 fn link_vcpkg(mut path: PathBuf, name: &str) -> PathBuf {
     let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap();
+    let target_abi = std::env::var("CARGO_CFG_TARGET_ABI").unwrap();
     let mut target_arch = std::env::var("CARGO_CFG_TARGET_ARCH").unwrap();
     if target_arch == "x86_64" {
         target_arch = "x64".to_owned();
@@ -45,6 +46,12 @@ fn link_vcpkg(mut path: PathBuf, name: &str) -> PathBuf {
             "arm64-osx".to_owned()
         } else {
             format!("{}-{}", target_arch, target_os)
+        }
+    } else if target_os == "ios" && target_arch == "arm64" {
+        if target_abi == "sim" {
+            "arm64-ios-simulator".to_owned()
+        } else {
+            "arm64-ios".to_owned()
         }
     } else if target_os == "windows" {
         "x64-windows-static".to_owned()

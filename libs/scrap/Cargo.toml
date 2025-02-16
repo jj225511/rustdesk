@@ -59,6 +59,6 @@ gstreamer-app = { version = "0.16", features = ["v1_10"], optional = true }
 gstreamer-video = { version = "0.16", optional = true }
 
 [dependencies.hwcodec]
-git = "https://github.com/rustdesk-org/hwcodec"
+git = "https://github.com/fufesou/hwcodec"
 optional = true
-
+branch = "refact/build_arm64_ios_sim"

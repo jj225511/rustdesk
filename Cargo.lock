@@ -1708,7 +1708,7 @@ version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "330c60081dcc4c72131f8eb70510f1ac07223e5d4163db481a04a0befcffa412"
 dependencies = [
- "libloading 0.8.4",
+ "libloading 0.7.4",
 ]
 
 [[package]]
@@ -3078,7 +3078,7 @@ checksum = "9a3a5bfb195931eeb336b2a7b4d761daec841b97f947d34394601737a7bba5e4"
 [[package]]
 name = "hwcodec"
 version = "0.7.1"
-source = "git+https://github.com/rustdesk-org/hwcodec#0ea7e709d3c48bb6446e33a9cc8fd0e0da5709b9"
+source = "git+https://github.com/fufesou/hwcodec?branch=refact/build_arm64_ios_sim#de9a597a6dc51f3fb99747bf182a1154772c1187"
 dependencies = [
  "bindgen 0.59.2",
  "cc",
@@ -3532,7 +3532,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e310b3a6b5907f99202fcdb4960ff45b93735d7c7d96b760fcff8db2dc0e103d"
 dependencies = [
  "cfg-if 1.0.0",
- "windows-targets 0.52.5",
+ "windows-targets 0.48.5",
 ]
 
 [[package]]
@@ -3611,8 +3611,7 @@ dependencies = [
 [[package]]
 name = "libsodium-sys"
 version = "0.2.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6b779387cd56adfbc02ea4a668e704f729be8d6a6abd2c27ca5ee537849a92fd"
+source = "git+https://github.com/fufesou/sodiumoxide#8c407de2aac00c6ddea49784fbc3558f9e0e650f"
 dependencies = [
  "cc",
  "libc",
@@ -3717,7 +3716,7 @@ dependencies = [
 [[package]]
 name = "magnum-opus"
 version = "0.4.0"
-source = "git+https://github.com/rustdesk-org/magnum-opus#5cd2bf989c148662fa3a2d9d539a71d71fd1d256"
+source = "git+https://github.com/fufesou/magnum-opus#c90832f3956e222a3bd2d936614be9515cbfcdf2"
 dependencies = [
  "bindgen 0.59.2",
  "pkg-config",
@@ -6135,8 +6134,7 @@ dependencies = [
 [[package]]
 name = "sodiumoxide"
 version = "0.2.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e26be3acb6c2d9a7aac28482586a7856436af4cfe7100031d219de2d2ecb0028"
+source = "git+https://github.com/fufesou/sodiumoxide#8c407de2aac00c6ddea49784fbc3558f9e0e650f"
 dependencies = [
  "ed25519",
  "libc",
