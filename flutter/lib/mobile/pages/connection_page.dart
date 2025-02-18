@@ -41,10 +41,8 @@ class _ConnectionPageState extends State<ConnectionPage> {
   final _idController = IDTextEditingController();
   final RxBool _idEmpty = true.obs;
 
-  List<Peer> peers = [];
+  AllPeersLoader allPeersLoader = AllPeersLoader();
 
-  bool isPeersLoading = false;
-  bool isPeersLoaded = false;
   StreamSubscription? _uniLinksSubscription;
 
   // https://github.com/flutter/flutter/issues/157244
@@ -127,18 +125,6 @@ class _ConnectionPageState extends State<ConnectionPage> {
                         color: Colors.white, fontWeight: FontWeight.bold))));
   }
 
-  Future<void> _fetchPeers() async {
-    setState(() {
-      isPeersLoading = true;
-    });
-    await Future.delayed(Duration(milliseconds: 100));
-    peers = await getAllPeers();
-    setState(() {
-      isPeersLoading = false;
-      isPeersLoaded = true;
-    });
-  }
-
   /// UI for the remote ID TextField.
   /// Search for a peer and connect to it if the id exists.
   Widget _buildRemoteIDTextField() {
@@ -160,7 +146,8 @@ class _ConnectionPageState extends State<ConnectionPage> {
                     optionsBuilder: (TextEditingValue textEditingValue) {
                       if (textEditingValue.text == '') {
                         _autocompleteOpts = const Iterable<Peer>.empty();
-                      } else if (peers.isEmpty && !isPeersLoaded) {
+                      } else if (allPeersLoader.peers.isEmpty &&
+                          !allPeersLoader.isLoaded) {
                         Peer emptyPeer = Peer(
                           id: '',
                           username: '',
@@ -188,7 +175,7 @@ class _ConnectionPageState extends State<ConnectionPage> {
                         }
                         String textToFind = textEditingValue.text.toLowerCase();
 
-                        _autocompleteOpts = peers
+                        _autocompleteOpts = allPeersLoader.peers
                             .where((peer) =>
                                 peer.id.toLowerCase().contains(textToFind) ||
                                 peer.username
@@ -212,8 +199,9 @@ class _ConnectionPageState extends State<ConnectionPage> {
                       fieldFocusNode.addListener(() async {
                         _idEmpty.value =
                             fieldTextEditingController.text.isEmpty;
-                        if (fieldFocusNode.hasFocus && !isPeersLoading) {
-                          _fetchPeers();
+                        if (fieldFocusNode.hasFocus &&
+                            !allPeersLoader.isPeersLoading) {
+                          allPeersLoader.getAllPeers(setState);
                         }
                       });
                       final textLength =
@@ -300,7 +288,8 @@ class _ConnectionPageState extends State<ConnectionPage> {
                                             maxHeight: maxHeight,
                                             maxWidth: 320,
                                           ),
-                                          child: peers.isEmpty && isPeersLoading
+                                          child: allPeersLoader.peers.isEmpty &&
+                                                  !allPeersLoader.isLoaded
                                               ? Container(
                                                   height: 80,
                                                   child: Center(
