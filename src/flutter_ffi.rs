@@ -1141,11 +1141,17 @@ pub fn main_load_recent_peers() {
             vec_id_modified_time_path.len() > batch_loading_count && cfg!(target_os = "windows");
         let mut all_peers = vec![];
         if load_two_times {
+            let now = std::time::Instant::now();
             let next_from = load_recent_peers(&vec_id_modified_time_path, false, &mut all_peers, 0);
+            log::info!("REMOVE ME ============================= low tow times: first load time: {:?}", now.elapsed());
             push_to_flutter(serde_json::ser::to_string(&all_peers).unwrap_or("".to_owned()));
             let _ = load_recent_peers(&vec_id_modified_time_path, true, &mut all_peers, next_from);
+            let now = std::time::Instant::now();
+            log::info!("REMOVE ME ============================= low tow times: second load time: {:?}", now.elapsed());
         } else {
+            let now = std::time::Instant::now();
             let _ = load_recent_peers(&vec_id_modified_time_path, true, &mut all_peers, 0);
+            log::info!("REMOVE ME ============================= low one time: load time: {:?}", now.elapsed());
         }
         push_to_flutter(serde_json::ser::to_string(&all_peers).unwrap_or("".to_owned()));
     }
@@ -1194,7 +1200,10 @@ pub fn main_get_recent_peers(get_all: bool) -> String {
         } else {
             vec_id_modified_time_path.len()
         };
-        return get_partial_recent_peers(vec_id_modified_time_path, load_count);
+        let now = std::time::Instant::now();
+        let xx = get_partial_recent_peers(vec_id_modified_time_path, load_count);
+        log::info!("REMOVE ME ============================= get recent peers, load_count {}, time: {:?}", load_count, now.elapsed());
+        return xx;
     }
     "".to_string()
 }
