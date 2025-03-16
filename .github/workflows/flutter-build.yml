@@ -159,13 +159,36 @@ jobs:
 
       - name: Build rustdesk
         run: |
+          # Windows: build RustDesk
+          python3 .\build.py --portable --hwcodec --flutter --vram --skip-portable-pack
+          mv ./flutter/build/windows/x64/runner/Release ./rustdesk
+
+          # Download usbmmidd_v2.zip and extract it to ./rustdesk
           Invoke-WebRequest -Uri https://github.com/rustdesk-org/rdev/releases/download/usbmmidd_v2/usbmmidd_v2.zip -OutFile usbmmidd_v2.zip
           Expand-Archive usbmmidd_v2.zip -DestinationPath .
-          python3 .\build.py --portable --hwcodec --flutter --vram --skip-portable-pack
           Remove-Item -Path usbmmidd_v2\Win32 -Recurse
           Remove-Item -Path "usbmmidd_v2\deviceinstaller64.exe", "usbmmidd_v2\deviceinstaller.exe", "usbmmidd_v2\usbmmidd.bat"
-          mv ./flutter/build/windows/x64/runner/Release ./rustdesk
           mv -Force .\usbmmidd_v2 ./rustdesk
+
+          # Download RustDeskPrinterDriverV4.zip and extract it to ./rustdesk/drivers
+          try {
+            Invoke-WebRequest -Uri https://github.com/fufesou/rustdesk/releases/download/test-tmp/RustDeskPrinterDriverV4.zip -OutFile RustDeskPrinterDriverV4.zip
+            Invoke-WebRequest -Uri https://github.com/fufesou/rustdesk/releases/download/test-tmp/sha256sums -OutFile sha256sums
+
+            # Move the files into ./rustdesk/drivers/RustDeskPrinterDriver
+            $checksum = (Select-String -Path .\sha256sums -Pattern '^([a-fA-F0-9]{64}) \*RustDeskPrinterDriverV4\.zip$').Matches.Groups[1].Value
+            $downloadsum = Get-FileHash -Path RustDeskPrinterDriverV4.zip -Algorithm SHA256
+            if ($checksum -eq $downloadsum.Hash) {
+                Write-Output "RustDeskPrinterDriverV4, checksums match, extract the file."
+                Expand-Archive RustDeskPrinterDriverV4.zip -DestinationPath .
+                mkdir ./rustdesk/drivers
+                mv -Force .\RustDeskPrinterDriverV4 ./rustdesk/drivers/RustDeskPrinterDriver
+            } else {
+                Write-Output "RustDeskPrinterDriverV4, checksums do not match, ignore the file."
+            }
+          } catch {
+              Write-Host "Ingore the printer driver error."
+          }
 
       - name: find Runner.res
         # Windows: find Runner.res (compiled from ./flutter/windows/runner/Runner.rc), copy to ./Runner.res
