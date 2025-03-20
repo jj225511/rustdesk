@@ -77,7 +77,7 @@ pub const SET_FOREGROUND_WINDOW: &'static str = "SET_FOREGROUND_WINDOW";
 
 const REG_NAME_INSTALL_DESKTOPSHORTCUTS: &str = "DESKTOPSHORTCUTS";
 const REG_NAME_INSTALL_STARTMENUSHORTCUTS: &str = "STARTMENUSHORTCUTS";
-const REG_NAME_INSTALL_RDPRINTER: &str = "RDPRINTER";
+const REG_NAME_INSTALL_PRINTER: &str = "PRINTER";
 
 pub fn get_focused_display(displays: Vec<DisplayInfo>) -> Option<usize> {
     unsafe {
@@ -1016,9 +1016,9 @@ pub fn get_install_options() -> String {
     if let Some(start_menu_shortcuts) = start_menu_shortcuts {
         opts.insert(REG_NAME_INSTALL_STARTMENUSHORTCUTS, start_menu_shortcuts);
     }
-    let printer = get_reg_of_hkcr(&subkey, REG_NAME_INSTALL_RDPRINTER);
+    let printer = get_reg_of_hkcr(&subkey, REG_NAME_INSTALL_PRINTER);
     if let Some(printer) = printer {
-        opts.insert(REG_NAME_INSTALL_RDPRINTER, printer);
+        opts.insert(REG_NAME_INSTALL_PRINTER, printer);
     }
     serde_json::to_string(&opts).unwrap_or("{}".to_owned())
 }
@@ -1172,7 +1172,7 @@ fn get_after_install(
     let reg_printer = reg_value_printer
         .map(|v| {
             format!(
-                "reg add HKEY_CLASSES_ROOT\\.{ext} /f /v {REG_NAME_INSTALL_RDPRINTER} /t REG_SZ /d \"{v}\""
+                "reg add HKEY_CLASSES_ROOT\\.{ext} /f /v {REG_NAME_INSTALL_PRINTER} /t REG_SZ /d \"{v}\""
             )
         })
         .unwrap_or_default();

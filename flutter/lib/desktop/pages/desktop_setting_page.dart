@@ -1909,17 +1909,28 @@ class __PrinterState extends State<_Printer> {
   }
 
   Widget outgoing(BuildContext context) {
-    Widget client_not_installed() {
+    final isSupportPrinterDriver =
+        bind.mainGetCommonSync(key: 'is-support-printer-driver') == 'true';
+
+    Widget tipOsNotSupported() {
       return Align(
         alignment: Alignment.topLeft,
-        child: Text(translate('printer-requires-installed-{$appName}-client-tip')),
+        child: Text(translate('printer-os-requirement-tip')),
       ).marginOnly(left: _kCardLeftMargin);
     }
 
-    Widget client_installed_driver_not_installed() {
+    Widget tipClientNotInstalled() {
+      return Align(
+        alignment: Alignment.topLeft,
+        child:
+            Text(translate('printer-requires-installed-{$appName}-client-tip')),
+      ).marginOnly(left: _kCardLeftMargin);
+    }
+
+    Widget tipPrinterNotInstalled() {
       final failedMsg = ''.obs;
       platformFFI.registerEventHandler(
-          'install-rd-printer-res', 'install-rd-printer-res', (evt) async {
+          'install-printer-res', 'install-printer-res', (evt) async {
         if (evt['success'] as bool) {
           setState(() {});
         } else {
@@ -1932,7 +1943,7 @@ class __PrinterState extends State<_Printer> {
               ? Offstage()
               : Align(
                   alignment: Alignment.topLeft,
-                  child: Text(translate('printer-driver-{$appName}-not-installed-tip'))
+                  child: Text(translate('printer-{$appName}-not-installed-tip'))
                       .marginOnly(bottom: 10.0),
                 ),
         ),
@@ -1949,30 +1960,35 @@ class __PrinterState extends State<_Printer> {
         ),
         _Button('Install {$appName} Printer', () {
           failedMsg.value = '';
-          bind.mainSetCommon(key: 'install-rd-printer', value: '');
+          bind.mainSetCommon(key: 'install-printer', value: '');
         })
       ]).marginOnly(left: _kCardLeftMargin, bottom: 2.0);
     }
 
-    Widget client_installed_driver_installed() {
+    Widget tipReady() {
       return Align(
         alignment: Alignment.topLeft,
-        child: Text(translate('printer-driver-{$appName}-installed-tip')),
+        child: Text(translate('printer-{$appName}-ready-tip')),
       ).marginOnly(left: _kCardLeftMargin);
     }
 
     final installed = bind.mainIsInstalled();
-    // `is-rd-printer-installed` may fail, but it's rare case.
+    // `is-printer-installed` may fail, but it's rare case.
     // Add additional error message here if it's really needed.
     final driver_installed =
-        bind.mainGetCommonSync(key: 'is-rd-printer-installed') == 'true';
+        bind.mainGetCommonSync(key: 'is-printer-installed') == 'true';
 
-    return _Card(title: 'Outgoing Print Jobs', children: [
-      if (!installed) client_not_installed(),
-      if (installed && !driver_installed)
-        client_installed_driver_not_installed(),
-      if (installed && driver_installed) client_installed_driver_installed()
-    ]);
+    final List<Widget> children = [];
+    if (!isSupportPrinterDriver) {
+      children.add(tipOsNotSupported());
+    } else {
+      children.addAll([
+        if (!installed) tipClientNotInstalled(),
+        if (installed && !driver_installed) tipPrinterNotInstalled(),
+        if (installed && driver_installed) tipReady()
+      ]);
+    }
+    return _Card(title: 'Outgoing Print Jobs', children: children);
   }
 
   Widget incomming(BuildContext context) {

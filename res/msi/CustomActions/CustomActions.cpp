@@ -879,7 +879,7 @@ void TryStopDeleteServiceByShell(LPWSTR svcName)
     }
 }
 
-UINT __stdcall InstallRDPrinter(
+UINT __stdcall InstallPrinter(
     __in MSIHANDLE hInstall)
 {
     HRESULT hr = S_OK;
@@ -890,7 +890,7 @@ UINT __stdcall InstallRDPrinter(
     LPWSTR pwz = NULL;
     LPWSTR pwzData = NULL;
 
-    hr = WcaInitialize(hInstall, "InstallRDPrinter");
+    hr = WcaInitialize(hInstall, "InstallPrinter");
     ExitOnFailure(hr, "Failed to initialize");
 
     hr = WcaGetProperty(L"CustomActionData", &pwzData);
@@ -913,13 +913,13 @@ LExit:
     return WcaFinalize(er);
 }
 
-UINT __stdcall UninstallRDPrinter(
+UINT __stdcall UninstallPrinter(
     __in MSIHANDLE hInstall)
 {
     HRESULT hr = S_OK;
     DWORD er = ERROR_SUCCESS;
 
-    hr = WcaInitialize(hInstall, "UninstallRDPrinter");
+    hr = WcaInitialize(hInstall, "UninstallPrinter");
     ExitOnFailure(hr, "Failed to initialize");
 
     WcaLog(LOGMSG_STANDARD, "Try to uninstall RD printer");

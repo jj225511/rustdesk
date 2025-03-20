@@ -12,5 +12,5 @@ EXPORTS
     SetPropertyFromConfig
     AddRegSoftwareSASGeneration
     RemoveAmyuniIdd
-    InstallRDPrinter
-    UninstallRDPrinter
+    InstallPrinter
+    UninstallPrinter

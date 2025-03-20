@@ -80,7 +80,7 @@ class _InstallPageBodyState extends State<_InstallPageBody>
     final installOptions = jsonDecode(bind.installInstallOptions());
     startmenu.value = installOptions['STARTMENUSHORTCUTS'] != '0';
     desktopicon.value = installOptions['DESKTOPSHORTCUTS'] != '0';
-    printer.value = installOptions['RDPRINTER'] != '0';
+    printer.value = installOptions['PRINTER'] != '0';
   }
 
   @override

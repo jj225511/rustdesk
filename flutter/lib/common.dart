@@ -3797,10 +3797,10 @@ List<String> getPrinterNames() {
   }
   try {
     final List<dynamic> printerNamesList = jsonDecode(printerNamesJson);
-    final rdPrinterName = 'RustDesk Printer';
+    final appPrinterName = '$appName Printer';
     return printerNamesList
         .map((e) => e.toString())
-        .where((name) => name != rdPrinterName)
+        .where((name) => name != appPrinterName)
         .toList();
   } catch (e) {
     debugPrint('failed to parse printer names, err: $e');
