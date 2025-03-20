@@ -1287,7 +1287,7 @@ copy /Y \"{tmp_path}\\Uninstall {app_name}.lnk\" \"{start_menu}\\\"
         );
         reg_value_start_menu_shortcuts = "1".to_owned();
     }
-    let install_printer = options.contains("printer") && crate::platform::is_win_10_or_greater();
+    let install_printer = options.contains("printer");
     if install_printer {
         reg_value_printer = "1".to_owned();
     }
@@ -1442,9 +1442,7 @@ fn get_uninstall(kill_self: bool) -> String {
 }
 
 pub fn uninstall_me(kill_self: bool) -> ResultType<()> {
-    if crate::platform::is_win_10_or_greater() {
-        remote_printer::uninstall_printer(&crate::get_app_name());
-    }
+    remote_printer::uninstall_printer(&crate::get_app_name());
     run_cmds(get_uninstall(kill_self), true, "uninstall")
 }
 

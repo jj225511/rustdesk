@@ -67,8 +67,8 @@
 			But it's the simplest way to check if the OS is Windows 10.
 			Some msi packages reset the `VersionNT` value to 1000 on Windows 10.
 			https://www.advancedinstaller.com/user-guide/qa-OS-dependent-install.html -->
-			<Custom Action="InstallPrinter" Before="InstallFinalize" Condition="VersionNT &gt;= 603 AND PRINTER = 1 OR PRINTER = &quot;Y&quot; OR PRINTER = &quot;y&quot;" />
-			<Custom Action="InstallPrinter.SetParam" Before="InstallPrinter" Condition="VersionNT &gt;= 603" />
+			<Custom Action="InstallPrinter" Before="InstallFinalize" Condition="PRINTER = 1 OR PRINTER = &quot;Y&quot; OR PRINTER = &quot;y&quot;" />
+			<Custom Action="InstallPrinter.SetParam" Before="InstallPrinter" />
 
 			<!--Workaround of "fire:FirewallException". If Outbound="Yes" or Outbound="true", the following error occurs.-->
 			<!--ExecFirewallExceptions: Error 0x80070057: failed to add app to the authorized apps list-->
@@ -85,7 +85,7 @@
 			<Custom Action="RemoveFirewallRules" Before="RemoveFiles"/>
 			<Custom Action="RemoveFirewallRules.SetParam" Before="RemoveFirewallRules"/>
 
-			<Custom Action="UninstallPrinter" Before="RemoveInstallFolder" Condition="VersionNT &gt;= 603" />
+			<Custom Action="UninstallPrinter" Before="RemoveInstallFolder" />
 
 			<Custom Action="TerminateProcesses" Before="RemoveInstallFolder"/>
 			<Custom Action="TerminateProcesses.SetParam" Before="TerminateProcesses"/>

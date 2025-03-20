@@ -2395,10 +2395,7 @@ pub fn main_get_common(key: String) -> String {
         #[cfg(not(target_os = "windows"))]
         return false.to_string();
     } else if key == "is-support-printer-driver" {
-        #[cfg(target_os = "windows")]
-        return crate::platform::is_win_10_or_greater().to_string();
-        #[cfg(not(target_os = "windows"))]
-        return false.to_string();
+        return true.to_string();
     } else {
         "".to_owned()
     }
@@ -2410,7 +2407,7 @@ pub fn main_get_common_sync(key: String) -> SyncReturn<String> {
 
 pub fn main_set_common(_key: String, _value: String) {
     #[cfg(target_os = "windows")]
-    if _key == "install-printer" && crate::platform::is_win_10_or_greater() {
+    if _key == "install-printer" {
         std::thread::spawn(move || {
             let (success, msg) = match remote_printer::install_update_printer(&get_app_name()) {
                 Ok(_) => (true, "".to_owned()),
