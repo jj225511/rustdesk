@@ -843,11 +843,7 @@ where
                 if let Ok(s) = std::str::from_utf8(&bytes) {
                     if let Ok(data) = serde_json::from_str::<Data>(s) {
                         return Ok(Some(data));
-                    } else {
-                        log::error!("serde failed, ipc json bytes: {:?}", bytes);
                     }
-                } else {
-                    log::error!("from utf8 failed, ipc json bytes: {:?}", bytes);
                 }
                 return Ok(None);
             }
