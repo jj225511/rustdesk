@@ -808,27 +808,24 @@ async fn handle_fs(
             write_jobs.push(job);
         }
         ipc::FS::CancelWrite { id } => {
-            if let Some(job) = fs::get_job(id, write_jobs) {
+            if let Some(job) = fs::remove_job(id, write_jobs) {
                 job.remove_download_file();
                 tx_log.map(|tx: &UnboundedSender<String>| {
-                    tx.send(serialize_transfer_job(job, false, true, ""))
+                    tx.send(serialize_transfer_job(&job, false, true, ""))
                 });
-                fs::remove_job(id, write_jobs);
             }
         }
         ipc::FS::WriteDone { id, file_num } => {
-            if let Some(job) = fs::get_job(id, write_jobs) {
+            if let Some(job) = fs::remove_job(id, write_jobs) {
                 job.modify_time();
                 send_raw(fs::new_done(id, file_num), tx);
-                tx_log.map(|tx| tx.send(serialize_transfer_job(job, true, false, "")));
-                fs::remove_job(id, write_jobs);
+                tx_log.map(|tx| tx.send(serialize_transfer_job(&job, true, false, "")));
             }
         }
         ipc::FS::WriteError { id, file_num, err } => {
-            if let Some(job) = fs::get_job(id, write_jobs) {
-                tx_log.map(|tx| tx.send(serialize_transfer_job(job, false, false, &err)));
+            if let Some(job) = fs::remove_job(id, write_jobs) {
+                tx_log.map(|tx| tx.send(serialize_transfer_job(&job, false, false, &err)));
                 send_raw(fs::new_error(job.id(), err, file_num), tx);
-                fs::remove_job(job.id(), write_jobs);
             }
         }
         ipc::FS::WriteBlock {

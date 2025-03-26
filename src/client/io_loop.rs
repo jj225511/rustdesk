@@ -823,11 +823,10 @@ impl<T: InvokeUiSession> Remote<T> {
                 });
                 msg_out.set_file_action(file_action);
                 allow_err!(peer.send(&msg_out).await);
-                if let Some(job) = fs::get_job(id, &mut self.write_jobs) {
+                if let Some(job) = fs::remove_job(id, &mut self.write_jobs) {
                     job.remove_download_file();
-                    fs::remove_job(id, &mut self.write_jobs);
                 }
-                fs::remove_job(id, &mut self.read_jobs);
+                let _ = fs::remove_job(id, &mut self.read_jobs);
                 self.remove_jobs.remove(&id);
             }
             Data::RemoveDir((id, path)) => {
@@ -1541,12 +1540,11 @@ impl<T: InvokeUiSession> Remote<T> {
                             let mut err: Option<String> = None;
                             let mut job_type = fs::JobType::Generic;
                             let mut printer_data = None;
-                            if let Some(job) = fs::get_job(d.id, &mut self.write_jobs) {
+                            if let Some(job) = fs::remove_job(d.id, &mut self.write_jobs) {
                                 job.modify_time();
                                 err = job.job_error();
                                 job_type = job.r#type;
-                                printer_data = job.get_buf_data();
-                                fs::remove_job(d.id, &mut self.write_jobs);
+                                printer_data = job.get_buf_data().await;
                             }
                             match job_type {
                                 fs::JobType::Generic => {
@@ -1572,11 +1570,9 @@ impl<T: InvokeUiSession> Remote<T> {
                             }
                         }
                         Some(file_response::Union::Error(e)) => {
-                            let mut job_type = fs::JobType::Generic;
-                            if let Some(job) = fs::get_job(e.id, &mut self.write_jobs) {
-                                job_type = job.r#type;
-                                fs::remove_job(e.id, &mut self.write_jobs);
-                            }
+                            let job_type = fs::remove_job(e.id, &mut self.write_jobs)
+                                .map(|j| j.r#type)
+                                .unwrap_or(fs::JobType::Generic);
                             match job_type {
                                 fs::JobType::Generic => {
                                     self.handle_job_status(e.id, e.file_num, Some(e.error));
@@ -1828,9 +1824,13 @@ impl<T: InvokeUiSession> Remote<T> {
                                 #[cfg(not(feature = "flutter"))]
                                 let allow_auto_print = false;
                                 if allow_auto_print {
-                                    let printer_name = LocalConfig::get_option(
-                                        config::keys::OPTION_PRINTER_SELECTED_NAME,
-                                    );
+                                    let printer_name = if action == "" {
+                                        "".to_string()
+                                    } else {
+                                        LocalConfig::get_option(
+                                            config::keys::OPTION_PRINTER_SELECTED_NAME,
+                                        )
+                                    };
                                     self.handler.printer_response(id, _s.path, printer_name);
                                 } else {
                                     self.handler.printer_request(id, _s.path);

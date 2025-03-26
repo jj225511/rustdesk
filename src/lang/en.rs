@@ -250,7 +250,7 @@ pub static ref T: std::collections::HashMap<&'static str, &'static str> =
         ("use-the-default-printer-tip", "Use the default printer"),
         ("use-the-selected-printer-tip", "Use the selected printer"),
         ("remote-printing-disallowed-tile-tip", "Remote Printing disallowed"),
-        ("remote-printing-disallowed-text-tip", "The permission settings of the controlled side deny Remote Rrinting."),
+        ("remote-printing-disallowed-text-tip", "The permission settings of the controlled side deny Remote Printing."),
         ("save-settings-tip", "Save settings"),
         ("dont-show-again-tip", "Don't show this again"),
     ].iter().cloned().collect();

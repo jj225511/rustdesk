@@ -2540,13 +2540,12 @@ impl Connection {
                             }
                             Some(file_action::Union::Cancel(c)) => {
                                 self.send_fs(ipc::FS::CancelWrite { id: c.id });
-                                if let Some(job) = fs::get_job_immutable(c.id, &self.read_jobs) {
+                                if let Some(job) = fs::remove_job(c.id, &mut self.read_jobs) {
                                     self.send_to_cm(ipc::Data::FileTransferLog((
                                         "transfer".to_string(),
-                                        fs::serialize_transfer_job(job, false, true, ""),
+                                        fs::serialize_transfer_job(&job, false, true, ""),
                                     )));
                                 }
-                                fs::remove_job(c.id, &mut self.read_jobs);
                             }
                             Some(file_action::Union::SendConfirm(r)) => {
                                 if let Some(job) = fs::get_job(r.id, &mut self.read_jobs) {
@@ -4246,6 +4245,7 @@ mod raii {
             lr: LoginRequest,
         ) -> Self {
             let printer = conn_type == crate::server::AuthConnType::Remote
+                && crate::is_support_remote_print(&lr.version)
                 && lr.my_platform == whoami::Platform::Windows.to_string();
             AUTHED_CONNS.lock().unwrap().push(AuthedConn {
                 conn_id,
