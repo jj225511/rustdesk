@@ -246,8 +246,7 @@ pub struct Connection {
     follow_remote_window: bool,
     multi_ui_session: bool,
     tx_from_authed: mpsc::UnboundedSender<ipc::Data>,
-    #[cfg(all(target_os = "windows", feature = "flutter"))]
-    printer_files: Vec<(Instant, String)>,
+    printer_data: Vec<(Instant, String, Vec<u8>)>,
 }
 
 impl ConnInner {
@@ -401,8 +400,7 @@ impl Connection {
             #[cfg(target_os = "macos")]
             retina: Retina::default(),
             tx_from_authed,
-            #[cfg(all(target_os = "windows", feature = "flutter"))]
-            printer_files: Vec::new(),
+            printer_data: Vec::new(),
         };
         let addr = hbb_common::try_into_v4(addr);
         if !conn.on_open(addr).await {
@@ -768,9 +766,9 @@ impl Connection {
                 Some(data) = rx_from_authed.recv() => {
                     match data {
                         #[cfg(all(target_os = "windows", feature = "flutter"))]
-                        ipc::Data::PrinterDriver(file) => {
+                        ipc::Data::PrinterData(data) => {
                             if config::Config::get_bool_option(config::keys::OPTION_ENABLE_REMOTE_PRINTER) {
-                                conn.send_printer_file(file).await;
+                                conn.send_printer_request(data).await;
                             } else {
                                 conn.send_remote_printing_disallowed().await;
                             }
@@ -2422,15 +2420,31 @@ impl Connection {
                                 ));
                                 let path = s.path.clone();
                                 let r#type = JobType::from_proto(s.file_type);
-                                if r#type == JobType::Printer {
-                                    #[cfg(all(target_os = "windows", feature = "flutter"))]
-                                    self.printer_files.retain(|f| f.1 != path);
-                                }
+                                let data_source;
+                                match r#type {
+                                    JobType::Generic => {
+                                        data_source =
+                                            fs::DataSource::FilePath(PathBuf::from(&path));
+                                    }
+                                    JobType::Printer => {
+                                        if let Some(pd) =
+                                            self.printer_data.iter().find(|(_, p, _)| *p == path)
+                                        {
+                                            data_source = fs::DataSource::MemoryCursor(
+                                                std::io::Cursor::new(pd.2.clone()),
+                                            );
+                                            self.printer_data.retain(|f| f.1 != path);
+                                        } else {
+                                            // Ignore this message if the printer data is not found
+                                            return true;
+                                        }
+                                    }
+                                };
                                 match fs::TransferJob::new_read(
                                     id,
                                     r#type,
                                     "".to_string(),
-                                    path.clone(),
+                                    data_source,
                                     s.file_num,
                                     s.include_hidden,
                                     false,
@@ -3687,12 +3701,15 @@ impl Connection {
     }
 
     #[cfg(all(target_os = "windows", feature = "flutter"))]
-    async fn send_printer_file(&mut self, path: String) {
+    async fn send_printer_request(&mut self, data: Vec<u8>) {
+        // This path is only used to identify the printer job.
+        let path = format!("RustDesk://FsJob//Printer/{}", get_time());
+
         let msg = fs::new_send(0, fs::JobType::Printer, path.clone(), 1, false);
         self.send(msg).await;
-        self.printer_files
-            .retain(|(t, _)| t.elapsed().as_secs() < 60);
-        self.printer_files.push((Instant::now(), path));
+        self.printer_data
+            .retain(|(t, _, _)| t.elapsed().as_secs() < 60);
+        self.printer_data.push((Instant::now(), path, data));
     }
 
     #[cfg(all(target_os = "windows", feature = "flutter"))]
@@ -4044,11 +4061,7 @@ fn start_wakelock_thread() -> std::sync::mpsc::Sender<(usize, usize)> {
 }
 
 #[cfg(all(target_os = "windows", feature = "flutter"))]
-pub fn on_printer_file(file_path: String) {
-    if !std::path::Path::new(&file_path).exists() {
-        log::warn!("The printer file does not exist");
-        return;
-    }
+pub fn on_printer_data(data: Vec<u8>) {
     crate::server::AUTHED_CONNS
         .lock()
         .unwrap()
@@ -4056,7 +4069,7 @@ pub fn on_printer_file(file_path: String) {
         .filter(|c| c.printer)
         .next()
         .map(|c| {
-            c.sender.send(Data::PrinterDriver(file_path)).ok();
+            c.sender.send(Data::PrinterData(data)).ok();
         });
 }
 

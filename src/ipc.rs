@@ -273,7 +273,7 @@ pub enum Data {
     RemoveTrustedDevices(Vec<Bytes>),
     ClearTrustedDevices,
     #[cfg(all(target_os = "windows", feature = "flutter"))]
-    PrinterDriver(String),
+    PrinterData(Vec<u8>),
 }
 
 #[tokio::main(flavor = "current_thread")]

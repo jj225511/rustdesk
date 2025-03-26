@@ -744,6 +744,8 @@ async fn handle_fs(
     tx: &UnboundedSender<Data>,
     tx_log: Option<&UnboundedSender<String>>,
 ) {
+    use std::path::PathBuf;
+
     use hbb_common::fs::serialize_transfer_job;
 
     match fs {
@@ -787,7 +789,7 @@ async fn handle_fs(
                 id,
                 fs::JobType::Generic,
                 "".to_string(),
-                path,
+                fs::DataSource::FilePath(PathBuf::from(&path)),
                 file_num,
                 false,
                 false,
@@ -872,32 +874,34 @@ async fn handle_fs(
                     ..Default::default()
                 };
                 if let Some(file) = job.files().get(file_num as usize) {
-                    let path = get_string(&job.join(&file.name));
-                    match is_write_need_confirmation(&path, &digest) {
-                        Ok(digest_result) => {
-                            match digest_result {
-                                DigestCheckResult::IsSame => {
-                                    req.set_skip(true);
-                                    let msg_out = new_send_confirm(req);
-                                    send_raw(msg_out, &tx);
-                                }
-                                DigestCheckResult::NeedConfirm(mut digest) => {
-                                    // upload to server, but server has the same file, request
-                                    digest.is_upload = is_upload;
-                                    let mut msg_out = Message::new();
-                                    let mut fr = FileResponse::new();
-                                    fr.set_digest(digest);
-                                    msg_out.set_file_response(fr);
-                                    send_raw(msg_out, &tx);
-                                }
-                                DigestCheckResult::NoSuchFile => {
-                                    let msg_out = new_send_confirm(req);
-                                    send_raw(msg_out, &tx);
+                    if let fs::DataSource::FilePath(p) = &job.data_source {
+                        let path = get_string(&fs::TransferJob::join(p, &file.name));
+                        match is_write_need_confirmation(&path, &digest) {
+                            Ok(digest_result) => {
+                                match digest_result {
+                                    DigestCheckResult::IsSame => {
+                                        req.set_skip(true);
+                                        let msg_out = new_send_confirm(req);
+                                        send_raw(msg_out, &tx);
+                                    }
+                                    DigestCheckResult::NeedConfirm(mut digest) => {
+                                        // upload to server, but server has the same file, request
+                                        digest.is_upload = is_upload;
+                                        let mut msg_out = Message::new();
+                                        let mut fr = FileResponse::new();
+                                        fr.set_digest(digest);
+                                        msg_out.set_file_response(fr);
+                                        send_raw(msg_out, &tx);
+                                    }
+                                    DigestCheckResult::NoSuchFile => {
+                                        let msg_out = new_send_confirm(req);
+                                        send_raw(msg_out, &tx);
+                                    }
                                 }
                             }
-                        }
-                        Err(err) => {
-                            send_raw(fs::new_error(id, err, file_num), &tx);
+                            Err(err) => {
+                                send_raw(fs::new_error(id, err, file_num), &tx);
+                            }
                         }
                     }
                 }

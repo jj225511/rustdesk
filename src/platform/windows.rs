@@ -2839,7 +2839,7 @@ extern "C" {
     fn PrintXPSRawData(printer_name: *const u16, raw_data: *const u8, data_size: c_ulong) -> DWORD;
 }
 
-pub fn send_file_to_printer(printer_name: Option<String>, file_path: &str) -> ResultType<()> {
+pub fn send_raw_data_to_printer(printer_name: Option<String>, data: Vec<u8>) -> ResultType<()> {
     let mut printer_name = printer_name.unwrap_or_default();
     if printer_name.is_empty() {
         // use GetDefaultPrinter to get the default printer name
@@ -2877,11 +2877,10 @@ pub fn send_file_to_printer(printer_name: Option<String>, file_path: &str) -> Re
 
     let printer_name = wide_string(&printer_name);
     unsafe {
-        let file = std::fs::read(file_path)?;
         let res = PrintXPSRawData(
             printer_name.as_ptr(),
-            file.as_ptr() as *const u8,
-            file.len() as c_ulong,
+            data.as_ptr() as *const u8,
+            data.len() as c_ulong,
         );
         if res != 0 {
             bail!("Failed to send file to printer, see logs in C:\\Windows\\temp\\test_rustdesk.log for more details.");
