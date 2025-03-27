@@ -154,7 +154,7 @@ fn run(sp: EmptyExtraFieldService) -> ResultType<()> {
     while sp.ok() {
         let bytes = get_prn_data(1000)?;
         if !bytes.is_empty() {
-            log::info!("Got prn data, data len: {}", bytes.len());
+            log::info!("================== Got prn data, data len: {}", bytes.len());
             crate::server::on_printer_data(bytes);
         }
         thread::sleep(Duration::from_millis(300));
