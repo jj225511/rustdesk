@@ -12,4 +12,4 @@ jobs:
     secrets: inherit
     with:
       upload-artifact: true
-      upload-tag: "nightly"
+      upload-tag: "0312_f1d2073d43ec28e6baa6d3c0324cd07b9a8198bb"
