@@ -12,7 +12,7 @@ import 'package:flutter_hbb/consts.dart';
 import 'package:flutter_hbb/desktop/pages/connection_page.dart';
 import 'package:flutter_hbb/desktop/pages/desktop_setting_page.dart';
 import 'package:flutter_hbb/desktop/pages/desktop_tab_page.dart';
-import 'package:flutter_hbb/desktop/widgets/upgrade_progress.dart';
+import 'package:flutter_hbb/desktop/widgets/update_progress.dart';
 import 'package:flutter_hbb/models/platform_model.dart';
 import 'package:flutter_hbb/models/server_model.dart';
 import 'package:flutter_hbb/models/state_model.dart';
@@ -435,27 +435,27 @@ class _DesktopHomePageState extends State<DesktopHomePage>
         !isCardClosed &&
         bind.mainUriPrefixSync().contains('rustdesk')) {
       String btnText = "Click to download";
-      var isToUpgrade = false;
+      var isToUpdate = false;
       if (isWindows && bind.mainIsInstalled()) {
         final String isMsiInstalled =
             bind.mainGetCommonSync(key: 'is-msi-installed');
         if ('false' == isMsiInstalled) {
-          isToUpgrade = true;
+          isToUpdate = true;
         } else if ('true' != isMsiInstalled) {
           debugPrint(
               "isMsiInstalled is not true or false, error: $isMsiInstalled");
         }
       }
-      if (isToUpgrade) {
-        btnText = "Click to upgrade";
+      if (isToUpdate) {
+        btnText = "Click to update";
       }
       GestureTapCallback onPressed = () async {
         final Uri url = Uri.parse('https://rustdesk.com/download');
         await launchUrl(url);
       };
-      if (isToUpgrade) {
+      if (isToUpdate) {
         onPressed = () {
-          handleUpgrade(updateUrl);
+          handleUpdate(updateUrl);
         };
       }
       return buildInstallCard(
@@ -580,30 +580,6 @@ class _DesktopHomePageState extends State<DesktopHomePage>
       ).marginAll(14);
     }
     return Container();
-  }
-
-  void handleUpgrade(String updateUrl) {
-    String downloadUrl = updateUrl.replaceAll('tag', 'download');
-    String version = downloadUrl.substring(downloadUrl.lastIndexOf('/') + 1);
-    if (isWindows) {
-      downloadUrl = '$downloadUrl/rustdesk-$version-x86_64.exe';
-    }
-    SimpleWrapper downloadId = SimpleWrapper('');
-    gFFI.dialogManager.dismissAll();
-    gFFI.dialogManager.show((setState, close, context) {
-      return CustomAlertDialog(
-          title: Text(translate('Downloading {$appName}')),
-          content: UpgradeProgress(updateUrl, downloadUrl, downloadId)
-              .marginSymmetric(horizontal: 8)
-              .paddingOnly(top: 12),
-          actions: [
-            dialogButton(translate('Cancel'), onPressed: () {
-              close();
-              bind.mainSetCommon(
-                  key: 'cancel-downloader', value: downloadId.value);
-            }, isOutline: true),
-          ]);
-    });
   }
 
   Widget buildInstallCard(String title, String content, String btnText,

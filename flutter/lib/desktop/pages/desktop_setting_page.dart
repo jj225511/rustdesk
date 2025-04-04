@@ -470,6 +470,10 @@ class _GeneralState extends State<_General> {
   }
 
   Widget other() {
+    final showAutoUpdate = isWindows &&
+        'false' == bind.mainGetCommonSync(key: 'is-msi-installed') &&
+        bind.mainIsInstalled() &&
+        !bind.isCustomClient();
     final children = <Widget>[
       if (!isWeb && !bind.isIncomingOnly())
         _OptionCheckBox(context, 'Confirm before closing multiple tabs',
@@ -516,19 +520,25 @@ class _GeneralState extends State<_General> {
               isServer: false,
             ),
           ),
-        if (!isWeb && !bind.isCustomClient())
-          _OptionCheckBox(
-            context,
-            'Check for software update on startup',
-            kOptionEnableCheckUpdate,
-            isServer: false,
-          ),
         if (isWindows && !bind.isOutgoingOnly())
           _OptionCheckBox(
             context,
             'Capture screen using DirectX',
             kOptionDirectxCapture,
-          )
+          ),
+        if (!isWeb && !bind.isCustomClient())
+          _OptionCheckBox(context, 'Check for software update on startup',
+              kOptionEnableCheckUpdate,
+              isServer: false,
+              fixedValue: showAutoUpdate &&
+                  mainGetBoolOptionSync(kOptionAllowAutoUpdate)),
+        if (showAutoUpdate)
+          _OptionCheckBox(
+            context,
+            'Auto update',
+            kOptionAllowAutoUpdate,
+            isServer: true,
+          ),
       ],
     ];
     if (!isWeb && bind.mainShowOption(key: kOptionAllowLinuxHeadless)) {
@@ -2194,14 +2204,15 @@ Widget _OptionCheckBox(
   bool isServer = true,
   bool Function()? optGetter,
   Future<void> Function(String, bool)? optSetter,
+  bool? fixedValue,
 }) {
   getOpt() => optGetter != null
       ? optGetter()
       : (isServer
           ? mainGetBoolOptionSync(key)
           : mainGetLocalBoolOptionSync(key));
-  bool value = getOpt();
-  final isOptFixed = isOptionFixed(key);
+  bool value = fixedValue ?? getOpt();
+  final isOptFixed = fixedValue != null || isOptionFixed(key);
   if (reverse) value = !value;
   var ref = value.obs;
   onChanged(option) async {
