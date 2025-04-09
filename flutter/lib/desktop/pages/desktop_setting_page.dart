@@ -520,24 +520,25 @@ class _GeneralState extends State<_General> {
               isServer: false,
             ),
           ),
-        if (isWindows && !bind.isOutgoingOnly())
+        if (!isWeb && !bind.isCustomClient())
           _OptionCheckBox(
             context,
-            'Capture screen using DirectX',
-            kOptionDirectxCapture,
+            'Check for software update on startup',
+            kOptionEnableCheckUpdate,
+            isServer: false,
           ),
-        if (!isWeb && !bind.isCustomClient())
-          _OptionCheckBox(context, 'Check for software update on startup',
-              kOptionEnableCheckUpdate,
-              isServer: false,
-              fixedValue: showAutoUpdate &&
-                  mainGetBoolOptionSync(kOptionAllowAutoUpdate)),
         if (showAutoUpdate)
           _OptionCheckBox(
             context,
             'Auto update',
             kOptionAllowAutoUpdate,
             isServer: true,
+          ),
+        if (isWindows && !bind.isOutgoingOnly())
+          _OptionCheckBox(
+            context,
+            'Capture screen using DirectX',
+            kOptionDirectxCapture,
           ),
       ],
     ];
@@ -2204,15 +2205,14 @@ Widget _OptionCheckBox(
   bool isServer = true,
   bool Function()? optGetter,
   Future<void> Function(String, bool)? optSetter,
-  bool? fixedValue,
 }) {
   getOpt() => optGetter != null
       ? optGetter()
       : (isServer
           ? mainGetBoolOptionSync(key)
           : mainGetLocalBoolOptionSync(key));
-  bool value = fixedValue ?? getOpt();
-  final isOptFixed = fixedValue != null || isOptionFixed(key);
+  bool value = getOpt();
+  final isOptFixed = isOptionFixed(key);
   if (reverse) value = !value;
   var ref = value.obs;
   onChanged(option) async {

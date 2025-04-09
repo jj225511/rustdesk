@@ -685,5 +685,6 @@ pub static ref T: std::collections::HashMap<&'static str, &'static str> =
         ("{} Update", "{} 更新"),
         ("{}-to-update-tip", "即将关闭 {} ，并安装新版本。"),
         ("download-new-veresion-failed-tip", "下载失败，您可以 重试 或者点击 查看 按钮，从发布网址下载，并手动升级。"),
+        ("Auto update", ""),
     ].iter().cloned().collect();
 }

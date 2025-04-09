@@ -205,6 +205,17 @@ extern "C"
     BOOL GetSessionUserTokenWin(OUT LPHANDLE lphUserToken, DWORD dwSessionId, BOOL as_user, DWORD *pDwTokenPid)
     {
         BOOL bResult = FALSE;
+
+        HANDLE hToken;
+        TOKEN_PRIVILEGES tkp;
+        if (OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &hToken)) {
+            LookupPrivilegeValue(NULL, SE_TCB_NAME, &tkp.Privileges[0].Luid);
+            tkp.PrivilegeCount = 1;
+            tkp.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
+            AdjustTokenPrivileges(hToken, FALSE, &tkp, 0, NULL, 0);
+            CloseHandle(hToken);
+        }
+
         DWORD Id = GetLogonPid(dwSessionId, as_user);
         if (Id == 0)
         {
@@ -230,7 +241,7 @@ extern "C"
         return IsWindows10OrGreater();
     }
 
-    HANDLE LaunchProcessWin(LPCWSTR cmd, DWORD dwSessionId, BOOL as_user, DWORD *pDwTokenPid)
+    HANDLE LaunchProcessWin(LPCWSTR cmd, DWORD dwSessionId, BOOL as_user, BOOL show, DWORD *pDwTokenPid)
     {
         HANDLE hProcess = NULL;
         HANDLE hToken = NULL;
@@ -239,7 +250,9 @@ extern "C"
             STARTUPINFOW si;
             ZeroMemory(&si, sizeof si);
             si.cb = sizeof si;
+            si.lpDesktop = (LPWSTR)L"winsta0\\default";
             si.dwFlags = STARTF_USESHOWWINDOW;
+            si.wShowWindow = show ? SW_SHOW : SW_HIDE;
             wchar_t buf[MAX_PATH];
             wcscpy_s(buf, sizeof(buf), cmd);
             PROCESS_INFORMATION pi;

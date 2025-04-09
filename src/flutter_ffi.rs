@@ -2447,11 +2447,6 @@ pub fn main_get_common_sync(key: String) -> SyncReturn<String> {
     SyncReturn(main_get_common(key))
 }
 
-#[cfg(target_os = "windows")]
-fn get_new_version_download_file() -> PathBuf {
-    std::env::temp_dir().join(format!("{}.exe", crate::get_app_name()))
-}
-
 pub fn main_set_common(_key: String, _value: String) {
     #[cfg(target_os = "windows")]
     if _key == "install-printer" && crate::platform::is_win_10_or_greater() {
@@ -2477,30 +2472,38 @@ pub fn main_set_common(_key: String, _value: String) {
     }
     #[cfg(target_os = "windows")]
     {
+        use crate::updater::get_download_file_from_url;
         if _key == "download-new-version" {
-            let download_file = get_new_version_download_file();
             let download_url = _value.clone();
             let event_key = "download-new-version".to_owned();
-            std::fs::remove_file(&download_file).ok();
-            let data = match crate::hbbs_http::downloader::download_file(
-                download_url,
-                Some(download_file),
-                Some(Duration::from_secs(3)),
-            ) {
-                Ok(id) => HashMap::from([("name", event_key), ("id", id)]),
-                Err(e) => HashMap::from([("name", event_key), ("error", e.to_string())]),
+            let data = if let Some(download_file) = get_download_file_from_url(&download_url) {
+                std::fs::remove_file(&download_file).ok();
+                match crate::hbbs_http::downloader::download_file(
+                    download_url,
+                    Some(PathBuf::from(download_file)),
+                    Some(Duration::from_secs(3)),
+                ) {
+                    Ok(id) => HashMap::from([("name", event_key), ("id", id)]),
+                    Err(e) => HashMap::from([("name", event_key), ("error", e.to_string())]),
+                }
+            } else {
+                HashMap::from([
+                    ("name", event_key),
+                    ("error", "Invalid download url".to_string()),
+                ])
             };
             let _res = flutter::push_global_event(
                 flutter::APP_TYPE_MAIN,
                 serde_json::ser::to_string(&data).unwrap_or("".to_owned()),
             );
         } else if _key == "update-me" {
-            let new_version_file = get_new_version_download_file()
-                .to_string_lossy()
-                .to_string();
-            // 1.3.9 does not support "--update"
-            // But we can assume that the new version will support it.
-            let _ = crate::platform::run_exe_as_user(&new_version_file, vec!["--update"]);
+            if let Some(new_version_file) = get_download_file_from_url(&_value) {
+                // 1.3.9 does not support "--update"
+                // But we can assume that the new version will support it.
+                if let Some(f) = new_version_file.to_str() {
+                    let _ = crate::platform::run_exe_in_cur_session(f, vec!["--update"], false);
+                }
+            }
         }
     }
 

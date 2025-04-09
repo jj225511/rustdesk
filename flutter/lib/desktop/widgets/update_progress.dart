@@ -191,7 +191,7 @@ class UpdateProgressState extends State<UpdateProgress> {
             msgBox(gFFI.sessionId, 'custom-nocancel', '{$appName} Update',
                 '{$appName}-to-update-tip', '', gFFI.dialogManager);
             Future.delayed(const Duration(milliseconds: 1000), () {
-              bind.mainSetCommon(key: 'update-me', value: '');
+              bind.mainSetCommon(key: 'update-me', value: widget.downloadUrl);
             });
           });
         }
