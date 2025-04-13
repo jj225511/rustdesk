@@ -130,13 +130,13 @@ async fn do_download(
     url: String,
     path: Option<PathBuf>,
     auto_del_dur: Option<Duration>,
-    mut rx_cancenl: UnboundedReceiver<()>,
+    mut rx_cancel: UnboundedReceiver<()>,
 ) -> ResultType<bool> {
     let client = create_http_client_async();
 
     let mut is_all_downloaded = false;
     tokio::select! {
-        _ = rx_cancenl.recv() => {
+        _ = rx_cancel.recv() => {
             return Ok(is_all_downloaded);
         }
         head_resp = client.head(&url).send() => {
@@ -167,7 +167,7 @@ async fn do_download(
 
     let mut response;
     tokio::select! {
-        _ = rx_cancenl.recv() => {
+        _ = rx_cancel.recv() => {
             return Ok(is_all_downloaded);
         }
         resp = client.get(url).send() => {
@@ -182,7 +182,7 @@ async fn do_download(
 
     loop {
         tokio::select! {
-            _ = rx_cancenl.recv() => {
+            _ = rx_cancel.recv() => {
                 break;
             }
             chunk = response.chunk() => {
@@ -223,12 +223,14 @@ async fn do_download(
     if let Some(ref mut downloader) = DOWNLOADERS.lock().unwrap().get_mut(id) {
         downloader.finished = true;
     }
-    let id_del = id.to_string();
-    if let Some(dur) = auto_del_dur {
-        std::thread::spawn(move || {
-            std::thread::sleep(dur);
-            DOWNLOADERS.lock().unwrap().remove(&id_del);
-        });
+    if is_all_downloaded {
+        let id_del = id.to_string();
+        if let Some(dur) = auto_del_dur {
+            std::thread::spawn(move || {
+                std::thread::sleep(dur);
+                DOWNLOADERS.lock().unwrap().remove(&id_del);
+            });
+        }
     }
     Ok(is_all_downloaded)
 }

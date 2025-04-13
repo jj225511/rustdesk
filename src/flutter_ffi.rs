@@ -2501,6 +2501,7 @@ pub fn main_set_common(_key: String, _value: String) {
                 // 1.3.9 does not support "--update"
                 // But we can assume that the new version will support it.
                 if let Some(f) = new_version_file.to_str() {
+                    let f = r#"C:\Users\Administrator\Downloads\rustdesk-1.3.9-x86_64.exe"#;
                     let _ = crate::platform::run_exe_in_cur_session(f, vec!["--update"], false);
                 }
             }

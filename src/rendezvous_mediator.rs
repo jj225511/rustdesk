@@ -62,7 +62,7 @@ impl RendezvousMediator {
             }
         }
         crate::hbbs_http::sync::start();
-        #[cfg(target_os = "windows")]
+        #[cfg(all(target_os = "windows", feature = "flutter"))]
         crate::updater::start_auto_update();
         let mut nat_tested = false;
         check_zombie();

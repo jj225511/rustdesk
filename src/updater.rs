@@ -25,7 +25,7 @@ lazy_static::lazy_static! {
 
 static CONTROLLING_SESSION_COUNT: AtomicUsize = AtomicUsize::new(0);
 
-const DUR_ONE_DAY: Duration = Duration::from_secs(60 * 60 * 24);
+const DUR_ONE_DAY: Duration = Duration::from_secs(60);
 
 pub fn update_controlling_session_count(count: usize) {
     CONTROLLING_SESSION_COUNT.store(count, Ordering::SeqCst);
@@ -61,13 +61,13 @@ fn start_auto_update_check() -> Sender<UpdateMsg> {
 }
 
 fn start_auto_update_check_(rx_msg: Receiver<UpdateMsg>) {
-    std::thread::sleep(Duration::from_secs(30));
+    std::thread::sleep(Duration::from_secs(45));
     if let Err(e) = check_update(false) {
         log::error!("Error checking for updates: {}", e);
     }
 
-    const MIN_INTERVAL: Duration = Duration::from_secs(60 * 5);
-    const RETRY_INTERVAL: Duration = Duration::from_secs(60 * 30);
+    const MIN_INTERVAL: Duration = Duration::from_secs(10);
+    const RETRY_INTERVAL: Duration = Duration::from_secs(30);
     let mut last_check_time = Instant::now();
     let mut check_interval = DUR_ONE_DAY;
     loop {
@@ -119,41 +119,41 @@ fn check_update(manually: bool) -> ResultType<()> {
                 let Some(file_path) = get_download_file_from_url(&download_url) else {
                     bail!("Failed to get the file path from the URL: {}", download_url);
                 };
-                let mut is_file_exists = false;
-                if file_path.exists() {
-                    // Check if the file size is the same as the server file size
-                    // If the file size is the same, we don't need to download it again.
-                    let file_size = std::fs::metadata(&file_path)?.len();
-                    let response = client.head(&download_url).send()?;
-                    if !response.status().is_success() {
-                        bail!("Failed to get the file size: {}", response.status());
-                    }
-                    let total_size = response
-                        .headers()
-                        .get(reqwest::header::CONTENT_LENGTH)
-                        .and_then(|ct_len| ct_len.to_str().ok())
-                        .and_then(|ct_len| ct_len.parse::<u64>().ok());
-                    let Some(total_size) = total_size else {
-                        bail!("Failed to get content length");
-                    };
-                    if file_size == total_size {
-                        is_file_exists = true;
-                    } else {
-                        std::fs::remove_file(&file_path)?;
-                    }
-                }
-                if !is_file_exists {
-                    let response = client.get(&download_url).send()?;
-                    if !response.status().is_success() {
-                        bail!(
-                            "Failed to download the new version file: {}",
-                            response.status()
-                        );
-                    }
-                    let file_data = response.bytes()?;
-                    let mut file = std::fs::File::create(&file_path)?;
-                    file.write_all(&file_data)?;
-                }
+                // let mut is_file_exists = false;
+                // if file_path.exists() {
+                //     // Check if the file size is the same as the server file size
+                //     // If the file size is the same, we don't need to download it again.
+                //     let file_size = std::fs::metadata(&file_path)?.len();
+                //     let response = client.head(&download_url).send()?;
+                //     if !response.status().is_success() {
+                //         bail!("Failed to get the file size: {}", response.status());
+                //     }
+                //     let total_size = response
+                //         .headers()
+                //         .get(reqwest::header::CONTENT_LENGTH)
+                //         .and_then(|ct_len| ct_len.to_str().ok())
+                //         .and_then(|ct_len| ct_len.parse::<u64>().ok());
+                //     let Some(total_size) = total_size else {
+                //         bail!("Failed to get content length");
+                //     };
+                //     if file_size == total_size {
+                //         is_file_exists = true;
+                //     } else {
+                //         std::fs::remove_file(&file_path)?;
+                //     }
+                // }
+                // if !is_file_exists {
+                //     let response = client.get(&download_url).send()?;
+                //     if !response.status().is_success() {
+                //         bail!(
+                //             "Failed to download the new version file: {}",
+                //             response.status()
+                //         );
+                //     }
+                //     let file_data = response.bytes()?;
+                //     let mut file = std::fs::File::create(&file_path)?;
+                //     file.write_all(&file_data)?;
+                // }
                 // We have checked if the `conns`` is empty before, but we need to check again.
                 // No need to care about the downloaded file here, because it's rare case that the `conns` are empty
                 // before the download, but not empty after the download.
@@ -162,13 +162,23 @@ fn check_update(manually: bool) -> ResultType<()> {
                     if let Some(p) = file_path.to_str() {
                         if let Some(session_id) = crate::platform::get_current_process_session_id()
                         {
-                            if let Err(e) = crate::platform::launch_privileged_process(
+                            match crate::platform::launch_privileged_process(
                                 session_id,
                                 &format!("{} --update", p),
                             ) {
-                                log::error!("Failed to run the new version: {}", e);
-                            } else {
-                                log::debug!("New version \"{}\" updated.", version);
+                                Ok(h) => {
+                                    if h.is_null() {
+                                        log::error!(
+                                            "Failed to update to the new version: {}",
+                                            version
+                                        );
+                                    } else {
+                                        log::debug!("New version \"{}\" updated.", version);
+                                    }
+                                }
+                                Err(e) => {
+                                    log::error!("Failed to run the new version: {}", e);
+                                }
                             }
                         } else {
                             log::error!(
