@@ -429,21 +429,21 @@ class _DesktopHomePageState extends State<DesktopHomePage>
   }
 
   Widget buildHelpCards(String updateUrl) {
-    if (!bind.isCustomClient() &&
-        updateUrl.isNotEmpty &&
-        !isCardClosed &&
-        bind.mainUriPrefixSync().contains('rustdesk')) {
-      return buildInstallCard(
-          "Status",
-          "${translate("new-version-of-{${bind.mainGetAppNameSync()}}-tip")} (${bind.mainGetNewVersion()}).",
-          "Click to download", () async {
-        final Uri url = Uri.parse('https://rustdesk.com/download');
-        await launchUrl(url);
-      }, closeButton: true);
-    }
-    if (systemError.isNotEmpty) {
-      return buildInstallCard("", systemError, "", () {});
-    }
+    // if (!bind.isCustomClient() &&
+    //     updateUrl.isNotEmpty &&
+    //     !isCardClosed &&
+    //     bind.mainUriPrefixSync().contains('rustdesk')) {
+    //   return buildInstallCard(
+    //       "Status",
+    //       "${translate("new-version-of-{${bind.mainGetAppNameSync()}}-tip")} (${bind.mainGetNewVersion()}).",
+    //       "Click to download", () async {
+    //     final Uri url = Uri.parse('https://rustdesk.com/download');
+    //     await launchUrl(url);
+    //   }, closeButton: true);
+    // }
+    // if (systemError.isNotEmpty) {
+    //   return buildInstallCard("", systemError, "", () {});
+    // }
 
     if (isWindows && !bind.isDisableInstallation()) {
       if (!bind.mainIsInstalled()) {
@@ -461,27 +461,30 @@ class _DesktopHomePageState extends State<DesktopHomePage>
           bind.mainUpdateMe();
         });
       }
-    } else if (isMacOS) {
-      final isOutgoingOnly = bind.isOutgoingOnly();
-      if (!(isOutgoingOnly || bind.mainIsCanScreenRecording(prompt: false))) {
-        return buildInstallCard("Permissions", "config_screen", "Configure",
-            () async {
-          bind.mainIsCanScreenRecording(prompt: true);
-          watchIsCanScreenRecording = true;
-        }, help: 'Help', link: translate("doc_mac_permission"));
-      } else if (!isOutgoingOnly && !bind.mainIsProcessTrusted(prompt: false)) {
-        return buildInstallCard("Permissions", "config_acc", "Configure",
-            () async {
-          bind.mainIsProcessTrusted(prompt: true);
-          watchIsProcessTrust = true;
-        }, help: 'Help', link: translate("doc_mac_permission"));
-      } else if (!bind.mainIsCanInputMonitoring(prompt: false)) {
-        return buildInstallCard("Permissions", "config_input", "Configure",
-            () async {
-          bind.mainIsCanInputMonitoring(prompt: true);
-          watchIsInputMonitoring = true;
-        }, help: 'Help', link: translate("doc_mac_permission"));
-      } else if (!isOutgoingOnly &&
+    } 
+    else if (isMacOS) {
+    //   final isOutgoingOnly = bind.isOutgoingOnly();
+    //   if (!(isOutgoingOnly || bind.mainIsCanScreenRecording(prompt: false))) {
+    //     return buildInstallCard("Permissions", "config_screen", "Configure",
+    //         () async {
+    //       bind.mainIsCanScreenRecording(prompt: true);
+    //       watchIsCanScreenRecording = true;
+    //     }, help: 'Help', link: translate("doc_mac_permission"));
+    //   } else if (!isOutgoingOnly && !bind.mainIsProcessTrusted(prompt: false)) {
+    //     return buildInstallCard("Permissions", "config_acc", "Configure",
+    //         () async {
+    //       bind.mainIsProcessTrusted(prompt: true);
+    //       watchIsProcessTrust = true;
+    //     }, help: 'Help', link: translate("doc_mac_permission"));
+    //   } else if (!bind.mainIsCanInputMonitoring(prompt: false)) {
+    //     return buildInstallCard("Permissions", "config_input", "Configure",
+    //         () async {
+    //       bind.mainIsCanInputMonitoring(prompt: true);
+    //       watchIsInputMonitoring = true;
+    //     }, help: 'Help', link: translate("doc_mac_permission"));
+    //   } else
+    //
+    if (
           !svcStopped.value &&
           bind.mainIsInstalled() &&
           !bind.mainIsInstalledDaemon(prompt: false)) {
@@ -489,6 +492,7 @@ class _DesktopHomePageState extends State<DesktopHomePage>
           bind.mainIsInstalledDaemon(prompt: true);
         });
       }
+
       //// Disable microphone configuration for macOS. We will request the permission when needed.
       // else if ((await osxCanRecordAudio() !=
       //     PermissionAuthorizeType.authorized)) {
@@ -498,7 +502,8 @@ class _DesktopHomePageState extends State<DesktopHomePage>
       //     watchIsCanRecordAudio = true;
       //   });
       // }
-    } else if (isLinux) {
+    }
+    else if (isLinux) {
       if (bind.isOutgoingOnly()) {
         return Container();
       }

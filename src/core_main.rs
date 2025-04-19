@@ -142,6 +142,7 @@ pub fn core_main() -> Option<Vec<String>> {
     }
     hbb_common::init_log(false, &log_name);
     log::info!("main start args: {:?}, env: {:?}", args, std::env::args());
+    println!("main start args: {:?}, env: {:?}", args, std::env::args());
 
     // linux uni (url) go here.
     #[cfg(all(target_os = "linux", feature = "flutter"))]
@@ -262,6 +263,12 @@ pub fn core_main() -> Option<Vec<String>> {
         } else if args[0] == "--uninstall-service" {
             log::info!("start --uninstall-service");
             crate::platform::uninstall_service(false, true);
+            return None;
+        }
+        else if args[0] == "--reinstall-service" {
+            log::info!("start --reinstall-service");
+            crate::platform::is_installed_daemon(true, true);
+            log::info!("========================= install done");
             return None;
         } else if args[0] == "--service" {
             log::info!("start --service");

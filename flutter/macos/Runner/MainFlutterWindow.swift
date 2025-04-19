@@ -20,7 +20,10 @@ import window_size
 import texture_rgba_renderer
 
 class MainFlutterWindow: NSWindow {
+    private lazy var updater = Updater()
+
     override func awakeFromNib() {
+        updater.checkReinstallService()
         rustdesk_core_main();
         let flutterViewController = FlutterViewController.init()
         let windowFrame = self.frame
@@ -98,6 +101,13 @@ class MainFlutterWindow: NSWindow {
                     AVCaptureDevice.requestAccess(for: .audio, completionHandler: { granted in
                         result(granted)
                     })
+                    break
+                case "checkForUpdates":
+                    self.updater.checkForUpdates()
+                    break
+                case "automaticallyChecksForUpdates":
+                    let arg = call.arguments as? Bool
+                    self.updater.automaticallyChecksForUpdates = arg ?? false
                     break
                 default:
                     result(FlutterMethodNotImplemented)

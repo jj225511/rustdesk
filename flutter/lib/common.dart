@@ -60,6 +60,8 @@ var isMobile = isAndroid || isIOS;
 var version = '';
 int androidVersion = 0;
 
+final isSparkeUpdate = isMacOS && true;
+
 // Only used on Linux.
 // `windowManager.setResizable(false)` will reset the window size to the default size on Linux.
 // https://stackoverflow.com/questions/8193613/gtk-window-resize-disable-without-going-back-to-default
@@ -2809,6 +2811,15 @@ Future<bool> osxRequestAudio() async {
   return await kMacOSPermChannel.invokeMethod("requestRecordAudio");
 }
 
+Future<void> sparkleCheckForUpdates() async {
+  return await kMacOSPermChannel.invokeMethod("checkForUpdates");
+}
+
+Future<void> sparkleAutomaticallyChecksForUpdates(bool b) async {
+  return await kMacOSPermChannel.invokeMethod(
+      "automaticallyChecksForUpdates", b);
+}
+
 Widget futureBuilder(
     {required Future? future, required Widget Function(dynamic data) hasData}) {
   return FutureBuilder(
@@ -3692,16 +3703,23 @@ void earlyAssert() {
 void checkUpdate() {
   if (!isWeb) {
     if (!bind.isCustomClient()) {
-      platformFFI.registerEventHandler(
-          kCheckSoftwareUpdateFinish, kCheckSoftwareUpdateFinish,
-          (Map<String, dynamic> evt) async {
-        if (evt['url'] is String) {
-          stateGlobal.updateUrl.value = evt['url'];
-        }
-      });
-      Timer(const Duration(seconds: 1), () async {
-        bind.mainGetSoftwareUpdateUrl();
-      });
+      if (isSparkeUpdate && bind.mainIsInstalled()) {
+        final enableCheckUpdate =
+            mainGetLocalBoolOptionSync(kOptionEnableCheckUpdate);
+        debugPrint('Enable check update, sparkle, $enableCheckUpdate');
+        sparkleAutomaticallyChecksForUpdates(enableCheckUpdate);
+      } else {
+        platformFFI.registerEventHandler(
+            kCheckSoftwareUpdateFinish, kCheckSoftwareUpdateFinish,
+            (Map<String, dynamic> evt) async {
+          if (evt['url'] is String) {
+            stateGlobal.updateUrl.value = evt['url'];
+          }
+        });
+        Timer(const Duration(seconds: 1), () async {
+          bind.mainGetSoftwareUpdateUrl();
+        });
+      }
     }
   }
 }

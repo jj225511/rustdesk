@@ -120,6 +120,25 @@ pub extern "C" fn handle_applicationShouldOpenUntitledFile() {
     crate::platform::macos::handle_application_should_open_untitled_file();
 }
 
+#[cfg(target_os = "macos")]
+#[no_mangle]
+pub extern "C" fn is_installed() -> bool {
+    crate::ui_interface::is_installed()
+}
+
+#[cfg(target_os = "macos")]
+#[no_mangle]
+pub extern "C" fn is_installed_daemon() -> bool {
+    crate::ui_interface::is_installed_daemon(false)
+}
+
+#[cfg(target_os = "macos")]
+#[no_mangle]
+pub extern "C" fn is_service_stopped() -> bool {
+    let option = "stop-service";
+    hbb_common::config::option2bool(option, &crate::ui_interface::get_option(option))
+}
+
 #[cfg(windows)]
 #[no_mangle]
 pub extern "C" fn rustdesk_core_main_args(args_len: *mut c_int) -> *mut *mut c_char {

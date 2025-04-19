@@ -152,10 +152,10 @@ fn unsafe_is_can_screen_recording(prompt: bool) -> bool {
 }
 
 pub fn install_service() -> bool {
-    is_installed_daemon(false)
+    is_installed_daemon(false, false)
 }
 
-pub fn is_installed_daemon(prompt: bool) -> bool {
+pub fn is_installed_daemon(prompt: bool, sync: bool) -> bool {
     let daemon = format!("{}_service.plist", crate::get_full_name());
     let agent = format!("{}_server.plist", crate::get_full_name());
     let agent_plist_file = format!("/Library/LaunchAgents/{}", agent);
@@ -190,31 +190,41 @@ pub fn is_installed_daemon(prompt: bool) -> bool {
         return false;
     };
 
-    std::thread::spawn(move || {
-        match std::process::Command::new("osascript")
-            .arg("-e")
-            .arg(install_script_body)
-            .arg(daemon_plist_body)
-            .arg(agent_plist_body)
-            .arg(&get_active_username())
-            .status()
-        {
-            Err(e) => {
-                log::error!("run osascript failed: {}", e);
-            }
-            _ => {
-                let installed = std::path::Path::new(&agent_plist_file).exists();
-                log::info!("Agent file {} installed: {}", agent_plist_file, installed);
-                if installed {
-                    log::info!("launch server");
-                    std::process::Command::new("launchctl")
-                        .args(&["load", "-w", &agent_plist_file])
-                        .status()
-                        .ok();
-                }
+    let func = move || match std::process::Command::new("osascript")
+        .arg("-e")
+        .arg(install_script_body)
+        .arg(daemon_plist_body)
+        .arg(agent_plist_body)
+        .arg(&get_active_username())
+        .status()
+    {
+        Err(e) => {
+            log::error!("run osascript failed: {}", e);
+        }
+        _ => {
+            let installed = std::path::Path::new(&agent_plist_file).exists();
+            log::info!("Agent file {} installed: {}", agent_plist_file, installed);
+            if installed {
+                log::info!("launch server");
+                // Unload first, or load may not work if already loaded.
+                // We hope that the load operation can immediately trigger a start.
+                std::process::Command::new("launchctl")
+                    .args(&["unload", "-w", &agent_plist_file])
+                    .status()
+                    .ok();
+                std::process::Command::new("launchctl")
+                    .args(&["load", "-w", &agent_plist_file])
+                    .status()
+                    .ok();
             }
         }
-    });
+    };
+
+    if sync {
+        func();
+    } else {
+        std::thread::spawn(func);
+    }
     false
 }
 
@@ -226,7 +236,7 @@ fn correct_app_name(s: &str) -> String {
 
 pub fn uninstall_service(show_new_window: bool, sync: bool) -> bool {
     // to-do: do together with win/linux about refactory start/stop service
-    if !is_installed_daemon(false) {
+    if !is_installed_daemon(false, sync) {
         return false;
     }
 

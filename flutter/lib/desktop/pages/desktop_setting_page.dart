@@ -522,6 +522,11 @@ class _GeneralState extends State<_General> {
             'Check for software update on startup',
             kOptionEnableCheckUpdate,
             isServer: false,
+            update: (b) {
+              if (isSparkeUpdate && bind.mainIsInstalled()) {
+                sparkleAutomaticallyChecksForUpdates(b);
+              }
+            },
           ),
         if (isWindows && !bind.isOutgoingOnly())
           _OptionCheckBox(

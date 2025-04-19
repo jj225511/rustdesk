@@ -30,6 +30,8 @@ target 'Runner' do
   use_frameworks!
   use_modular_headers!
 
+  pod 'Sparkle', '~> 2.6.4'
+
   flutter_install_all_macos_pods File.dirname(File.realpath(__FILE__))
 end
 

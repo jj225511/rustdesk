@@ -47,5 +47,19 @@
 	<string>NSApplication</string>
     <key>LSUIElement</key>
     <string>1</string>
+	<key>SUFeedURL</key>
+	<string>http://testsparkle:8080/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+    <string>v+qe8CWkrFDoMlcOnk3ZkaXNgzJ/L8J+MrjSL2ATEGA=</string>
+	<key>SUScheduledCheckInterval</key>
+	<real>3600</real>
+	<!-- <key>SUEnableAutomaticChecks</key>
+	<true/> -->
+	<key>SUEnableVerboseLogging</key>
+	<true/>
+	<key>SUAllowsInsecureHTTPURL</key>
+	<true/>
+	<key>SUEnableUnsignedUpdates</key>
+	<true/>
 </dict>
 </plist>

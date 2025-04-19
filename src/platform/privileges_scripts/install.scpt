@@ -1,4 +1,5 @@
 on run {daemon_file, agent_file, user}
+  set unload_cmd to "launchctl unload -w /Library/LaunchDaemons/com.carriez.RustDesk_service.plist || true;"
 
   set sh1 to "echo " & quoted form of daemon_file & " > /Library/LaunchDaemons/com.carriez.RustDesk_service.plist && chown root:wheel /Library/LaunchDaemons/com.carriez.RustDesk_service.plist;"
 
@@ -10,7 +11,7 @@ on run {daemon_file, agent_file, user}
 
   set sh5 to "launchctl load -w /Library/LaunchDaemons/com.carriez.RustDesk_service.plist;"
 
-  set sh to sh1 & sh2 & sh3 & sh4 & sh5
+  set sh to unload_cmd & sh1 & sh2 & sh3 & sh4 & sh5
 
   do shell script sh with prompt "RustDesk want to install daemon and agent" with administrator privileges
 end run
