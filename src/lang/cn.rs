@@ -687,6 +687,7 @@ pub static ref T: std::collections::HashMap<&'static str, &'static str> =
         ("screenshot-action-tip", "请选择如何继续截屏。"),
         ("Save as", "另存为"),
         ("Copy to clipboard", "复制到剪贴板"),
+        ("Enable remote printer", "启用远程打印机"),
         ("Downloading {}", "下载 {}"),
         ("{} Update", "{} 更新"),
         ("{}-to-update-tip", "即将关闭 {} ，并安装新版本。"),
