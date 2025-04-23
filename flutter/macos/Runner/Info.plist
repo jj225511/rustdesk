@@ -51,10 +51,12 @@
 	<string>http://testsparkle:8080/appcast.xml</string>
 	<key>SUPublicEDKey</key>
     <string>v+qe8CWkrFDoMlcOnk3ZkaXNgzJ/L8J+MrjSL2ATEGA=</string>
-	<key>SUScheduledCheckInterval</key>
-	<real>3600</real>
 	<!-- <key>SUEnableAutomaticChecks</key>
-	<true/> -->
+	<true/>
+	<key>SUScheduledCheckInterval</key>
+	<integer>3600</integer> -->
+	<key>SUAutomaticallyUpdate</key>
+	<false/>
 	<key>SUEnableVerboseLogging</key>
 	<true/>
 	<key>SUAllowsInsecureHTTPURL</key>

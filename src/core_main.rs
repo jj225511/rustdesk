@@ -268,7 +268,6 @@ pub fn core_main() -> Option<Vec<String>> {
         else if args[0] == "--reinstall-service" {
             log::info!("start --reinstall-service");
             crate::platform::is_installed_daemon(true, true);
-            log::info!("========================= install done");
             return None;
         } else if args[0] == "--service" {
             log::info!("start --service");

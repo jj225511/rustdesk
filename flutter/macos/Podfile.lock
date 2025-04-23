@@ -17,7 +17,7 @@ PODS:
     - FlutterMacOS
   - screen_retriever (0.0.1):
     - FlutterMacOS
-  - Sparkle (2.6.4)
+  - Sparkle (2.7.0)
   - sqflite (0.0.3):
     - Flutter
     - FlutterMacOS
@@ -47,7 +47,7 @@ DEPENDENCIES:
   - package_info_plus (from `Flutter/ephemeral/.symlinks/plugins/package_info_plus/macos`)
   - path_provider_foundation (from `Flutter/ephemeral/.symlinks/plugins/path_provider_foundation/darwin`)
   - screen_retriever (from `Flutter/ephemeral/.symlinks/plugins/screen_retriever/macos`)
-  - Sparkle (~> 2.6.4)
+  - Sparkle (from `/Users/rustdesk/workspace/Sparkle`)
   - sqflite (from `Flutter/ephemeral/.symlinks/plugins/sqflite/darwin`)
   - texture_rgba_renderer (from `Flutter/ephemeral/.symlinks/plugins/texture_rgba_renderer/macos`)
   - uni_links_desktop (from `Flutter/ephemeral/.symlinks/plugins/uni_links_desktop/macos`)
@@ -56,10 +56,6 @@ DEPENDENCIES:
   - wakelock_plus (from `Flutter/ephemeral/.symlinks/plugins/wakelock_plus/macos`)
   - window_manager (from `Flutter/ephemeral/.symlinks/plugins/window_manager/macos`)
   - window_size (from `Flutter/ephemeral/.symlinks/plugins/window_size/macos`)
-
-SPEC REPOS:
-  trunk:
-    - Sparkle
 
 EXTERNAL SOURCES:
   desktop_drop:
@@ -80,6 +76,8 @@ EXTERNAL SOURCES:
     :path: Flutter/ephemeral/.symlinks/plugins/path_provider_foundation/darwin
   screen_retriever:
     :path: Flutter/ephemeral/.symlinks/plugins/screen_retriever/macos
+  Sparkle:
+    :path: "/Users/rustdesk/workspace/Sparkle"
   sqflite:
     :path: Flutter/ephemeral/.symlinks/plugins/sqflite/darwin
   texture_rgba_renderer:
@@ -107,7 +105,7 @@ SPEC CHECKSUMS:
   package_info_plus: 02d7a575e80f194102bef286361c6c326e4c29ce
   path_provider_foundation: 3784922295ac71e43754bd15e0653ccfd36a147c
   screen_retriever: 59634572a57080243dd1bf715e55b6c54f241a38
-  Sparkle: 5f8960a7a119aa7d45dacc0d5837017170bc5675
+  Sparkle: 9c328bdcfbcaf8f030c4b678eadfd0fcb03822d8
   sqflite: 673a0e54cc04b7d6dba8d24fb8095b31c3a99eec
   texture_rgba_renderer: cbed959a3c127122194a364e14b8577bd62dc8f2
   uni_links_desktop: 45900fb319df48fcdea2df0756e9c2626696b026
@@ -117,6 +115,6 @@ SPEC CHECKSUMS:
   window_manager: 3a1844359a6295ab1e47659b1a777e36773cd6e8
   window_size: 339dafa0b27a95a62a843042038fa6c3c48de195
 
-PODFILE CHECKSUM: 3eca869889b8cb310561df258fdb720f22afec60
+PODFILE CHECKSUM: c75e3825b46abbf85162cc4691034721681627a8
 
 COCOAPODS: 1.15.2

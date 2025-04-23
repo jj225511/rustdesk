@@ -3708,6 +3708,7 @@ void checkUpdate() {
             mainGetLocalBoolOptionSync(kOptionEnableCheckUpdate);
         debugPrint('Enable check update, sparkle, $enableCheckUpdate');
         sparkleAutomaticallyChecksForUpdates(enableCheckUpdate);
+        sparkleCheckForUpdates();
       } else {
         platformFFI.registerEventHandler(
             kCheckSoftwareUpdateFinish, kCheckSoftwareUpdateFinish,

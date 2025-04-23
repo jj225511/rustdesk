@@ -25,8 +25,8 @@ class Updater: NSObject {
     init() {
         super.init()
         updaterController.startUpdater()
-        automaticallyChecksForUpdates = false
-        // updaterController.updater.updateCheckInterval = 3600.0
+        automaticallyChecksForUpdates = true
+        updaterController.updater.updateCheckInterval = 3600.0
     }
 
     func checkForUpdates() {
@@ -43,6 +43,13 @@ extension Updater: SPUUpdaterDelegate {
         NSLog("Failed to check update: \(error.localizedDescription)")
     }
 
+    func updater(_ updater: SPUUpdater, willInstallUpdate item: SUAppcastItem) {
+        // NSLog("========================== Will install update")
+        if (is_installed() && is_installed_daemon() && !is_service_stopped()) {
+            self.setShouldRunPostUpdate()
+        }
+    }
+
     func updater(_ updater: SPUUpdater, didFindValidUpdate item: SUAppcastItem) {
         let notification = NSUserNotification()
         notification.title = "New Update Available"
@@ -51,11 +58,12 @@ extension Updater: SPUUpdaterDelegate {
         NSUserNotificationCenter.default.deliver(notification)
     }
 
-    func updaterWillRelaunchApplication(_ updater: SPUUpdater) {
-        if (is_installed() && is_installed_daemon() && !is_service_stopped()) {
-            self.setShouldRunPostUpdate()
-        }
-    }
+    // func updaterWillRelaunchApplication(_ updater: SPUUpdater) {
+    //     // NSLog("========================== updaterWillRelaunchApplication")
+    //     if (is_installed() && is_installed_daemon() && !is_service_stopped()) {
+    //         self.setShouldRunPostUpdate()
+    //     }
+    // }
 
     func checkReinstallService() {
         let args = CommandLine.arguments
@@ -63,10 +71,9 @@ extension Updater: SPUUpdaterDelegate {
            if self.shouldRunPostUpdate() {
                 DispatchQueue.global().async {
                     do {
-                    try self.runShellCommand("""
-                        sleep 2
-                        /Applications/RustDesk.app/Contents/MacOS/RustDesk --reinstall-service
-                        """)
+                        try self.runShellCommand("""
+                            /Applications/RustDesk.app/Contents/MacOS/RustDesk --reinstall-service
+                            """)
                     } catch
                     {
                         NSLog("[RustDesk] reinstall services failed")
