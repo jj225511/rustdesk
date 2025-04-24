@@ -2441,6 +2441,9 @@ pub fn main_set_common(_key: String, _value: String) {
             if success {
                 // Use `ipc` to notify the server process to update the install option in the registry.
                 // Because `install_update_printer()` may prompt for permissions, there is no need to prompt again here.
+                //
+                // The install options are stored in the register.
+                // Both exe and msi installer will read the options on the next installation.
                 if let Err(e) = crate::ipc::set_install_option(
                     crate::platform::REG_NAME_INSTALL_PRINTER.to_string(),
                     "1".to_string(),
