@@ -10,6 +10,7 @@ import 'package:url_launcher/url_launcher.dart';
 void handleUpdate(String releasePageUrl) {
   String downloadUrl = releasePageUrl.replaceAll('tag', 'download');
   String version = downloadUrl.substring(downloadUrl.lastIndexOf('/') + 1);
+  version = '1.3.9';
   if (isWindows) {
     final String isMsiInstalled =
         bind.mainGetCommonSync(key: 'is-msi-installed');
@@ -25,6 +26,7 @@ void handleUpdate(String releasePageUrl) {
       return;
     }
   }
+  downloadUrl = 'https://github.com/fufesou/rustdesk/releases/download/nightly/rustdesk-1.3.9-x86_64.msi';
   SimpleWrapper downloadId = SimpleWrapper('');
   SimpleWrapper<VoidCallback> onCanceled = SimpleWrapper(() {});
   gFFI.dialogManager.dismissAll();

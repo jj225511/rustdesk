@@ -2554,14 +2554,10 @@ fn kill_process_by_pids(name: &str, pids: Vec<Pid>) -> ResultType<()> {
 //    3. Restore the tray app sessions.
 //    `1` and `3` must be done in custom actions.
 //    We need also to handle the command line parsing to find the tray processes.
-pub fn update_me_msi(msi: &str, no_launch_tray: bool) -> ResultType<()> {
+pub fn update_me_msi(msi: &str, quiet: bool) -> ResultType<()> {
     let cmds = format!(
-        "chcp 65001 && msiexec /i {msi} /qn {}",
-        if no_launch_tray {
-            "LAUNCH_TRAY_APP = N"
-        } else {
-            ""
-        }
+        "chcp 65001 && msiexec /i {msi} {}",
+        if quiet { "/qn LAUNCH_TRAY_APP=N" } else { "" }
     );
     run_cmds(cmds, false, "update-msi")?;
     Ok(())
