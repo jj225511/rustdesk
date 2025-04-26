@@ -34,6 +34,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
 import 'package:uuid/uuid.dart';
 import 'package:window_manager/window_manager.dart';
+import 'package:file_picker/file_picker.dart';
 
 import '../common.dart';
 import '../utils/image.dart' as img;
@@ -414,10 +415,72 @@ class FfiModel with ChangeNotifier {
         }
       } else if (name == "printer_request") {
         _handlePrinterRequest(evt, sessionId, peerId);
+      } else if (name == 'screenshot') {
+        _handleScreenshot(evt, sessionId, peerId);
       } else {
         debugPrint('Event is not handled in the fixed branch: $name');
       }
     };
+  }
+
+  _handleScreenshot(
+      Map<String, dynamic> evt, SessionID sessionId, String peerId) {
+    final msgBoxType = 'custom-nook-hasclose';
+    final msgBoxTitle = 'Take screenshot';
+    final msgBoxText = 'screenshot-action-tip';
+    final dialogManager = parent.target!.dialogManager;
+
+    close() {
+      dialogManager.dismissAll();
+    }
+
+    saveAs() {
+      close();
+      Future.delayed(Duration.zero, () async {
+        String? outputFile = await FilePicker.platform.saveFile(
+          dialogTitle: '${translate('Save as')}...',
+          fileName: 'screenshot.png',
+          allowedExtensions: ['png'],
+          type: FileType.image,
+        );
+        if (outputFile == null) {
+          bind.sessionHandleScreenshot(sessionId: sessionId, action: '2');
+        } else {
+          final res = await bind.sessionHandleScreenshot(
+              sessionId: sessionId, action: '0:$outputFile');
+          if (res.isNotEmpty) {
+            msgBox(sessionId, 'custom-nook-nocancel-hasclose-error',
+                'Take screenshot', res, '', dialogManager);
+          }
+        }
+      });
+    }
+
+    copyToClipboard() {
+      bind.sessionHandleScreenshot(sessionId: sessionId, action: '1');
+      close();
+    }
+
+    cancel() {
+      bind.sessionHandleScreenshot(sessionId: sessionId, action: '2');
+      close();
+    }
+
+    final List<Widget> buttons = [
+      dialogButton('${translate('Save as')}...', onPressed: saveAs),
+      dialogButton('Copy to clipboard', onPressed: copyToClipboard),
+      dialogButton('Cancel', onPressed: cancel),
+    ];
+    dialogManager.dismissAll();
+    dialogManager.show(
+      (setState, close, context) => CustomAlertDialog(
+        title: null,
+        content: SelectionArea(
+            child: msgboxContent(msgBoxType, msgBoxTitle, msgBoxText)),
+        actions: buttons,
+      ),
+      tag: '$msgBoxType-$msgBoxTitle-$msgBoxTitle',
+    );
   }
 
   _handlePrinterRequest(

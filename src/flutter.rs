@@ -1,5 +1,5 @@
 use crate::{
-    client::*,
+    client::{screenshot::Screenshot, *},
     flutter_ffi::{EventToUI, SessionID},
     ui_session_interface::{io_loop, InvokeUiSession, Session},
 };
@@ -203,6 +203,7 @@ struct SessionHandler {
     // We need this variable to check if the display is in use before pushing rgba to flutter.
     displays: Vec<usize>,
     renderer: VideoRenderer,
+    screenshot: Arc<RwLock<Screenshot>>,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -615,6 +616,17 @@ impl FlutterHandler {
             .store(crate::ui_interface::use_texture_render(), Ordering::Relaxed);
         self.display_rgbas.write().unwrap().clear();
     }
+
+    pub fn get_session_screenshot(
+        &self,
+        session_id: &SessionID,
+    ) -> Option<Arc<RwLock<Screenshot>>> {
+        self.session_handlers
+            .read()
+            .unwrap()
+            .get(session_id)
+            .map(|h| h.screenshot.clone())
+    }
 }
 
 impl InvokeUiSession for FlutterHandler {
@@ -817,6 +829,7 @@ impl InvokeUiSession for FlutterHandler {
     #[inline]
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
     fn on_rgba(&self, display: usize, rgba: &mut scrap::ImageRgb) {
+        self.try_take_screenshot(display, rgba);
         let use_texture_render = self.use_texture_render.load(Ordering::Relaxed);
         self.on_rgba_flutter_texture_render(use_texture_render, display, rgba);
         if !use_texture_render {
@@ -827,6 +840,7 @@ impl InvokeUiSession for FlutterHandler {
     #[inline]
     #[cfg(any(target_os = "android", target_os = "ios"))]
     fn on_rgba(&self, display: usize, rgba: &mut scrap::ImageRgb) {
+        self.try_take_screenshot(display, rgba);
         self.on_rgba_soft_render(display, rgba);
     }
 
@@ -1070,6 +1084,24 @@ impl InvokeUiSession for FlutterHandler {
 }
 
 impl FlutterHandler {
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    fn try_take_screenshot(&self, display: usize, rgba: &mut scrap::ImageRgb) {
+        for (_, s) in self.session_handlers.write().unwrap().iter_mut() {
+            if s.screenshot
+                .write()
+                .unwrap()
+                .try_take_screenshot(display as _, rgba)
+            {
+                s.event_stream.as_mut().map(|stream| {
+                    let h = HashMap::from([("name", "screenshot")]);
+                    let event =
+                        EventToUI::Event(serde_json::to_string(&h).unwrap_or("".to_owned()));
+                    stream.add(event);
+                });
+            }
+        }
+    }
+
     #[inline]
     fn on_rgba_soft_render(&self, display: usize, rgba: &mut scrap::ImageRgb) {
         // Give a chance for plugins or etc to hook a rgba data.
@@ -2145,6 +2177,14 @@ pub mod sessions {
         SESSIONS.read().unwrap().iter().any(|((_, r#type), s)| {
             *r#type == conn_type && s.session_handlers.read().unwrap().len() != 0
         })
+    }
+
+    pub fn get_screenshot(session_id: &SessionID) -> Option<Arc<RwLock<Screenshot>>> {
+        SESSIONS
+            .read()
+            .unwrap()
+            .values()
+            .find_map(|s| s.ui_handler.get_session_screenshot(session_id))
     }
 }
 

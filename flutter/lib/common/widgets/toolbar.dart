@@ -294,6 +294,29 @@ List<TTextMenu> toolbarControls(BuildContext context, String id, FFI ffi) {
         ),
         onPressed: () => ffi.recordingModel.toggle()));
   }
+
+  // to-do:
+  // 1. Web desktop
+  // 2. Mobile, copy the image to the clipboard
+  if (isDesktop) {
+    v.add(TTextMenu(
+      child: Text(translate('Take screenshot')),
+      onPressed: () {
+        if (pi.currentDisplay == kAllDisplayValue) {
+          msgBox(
+              sessionId,
+              'custom-nook-nocancel-hasclose-info',
+              'Take screenshot',
+              'screenshot-merged-screen-not-supported-tip',
+              '',
+              ffi.dialogManager);
+        } else {
+          bind.sessionTakeScreenshot(
+              sessionId: sessionId, display: pi.currentDisplay);
+        }
+      },
+    ));
+  }
   // fingerprint
   if (!(isDesktop || isWebDesktop)) {
     v.add(TTextMenu(

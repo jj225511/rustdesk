@@ -412,6 +412,16 @@ impl<T: InvokeUiSession> Session<T> {
         self.send(Data::RecordScreen(start));
     }
 
+    #[cfg(not(feature = "flutter"))]
+    pub fn take_screenshot(&self, display: i32) {
+        crate::client::screenshot::set_take_screenshot(display);
+    }
+
+    #[cfg(not(feature = "flutter"))]
+    pub fn handle_screenshot(&self, action: String) -> String {
+        crate::client::screenshot::handle_screenshot(&action)
+    }
+
     pub fn is_recording(&self) -> bool {
         self.lc.read().unwrap().record_state
     }

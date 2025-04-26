@@ -250,6 +250,29 @@ pub fn session_refresh(session_id: SessionID, display: usize) {
     }
 }
 
+pub fn session_take_screenshot(session_id: SessionID, display: usize) -> bool {
+    if let Some(screenshot) = sessions::get_screenshot(&session_id) {
+        screenshot
+            .write()
+            .unwrap()
+            .set_take_screenshot(display as _);
+    } else {
+        return false;
+    };
+    if let Some(s) = sessions::get_session_by_session_id(&session_id) {
+        s.refresh_video(display as _);
+    }
+    true
+}
+
+pub fn session_handle_screenshot(session_id: SessionID, action: String) -> String {
+    if let Some(screenshot) = sessions::get_screenshot(&session_id) {
+        return screenshot.write().unwrap().handle_screenshot(&action);
+    }
+    // Unreachable
+    "Session not found".to_owned()
+}
+
 pub fn session_is_multi_ui_session(session_id: SessionID) -> SyncReturn<bool> {
     if let Some(session) = sessions::get_session_by_session_id(&session_id) {
         SyncReturn(session.is_multi_ui_session())
