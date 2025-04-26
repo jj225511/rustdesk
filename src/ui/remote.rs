@@ -267,6 +267,9 @@ impl InvokeUiSession for SciterHandler {
             .unwrap()
             .as_mut()
             .map(|v| v.render_frame(&rgba.raw).ok());
+        if crate::client::screenshot::try_take_screenshot(_display as _, rgba) {
+            self.call("screenshot", &make_args!());
+        }
     }
 
     fn set_peer_info(&self, pi: &PeerInfo) {
@@ -529,6 +532,8 @@ impl sciter::EventHandler for SciterSession {
         fn save_custom_image_quality(i32);
         fn refresh_video(i32);
         fn record_screen(bool);
+        fn take_screenshot(i32);
+        fn handle_screenshot(String);
         fn get_toggle_option(String);
         fn is_privacy_mode_supported();
         fn toggle_option(String);
