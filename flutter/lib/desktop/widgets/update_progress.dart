@@ -10,21 +10,16 @@ import 'package:url_launcher/url_launcher.dart';
 void handleUpdate(String releasePageUrl) {
   String downloadUrl = releasePageUrl.replaceAll('tag', 'download');
   String version = downloadUrl.substring(downloadUrl.lastIndexOf('/') + 1);
-  if (isWindows) {
-    final String isMsiInstalled =
-        bind.mainGetCommonSync(key: 'is-msi-installed');
-    if (isMsiInstalled == 'true') {
-      downloadUrl = '$downloadUrl/rustdesk-$version-x86_64.msi';
-    } else if (isMsiInstalled == 'false') {
-      downloadUrl = '$downloadUrl/rustdesk-$version-x86_64.exe';
-    } else {
-      debugPrint(
-          'Failed to check if is installed MSI package, error: $isMsiInstalled');
-      msgBox(gFFI.sessionId, 'custom-nocancel-nook-hasclose', 'Error',
-          'update-failed-check-msi-tip', releasePageUrl, gFFI.dialogManager);
-      return;
-    }
+  final String downloadFile =
+      bind.mainGetCommonSync(key: 'download-file-$version');
+  if (downloadFile.startsWith('error:')) {
+    final error = downloadFile.replaceFirst('error:', '');
+    msgBox(gFFI.sessionId, 'custom-nocancel-nook-hasclose', 'Error', error,
+        releasePageUrl, gFFI.dialogManager);
+    return;
   }
+  downloadUrl = '$downloadUrl/$downloadFile';
+
   SimpleWrapper downloadId = SimpleWrapper('');
   SimpleWrapper<VoidCallback> onCanceled = SimpleWrapper(() {});
   gFFI.dialogManager.dismissAll();
@@ -142,7 +137,7 @@ class UpdateProgressState extends State<UpdateProgress> {
     }
 
     final List<Widget> buttons = [
-      dialogButton('JumpLink', onPressed: jumplink),
+      dialogButton('Download', onPressed: jumplink),
       dialogButton('Retry', onPressed: retry),
       dialogButton('Close', onPressed: close),
     ];

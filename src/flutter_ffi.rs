@@ -2428,16 +2428,6 @@ pub fn main_get_common(key: String) -> String {
         return false.to_string();
     } else if key == "transfer-job-id" {
         return hbb_common::fs::get_next_job_id().to_string();
-    } else if key == "is-msi-installed" {
-        #[cfg(target_os = "windows")]
-        {
-            return match crate::platform::windows::is_msi_installed() {
-                Ok(r) => r.to_string(),
-                Err(e) => e.to_string(),
-            };
-        }
-        #[cfg(not(target_os = "windows"))]
-        return false.to_string();
     } else {
         if key.starts_with("download-data-") {
             let id = key.replace("download-data-", "");
@@ -2446,6 +2436,31 @@ pub fn main_get_common(key: String) -> String {
                 Err(e) => {
                     format!("error:{}", e)
                 }
+            }
+        } else if key.starts_with("download-file-") {
+            let _version = key.replace("download-file-", "");
+            #[cfg(target_os = "windows")]
+            return match crate::platform::windows::is_msi_installed() {
+                Ok(true) => format!("rustdesk-{_version}-x86_64.exe"),
+                Ok(false) => format!("rustdesk-{_version}-x86_64.msi"),
+                Err(e) => {
+                    log::error!("Failed to check if is msi: {}", e);
+                    format!("error:update-failed-check-msi-tip")
+                }
+            };
+            #[cfg(target_os = "macos")]
+            {
+                return if cfg!(target_arch = "x86_64") {
+                    format!("rustdesk-{_version}-x86_64.dmg")
+                } else if cfg!(target_arch = "aarch64") {
+                    format!("rustdesk-{_version}-aarch64.dmg")
+                } else {
+                    "error:unsupported".to_owned()
+                };
+            }
+            #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+            {
+                "error:unsupported".to_owned()
             }
         } else {
             "".to_owned()
@@ -2529,7 +2544,7 @@ pub fn main_set_common(_key: String, _value: String) {
                             log::error!("Failed to run the update exe: {}", e);
                         }
                     } else if f.ends_with(".msi") {
-                        if let Err(e) = crate::platform::update_me_msi(f) {
+                        if let Err(e) = crate::platform::update_me_msi(f, false) {
                             log::error!("Failed to run the update msi: {}", e);
                         }
                     } else {
