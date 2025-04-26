@@ -49,7 +49,7 @@ use scrap::{
     codec::{Encoder, EncoderCfg},
     record::{Recorder, RecorderContext},
     vpxcodec::{VpxEncoderConfig, VpxVideoCodecId},
-    CodecFormat, Display, EncodeInput, TraitCapturer,
+    CodecFormat, Display, EncodeInput, TraitCapturer, TraitPixelBuffer,
 };
 #[cfg(windows)]
 use std::sync::Once;
@@ -70,6 +70,13 @@ lazy_static::lazy_static! {
     pub static ref VIDEO_QOS: Arc<Mutex<VideoQoS>> = Default::default();
     pub static ref IS_UAC_RUNNING: Arc<Mutex<bool>> = Default::default();
     pub static ref IS_FOREGROUND_WINDOW_ELEVATED: Arc<Mutex<bool>> = Default::default();
+    static ref SCREENSHOT: Mutex<HashMap<usize, Arc<RwLock<Screenshot>>>> = Default::default();
+}
+
+#[derive(Default)]
+struct Screenshot {
+    sid: String,
+    tx: Option<Sender>,
 }
 
 #[inline]
@@ -495,6 +502,17 @@ fn run(vs: VideoService) -> ResultType<()> {
     );
     let client_record = video_qos.record();
     drop(video_qos);
+    match vs.source {
+        VideoSource::Monitor => {
+            SCREENSHOT
+                .lock()
+                .unwrap()
+                .insert(display_idx, Arc::new(RwLock::new(Screenshot::default())));
+        }
+        VideoSource::Camera => {
+            // Not supported for now
+        }
+    }
     let (mut encoder, encoder_cfg, codec_format, use_i444, recorder) = match setup_encoder(
         &c,
         sp.name(),
@@ -639,6 +657,28 @@ fn run(vs: VideoService) -> ResultType<()> {
             Ok(frame) => {
                 repeat_encode_counter = 0;
                 if frame.valid() {
+                    if let Some(screenshot) = SCREENSHOT.lock().unwrap().get(&display_idx) {
+                        let mut screenshot_lock = screenshot.write().unwrap();
+                        if let Some(tx) = screenshot_lock.tx.take() {
+                            let (msg, data) = match &frame {
+                                scrap::Frame::PixelBuffer(f) => ("".to_owned(), f.data().into()),
+                                _ => ("Please change the Codec and try again.".to_owned(), vec![]),
+                            };
+                            let sid = screenshot_lock.sid.clone();
+                            std::thread::spawn(move || {
+                                handle_screenshot(
+                                    tx,
+                                    display_idx,
+                                    sid,
+                                    msg,
+                                    capture_width,
+                                    capture_height,
+                                    data,
+                                );
+                            });
+                        }
+                    }
+
                     let frame = frame.to(encoder.yuvfmt(), &mut yuv, &mut mid_data)?;
                     let send_conn_ids = handle_one_frame(
                         display_idx,
@@ -1205,4 +1245,73 @@ fn check_qos(
     }
     drop(video_qos);
     Ok(())
+}
+
+pub fn set_take_screenshot(display_idx: usize, sid: String, tx: Option<Sender>) -> String {
+    match SCREENSHOT.lock().unwrap().get(&display_idx) {
+        Some(screenshot) => {
+            let mut screenshot_lock = screenshot.write().unwrap();
+            screenshot_lock.sid = sid;
+            screenshot_lock.tx = tx;
+            "".to_string()
+        }
+        None => "Unable to capture display at this time, please try again later.".to_owned(),
+    }
+}
+
+fn handle_screenshot(
+    tx: Sender,
+    display_idx: usize,
+    sid: String,
+    msg: String,
+    w: usize,
+    h: usize,
+    data: Vec<u8>,
+) {
+    let mut response = ScreenshotResponse::new();
+    response.display = display_idx as _;
+    response.sid = sid;
+    if msg.is_empty() {
+        if data.is_empty() {
+            response.msg = "Failed to take screenshot, please try again later.".to_owned();
+        } else {
+            // It't not a good idea to encode image data in this `async` function.
+            // Because it will block all tokio tasks in this thread.
+            // But screenshots are not taken frequently, and users are usually waiting.
+            fn encode_png(width: usize, height: usize, mut data: Vec<u8>) -> ResultType<Vec<u8>> {
+                if data.len() >= width * height * 4 {
+                    let stride = data.len() / height;
+                    for y in 0..height {
+                        for x in 0..width {
+                            let i = stride * y + 4 * x;
+                            let x = data[i];
+                            data[i] = data[i + 2];
+                            data[i + 2] = x;
+                        }
+                    }
+                }
+                let mut png = Vec::new();
+                let mut encoder =
+                    repng::Options::smallest(width as _, height as _).build(&mut png)?;
+                encoder.write(&data)?;
+                encoder.finish()?;
+                Ok(png)
+            }
+            match encode_png(w as _, h as _, data) {
+                Ok(png) => {
+                    response.data = png.into();
+                }
+                Err(e) => {
+                    response.msg = format!("Error encoding png: {}", e);
+                }
+            }
+        }
+    } else {
+        response.msg = msg;
+    }
+    let mut msg_out = Message::new();
+    msg_out.set_screenshot_response(response);
+    if let Err(e) = tx.send((hbb_common::tokio::time::Instant::now(), Arc::new(msg_out))) {
+        log::error!("Failed to send screenshot, {}", e);
+    }
 }
