@@ -97,12 +97,14 @@ impl PrivacyModeImpl {
             dd.cb = std::mem::size_of::<DISPLAY_DEVICEW>() as _;
             let ok = unsafe { EnumDisplayDevicesW(std::ptr::null(), i, &mut dd as _, 0) };
             if ok == FALSE {
+                log::info!("============================ enum displays end ");
                 break;
             }
             i += 1;
             if 0 == (dd.StateFlags & DISPLAY_DEVICE_ACTIVE)
                 || (dd.StateFlags & DISPLAY_DEVICE_MIRRORING_DRIVER) > 0
             {
+                log::info!("============================ display not active, continue");
                 continue;
             }
             #[allow(invalid_value)]
@@ -126,6 +128,7 @@ impl PrivacyModeImpl {
                             0,
                         )
                     {
+                        log::info!("============================ failed to enum settings, continue");
                         continue;
                     }
                 }
@@ -140,6 +143,7 @@ impl PrivacyModeImpl {
 
             let ds = virtual_display_manager::get_cur_device_string();
             if let Ok(s) = String::from_utf16(&dd.DeviceString) {
+                log::info!("============================ got device string, {}, start with \"{}\" ? {}", &s, ds, s.len() >= ds.len() && &s[..ds.len()] == ds);
                 if s.len() >= ds.len() && &s[..ds.len()] == ds {
                     self.virtual_displays.push(display);
                     continue;
@@ -307,9 +311,11 @@ impl PrivacyModeImpl {
         if self.virtual_displays.is_empty() {
             let displays =
                 virtual_display_manager::plug_in_peer_request(vec![Self::default_display_modes()])?;
+            log::info!("============================ add displays: {:?}", &displays);
             if virtual_display_manager::is_amyuni_idd() {
                 thread::sleep(Duration::from_secs(3));
             }
+            log::info!("============================ set displays, is amyuni: {}", virtual_display_manager::is_amyuni_idd());
             self.set_displays();
 
             // No physical displays, no need to use the privacy mode.
