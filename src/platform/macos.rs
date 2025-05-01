@@ -279,7 +279,7 @@ fn update_daemon_agent(agent_plist_file: String, update_source_dir: String, sync
                     let res = std::process::Command::new("launchctl")
                         .args(&["load", "-w", &agent_plist_file])
                         .status();
-                    log::debug("Launch server res: {:?}", res);
+                    log::info!("Launch server res: {:?}", res);
                 }
             }
         }
