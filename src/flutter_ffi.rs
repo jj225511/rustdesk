@@ -2441,19 +2441,20 @@ pub fn main_get_common(key: String) -> String {
             let _version = key.replace("download-file-", "");
             #[cfg(target_os = "windows")]
             return match crate::platform::windows::is_msi_installed() {
-                Ok(true) => format!("rustdesk-{_version}-x86_64.exe"),
-                Ok(false) => format!("rustdesk-{_version}-x86_64.msi"),
+                Ok(true) => format!("rustdesk-{_version}-x86_64.msi"),
+                Ok(false) => format!("rustdesk-{_version}-x86_64.exe"),
                 Err(e) => {
                     log::error!("Failed to check if is msi: {}", e);
-                    format!("error:update-failed-check-msi-tip")
+                    // format!("error:update-failed-check-msi-tip")
+                    format!("rustdesk-{_version}-x86_64.exe")
                 }
             };
             #[cfg(target_os = "macos")]
             {
                 return if cfg!(target_arch = "x86_64") {
-                    format!("rustdesk-{_version}-x86_64.dmg")
+                    format!("rustdesk-{_version}-x86_64-x86_64.dmg")
                 } else if cfg!(target_arch = "aarch64") {
-                    format!("rustdesk-{_version}-aarch64.dmg")
+                    format!("rustdesk-{_version}-aarch64-aarch64.dmg")
                 } else {
                     "error:unsupported".to_owned()
                 };
@@ -2533,6 +2534,10 @@ pub fn main_set_common(_key: String, _value: String) {
             );
         } else if _key == "update-me" {
             if let Some(new_version_file) = get_download_file_from_url(&_value) {
+                log::debug!(
+                    "New version file is downloaded, {:?}",
+                    new_version_file.to_str()
+                );
                 if let Some(f) = new_version_file.to_str() {
                     // 1.3.9 does not support "--update"
                     // But we can assume that the new version supports it.
@@ -2541,7 +2546,7 @@ pub fn main_set_common(_key: String, _value: String) {
                         if let Err(e) =
                             crate::platform::run_exe_in_cur_session(f, vec!["--update"], false)
                         {
-                            log::error!("Failed to run the update exe: {}", e);
+                            log::error!("Failed to run the update exe, {}: {}", f, e);
                         }
                     } else if f.ends_with(".msi") {
                         if let Err(e) = crate::platform::update_me_msi(f, false) {

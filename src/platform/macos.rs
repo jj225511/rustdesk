@@ -256,10 +256,9 @@ fn update_daemon_agent(agent_plist_file: String, update_source_dir: String, sync
             .arg(update_script_body)
             .arg(daemon_plist_body)
             .arg(agent_plist_body)
-            .arg(&get_active_username());
-        if let Some(source_dir) = update_source_dir {
-            cmd = cmd.arg(std::process::id().to_string()).arg(source_dir);
-        }
+            .arg(&get_active_username())
+            .arg(std::process::id().to_string())
+            .arg(update_source_dir);
         match cmd.status() {
             Err(e) => {
                 log::error!("run osascript failed: {}", e);
@@ -268,7 +267,6 @@ fn update_daemon_agent(agent_plist_file: String, update_source_dir: String, sync
                 let installed = std::path::Path::new(&agent_plist_file).exists();
                 log::info!("Agent file {} installed: {}", &agent_plist_file, installed);
                 if installed {
-                    log::info!("launch server");
                     // Unload first, or load may not work if already loaded.
                     // We hope that the load operation can immediately trigger a start.
                     std::process::Command::new("launchctl")
@@ -278,10 +276,10 @@ fn update_daemon_agent(agent_plist_file: String, update_source_dir: String, sync
                         .stderr(Stdio::null())
                         .status()
                         .ok();
-                    std::process::Command::new("launchctl")
+                    let res = std::process::Command::new("launchctl")
                         .args(&["load", "-w", &agent_plist_file])
-                        .status()
-                        .ok();
+                        .status();
+                    log::debug("Launch server res: {:?}", res);
                 }
             }
         }

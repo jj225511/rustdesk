@@ -19,6 +19,7 @@ void handleUpdate(String releasePageUrl) {
     return;
   }
   downloadUrl = '$downloadUrl/$downloadFile';
+  debugPrint('Update download url: $downloadUrl');
 
   SimpleWrapper downloadId = SimpleWrapper('');
   SimpleWrapper<VoidCallback> onCanceled = SimpleWrapper(() {});

@@ -1,7 +1,4 @@
-use crate::{
-    common::{do_check_software_update, is_custom_client},
-    hbbs_http::create_http_client,
-};
+use crate::{common::do_check_software_update, hbbs_http::create_http_client};
 use hbb_common::{bail, config, log, ResultType};
 use std::{
     io::{self, Write},
@@ -25,7 +22,7 @@ lazy_static::lazy_static! {
 
 static CONTROLLING_SESSION_COUNT: AtomicUsize = AtomicUsize::new(0);
 
-const DUR_ONE_DAY: Duration = Duration::from_secs(60 * 60 * 24);
+const DUR_ONE_DAY: Duration = Duration::from_secs(60);
 
 pub fn update_controlling_session_count(count: usize) {
     CONTROLLING_SESSION_COUNT.store(count, Ordering::SeqCst);
@@ -78,19 +75,20 @@ fn has_no_controlling_conns() -> bool {
 }
 
 fn start_auto_update_check() -> Sender<UpdateMsg> {
+    log::info!("========================== start auto check update");
     let (tx, rx) = channel();
     std::thread::spawn(move || start_auto_update_check_(rx));
     return tx;
 }
 
 fn start_auto_update_check_(rx_msg: Receiver<UpdateMsg>) {
-    std::thread::sleep(Duration::from_secs(30));
-    if let Err(e) = check_update(false) {
-        log::error!("Error checking for updates: {}", e);
-    }
+    // std::thread::sleep(Duration::from_secs(30));
+    // if let Err(e) = check_update(false) {
+    //     log::error!("Error checking for updates: {}", e);
+    // }
 
-    const MIN_INTERVAL: Duration = Duration::from_secs(60 * 10);
-    const RETRY_INTERVAL: Duration = Duration::from_secs(60 * 30);
+    const MIN_INTERVAL: Duration = Duration::from_secs(10);
+    const RETRY_INTERVAL: Duration = Duration::from_secs(30);
     let mut last_check_time = Instant::now();
     let mut check_interval = DUR_ONE_DAY;
     loop {
@@ -98,9 +96,10 @@ fn start_auto_update_check_(rx_msg: Receiver<UpdateMsg>) {
         match &recv_res {
             Ok(UpdateMsg::CheckUpdate) | Err(_) => {
                 if last_check_time.elapsed() < MIN_INTERVAL {
-                    // log::debug!("Update check skipped due to minimum interval.");
+                    log::debug!("Update check skipped due to minimum interval.");
                     continue;
                 }
+                log::info!("========================== check, no active conns: {}", has_no_active_conns());
                 // Don't check update if there are alive connections.
                 if !has_no_active_conns() {
                     check_interval = RETRY_INTERVAL;
@@ -122,9 +121,6 @@ fn start_auto_update_check_(rx_msg: Receiver<UpdateMsg>) {
 fn check_update(manually: bool) -> ResultType<()> {
     #[cfg(target_os = "windows")]
     let is_msi = crate::platform::is_msi_installed()?;
-    if is_custom_client() || !crate::platform::is_installed() {
-        return Ok(());
-    }
     if manually || config::Config::get_bool_option(config::keys::OPTION_ALLOW_AUTO_UPDATE) {
         if do_check_software_update().is_ok() {
             let update_url = crate::common::SOFTWARE_UPDATE_URL.lock().unwrap().clone();
@@ -199,6 +195,7 @@ fn check_update(manually: bool) -> ResultType<()> {
 
 #[cfg(target_os = "windows")]
 fn update_new_version(is_msi: bool, version: &str, file_path: &PathBuf) {
+    log::info!("======================== update_new_version is_msi: {}, version: {}, file_path: {:?}", is_msi, version, file_path);
     if let Some(p) = file_path.to_str() {
         if let Some(session_id) = crate::platform::get_current_process_session_id() {
             if is_msi {
@@ -215,6 +212,7 @@ fn update_new_version(is_msi: bool, version: &str, file_path: &PathBuf) {
                     }
                 }
             } else {
+                log::info!("================================== launch update, sid: {}, p: {}", session_id, p);
                 match crate::platform::launch_privileged_process(
                     session_id,
                     &format!("{} --update", p),
