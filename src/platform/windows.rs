@@ -1259,13 +1259,16 @@ fn get_after_install(
     ", create_service=get_create_service(&exe))
 }
 
-fn get_install_reg_subkey_cmd(
-    subkey: &str,
-    app_name: &str,
-    exe: &str,
-    path: &str,
-    is_install: bool,
-) -> ResultType<String> {
+pub fn install_me(options: &str, path: String, silent: bool, debug: bool) -> ResultType<()> {
+    let uninstall_str = get_uninstall(false);
+    let mut path = path.trim_end_matches('\\').to_owned();
+    let (subkey, _path, start_menu, exe) = get_default_install_info();
+    let mut exe = exe;
+    if path.is_empty() {
+        path = _path;
+    } else {
+        exe = exe.replace(&_path, &path);
+    }
     let mut version_major = "0";
     let mut version_minor = "0";
     let mut version_build = "0";
@@ -1278,50 +1281,6 @@ fn get_install_reg_subkey_cmd(
     }
     if versions.len() > 2 {
         version_build = versions[2];
-    }
-    let meta = std::fs::symlink_metadata(std::env::current_exe()?)?;
-    let size = meta.len() / 1024;
-
-    let reg_install_values = if is_install {
-        format!(
-            "
-reg add {subkey} /f /v DisplayName /t REG_SZ /d \"{app_name}\"
-reg add {subkey} /f /v InstallLocation /t REG_SZ /d \"{path}\"
-reg add {subkey} /f /v Publisher /t REG_SZ /d \"{app_name}\"
-reg add {subkey} /f /v UninstallString /t REG_SZ /d \"\\\"{exe}\\\" --uninstall\"
-reg add {subkey} /f /v WindowsInstaller /t REG_DWORD /d 0
-            "
-        )
-    } else {
-        "".to_owned()
-    };
-    let cmd = format!(
-        "
-reg add {subkey} /f /v DisplayIcon /t REG_SZ /d \"{exe}\"
-{reg_install_values}
-reg add {subkey} /f /v DisplayVersion /t REG_SZ /d \"{version}\"
-reg add {subkey} /f /v Version /t REG_SZ /d \"{version}\"
-reg add {subkey} /f /v BuildDate /t REG_SZ /d \"{build_date}\"
-reg add {subkey} /f /v VersionMajor /t REG_DWORD /d {version_major}
-reg add {subkey} /f /v VersionMinor /t REG_DWORD /d {version_minor}
-reg add {subkey} /f /v VersionBuild /t REG_DWORD /d {version_build}
-reg add {subkey} /f /v EstimatedSize /t REG_DWORD /d {size}
-    ",
-        version = crate::VERSION.replace("-", "."),
-        build_date = crate::BUILD_DATE,
-    );
-    Ok(cmd)
-}
-
-pub fn install_me(options: &str, path: String, silent: bool, debug: bool) -> ResultType<()> {
-    let uninstall_str = get_uninstall(false);
-    let mut path = path.trim_end_matches('\\').to_owned();
-    let (subkey, _path, start_menu, exe) = get_default_install_info();
-    let mut exe = exe;
-    if path.is_empty() {
-        path = _path;
-    } else {
-        exe = exe.replace(&_path, &path);
     }
     let app_name = crate::get_app_name();
 
@@ -1390,6 +1349,8 @@ copy /Y \"{tmp_path}\\Uninstall {app_name}.lnk\" \"{start_menu}\\\"
         reg_value_printer = "1".to_owned();
     }
 
+    let meta = std::fs::symlink_metadata(std::env::current_exe()?)?;
+    let size = meta.len() / 1024;
     // https://docs.microsoft.com/zh-cn/windows/win32/msi/uninstall-registry-key?redirectedfrom=MSDNa
     // https://www.windowscentral.com/how-edit-registry-using-command-prompt-windows-10
     // https://www.tenforums.com/tutorials/70903-add-remove-allowed-apps-through-windows-firewall-windows-10-a.html
@@ -1422,7 +1383,9 @@ copy /Y \"{tmp_path}\\{app_name} Tray.lnk\" \"%PROGRAMDATA%\\Microsoft\\Windows\
 ")
     };
 
-    let install_reg_subkey_cmd = get_install_reg_subkey_cmd(&subkey, &app_name, &exe, &path, true)?;
+    // Remember to check if `update_me` need to be changed if changing the `cmds`.
+    // No need to merge the existing dup code, because the code in these two functions are too critical.
+    // New code should be written in a common function.
     let cmds = format!(
         "
 {uninstall_str}
@@ -1430,7 +1393,19 @@ chcp 65001
 md \"{path}\"
 {copy_exe}
 reg add {subkey} /f
-{install_reg_subkey_cmd}
+reg add {subkey} /f /v DisplayIcon /t REG_SZ /d \"{exe}\"
+reg add {subkey} /f /v DisplayName /t REG_SZ /d \"{app_name}\"
+reg add {subkey} /f /v DisplayVersion /t REG_SZ /d \"{version}\"
+reg add {subkey} /f /v Version /t REG_SZ /d \"{version}\"
+reg add {subkey} /f /v BuildDate /t REG_SZ /d \"{build_date}\"
+reg add {subkey} /f /v InstallLocation /t REG_SZ /d \"{path}\"
+reg add {subkey} /f /v Publisher /t REG_SZ /d \"{app_name}\"
+reg add {subkey} /f /v VersionMajor /t REG_DWORD /d {version_major}
+reg add {subkey} /f /v VersionMinor /t REG_DWORD /d {version_minor}
+reg add {subkey} /f /v VersionBuild /t REG_DWORD /d {version_build}
+reg add {subkey} /f /v UninstallString /t REG_SZ /d \"\\\"{exe}\\\" --uninstall\"
+reg add {subkey} /f /v EstimatedSize /t REG_DWORD /d {size}
+reg add {subkey} /f /v WindowsInstaller /t REG_DWORD /d 0
 cscript \"{mk_shortcut}\"
 cscript \"{uninstall_shortcut}\"
 {tray_shortcuts}
@@ -1441,6 +1416,8 @@ copy /Y \"{tmp_path}\\Uninstall {app_name}.lnk\" \"{path}\\\"
 {after_install}
 {sleep}
     ",
+        version = crate::VERSION.replace("-", "."),
+        build_date = crate::BUILD_DATE,
         after_install = get_after_install(
             &exe,
             Some(reg_value_start_menu_shortcuts),
@@ -2454,7 +2431,36 @@ pub fn update_me(debug: bool) -> ResultType<()> {
     kill_process_by_pids(&app_exe_name, tray_pids)?;
     let is_service_running = is_self_service_running();
 
-    let install_reg_cmd = get_install_reg_subkey_cmd(&subkey, &app_name, &exe, &path, false)?;
+    let mut version_major = "0";
+    let mut version_minor = "0";
+    let mut version_build = "0";
+    let versions: Vec<&str> = crate::VERSION.split(".").collect();
+    if versions.len() > 0 {
+        version_major = versions[0];
+    }
+    if versions.len() > 1 {
+        version_minor = versions[1];
+    }
+    if versions.len() > 2 {
+        version_build = versions[2];
+    }
+    let meta = std::fs::symlink_metadata(std::env::current_exe()?)?;
+    let size = meta.len() / 1024;
+
+    let reg_cmd = format!(
+        "
+reg add {subkey} /f /v DisplayIcon /t REG_SZ /d \"{exe}\"
+reg add {subkey} /f /v DisplayVersion /t REG_SZ /d \"{version}\"
+reg add {subkey} /f /v Version /t REG_SZ /d \"{version}\"
+reg add {subkey} /f /v BuildDate /t REG_SZ /d \"{build_date}\"
+reg add {subkey} /f /v VersionMajor /t REG_DWORD /d {version_major}
+reg add {subkey} /f /v VersionMinor /t REG_DWORD /d {version_minor}
+reg add {subkey} /f /v VersionBuild /t REG_DWORD /d {version_build}
+reg add {subkey} /f /v EstimatedSize /t REG_DWORD /d {size}
+    ",
+        version = crate::VERSION.replace("-", "."),
+        build_date = crate::BUILD_DATE,
+    );
 
     let filter = format!(" /FI \"PID ne {}\"", get_current_pid());
     let restore_service_cmd = if is_service_running {
@@ -2479,7 +2485,7 @@ pub fn update_me(debug: bool) -> ResultType<()> {
 chcp 65001
 sc stop {app_name}
 taskkill /F /IM {app_name}.exe{filter}
-{install_reg_cmd}
+{reg_cmd}
 {copy_exe}
 {restore_service_cmd}
 {sleep}

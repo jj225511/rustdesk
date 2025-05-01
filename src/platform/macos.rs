@@ -161,6 +161,9 @@ pub fn install_service() -> bool {
     is_installed_daemon(false)
 }
 
+// Remember to check if `update_daemon_agent()` need to be changed if changing `is_installed_daemon()`.
+// No need to merge the existing dup code, because the code in these two functions are too critical.
+// New code should be written in a common function.
 pub fn is_installed_daemon(prompt: bool) -> bool {
     let daemon = format!("{}_service.plist", crate::get_full_name());
     let agent = format!("{}_server.plist", crate::get_full_name());
@@ -175,20 +178,61 @@ pub fn is_installed_daemon(prompt: bool) -> bool {
         return true;
     }
 
-    install_update(agent_plist_file, None, false);
+    let Some(install_script) = PRIVILEGES_SCRIPTS_DIR.get_file("install.scpt") else {
+        return false;
+    };
+    let Some(install_script_body) = install_script.contents_utf8().map(correct_app_name) else {
+        return false;
+    };
+
+    let Some(daemon_plist) = PRIVILEGES_SCRIPTS_DIR.get_file("daemon.plist") else {
+        return false;
+    };
+    let Some(daemon_plist_body) = daemon_plist.contents_utf8().map(correct_app_name) else {
+        return false;
+    };
+
+    let Some(agent_plist) = PRIVILEGES_SCRIPTS_DIR.get_file("agent.plist") else {
+        return false;
+    };
+    let Some(agent_plist_body) = agent_plist.contents_utf8().map(correct_app_name) else {
+        return false;
+    };
+
+    std::thread::spawn(move || {
+        match std::process::Command::new("osascript")
+            .arg("-e")
+            .arg(install_script_body)
+            .arg(daemon_plist_body)
+            .arg(agent_plist_body)
+            .arg(&get_active_username())
+            .status()
+        {
+            Err(e) => {
+                log::error!("run osascript failed: {}", e);
+            }
+            _ => {
+                let installed = std::path::Path::new(&agent_plist_file).exists();
+                log::info!("Agent file {} installed: {}", agent_plist_file, installed);
+                if installed {
+                    log::info!("launch server");
+                    std::process::Command::new("launchctl")
+                        .args(&["load", "-w", &agent_plist_file])
+                        .status()
+                        .ok();
+                }
+            }
+        }
+    });
     false
 }
 
-fn install_update(agent_plist_file: String, update_source_dir: Option<String>, sync: bool) {
-    let install_script_file = if update_source_dir.is_none() {
-        "install.scpt"
-    } else {
-        "update.scpt"
-    };
-    let Some(install_script) = PRIVILEGES_SCRIPTS_DIR.get_file(install_script_file) else {
+fn update_daemon_agent(agent_plist_file: String, update_source_dir: String, sync: bool) {
+    let update_script_file = "update.scpt";
+    let Some(update_script) = PRIVILEGES_SCRIPTS_DIR.get_file(update_script_file) else {
         return;
     };
-    let Some(install_script_body) = install_script.contents_utf8().map(correct_app_name) else {
+    let Some(update_script_body) = update_script.contents_utf8().map(correct_app_name) else {
         return;
     };
 
@@ -209,7 +253,7 @@ fn install_update(agent_plist_file: String, update_source_dir: Option<String>, s
         let mut binding = std::process::Command::new("osascript");
         let mut cmd = binding
             .arg("-e")
-            .arg(install_script_body)
+            .arg(update_script_body)
             .arg(daemon_plist_body)
             .arg(agent_plist_body)
             .arg(&get_active_username());
@@ -694,7 +738,7 @@ pub fn update_me() -> ResultType<()> {
             .stderr(Stdio::null())
             .status()
             .ok();
-        install_update(agent_plist_file, Some(app_dir), true);
+        update_daemon_agent(agent_plist_file, app_dir, true);
     } else {
         // `kill -9` may not work without "administrator privileges"
         let update_body = format!(
