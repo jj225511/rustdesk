@@ -22,7 +22,7 @@ lazy_static::lazy_static! {
 
 static CONTROLLING_SESSION_COUNT: AtomicUsize = AtomicUsize::new(0);
 
-const DUR_ONE_DAY: Duration = Duration::from_secs(60 * 60 * 24);
+const DUR_ONE_DAY: Duration = Duration::from_secs(60);
 
 pub fn update_controlling_session_count(count: usize) {
     CONTROLLING_SESSION_COUNT.store(count, Ordering::SeqCst);
@@ -75,6 +75,7 @@ fn has_no_controlling_conns() -> bool {
 }
 
 fn start_auto_update_check() -> Sender<UpdateMsg> {
+    log::info!("Starting auto update check thread...");
     let (tx, rx) = channel();
     std::thread::spawn(move || start_auto_update_check_(rx));
     return tx;
@@ -86,8 +87,8 @@ fn start_auto_update_check_(rx_msg: Receiver<UpdateMsg>) {
         log::error!("Error checking for updates: {}", e);
     }
 
-    const MIN_INTERVAL: Duration = Duration::from_secs(60 * 10);
-    const RETRY_INTERVAL: Duration = Duration::from_secs(60 * 30);
+    const MIN_INTERVAL: Duration = Duration::from_secs(10);
+    const RETRY_INTERVAL: Duration = Duration::from_secs(30);
     let mut last_check_time = Instant::now();
     let mut check_interval = DUR_ONE_DAY;
     loop {
@@ -95,7 +96,7 @@ fn start_auto_update_check_(rx_msg: Receiver<UpdateMsg>) {
         match &recv_res {
             Ok(UpdateMsg::CheckUpdate) | Err(_) => {
                 if last_check_time.elapsed() < MIN_INTERVAL {
-                    // log::debug!("Update check skipped due to minimum interval.");
+                    // log::info!("Update check skipped due to minimum interval.");
                     continue;
                 }
                 // Don't check update if there are alive connections.
@@ -116,6 +117,26 @@ fn start_auto_update_check_(rx_msg: Receiver<UpdateMsg>) {
     }
 }
 
+fn retry_http(
+    frb: impl Fn() -> reqwest::blocking::RequestBuilder,
+    count: u32,
+) -> reqwest::Result<reqwest::blocking::Response> {
+    let http_timeout = Duration::from_secs(30);
+    let mut i = 1;
+    let mut resp = frb().timeout(http_timeout).send();
+    while i < (count + 1) {
+        match &resp {
+            Ok(_) => break,
+            Err(e) => {
+                log::debug!("Failed to get the header of the download url, {}", e);
+            }
+        }
+        i += 1;
+        resp = frb().timeout(http_timeout * i).send();
+    }
+    resp
+}
+
 fn check_update(manually: bool) -> ResultType<()> {
     #[cfg(target_os = "windows")]
     let is_msi = crate::platform::is_msi_installed()?;
@@ -129,7 +150,7 @@ fn check_update(manually: bool) -> ResultType<()> {
 
     let update_url = crate::common::SOFTWARE_UPDATE_URL.lock().unwrap().clone();
     if update_url.is_empty() {
-        log::debug!("No update available.");
+        log::info!("No update available.");
     } else {
         let download_url = update_url.replace("tag", "download");
         let version = download_url.split('/').last().unwrap_or_default();
@@ -144,7 +165,7 @@ fn check_update(manually: bool) -> ResultType<()> {
         } else {
             format!("{}/rustdesk-{}-x86-sciter.exe", download_url, version)
         };
-        log::debug!("New version available: {}", &version);
+        log::info!("New version available: {}", &version);
         let client = create_http_client();
         let Some(file_path) = get_download_file_from_url(&download_url) else {
             bail!("Failed to get the file path from the URL: {}", download_url);
@@ -154,7 +175,9 @@ fn check_update(manually: bool) -> ResultType<()> {
             // Check if the file size is the same as the server file size
             // If the file size is the same, we don't need to download it again.
             let file_size = std::fs::metadata(&file_path)?.len();
-            let response = client.head(&download_url).send()?;
+            log::info!("======================================= aaa");
+            let response = retry_http(|| client.head(&download_url), 3)?;
+            log::info!("======================================= bbb");
             if !response.status().is_success() {
                 bail!("Failed to get the file size: {}", response.status());
             }
@@ -173,15 +196,20 @@ fn check_update(manually: bool) -> ResultType<()> {
             }
         }
         if !is_file_exists {
-            let response = client.get(&download_url).send()?;
+            log::info!("======================================= ccc");
+            let response = retry_http(|| client.get(&download_url), 5)?;
+            log::info!("======================================= ddd");
             if !response.status().is_success() {
                 bail!(
                     "Failed to download the new version file: {}",
                     response.status()
                 );
             }
+            log::info!("======================================= eee");
             let file_data = response.bytes()?;
+            log::info!("======================================= fff");
             let mut file = std::fs::File::create(&file_path)?;
+            log::info!("======================================= ggg");
             file.write_all(&file_data)?;
         }
         // We have checked if the `conns`` is empty before, but we need to check again.
@@ -197,13 +225,16 @@ fn check_update(manually: bool) -> ResultType<()> {
 
 #[cfg(target_os = "windows")]
 fn update_new_version(is_msi: bool, version: &str, file_path: &PathBuf) {
-    log::debug!("New version if is downloaed, update begin, is msi: {is_msi}, version: {version}, file: {:?}", file_path.to_str());
+    log::info!(
+        "New version is downloaded, update begin, is msi: {is_msi}, version: {version}, file: {:?}",
+        file_path.to_str()
+    );
     if let Some(p) = file_path.to_str() {
         if let Some(session_id) = crate::platform::get_current_process_session_id() {
             if is_msi {
                 match crate::platform::update_me_msi(p, true) {
                     Ok(_) => {
-                        log::debug!("New version \"{}\" updated.", version);
+                        log::info!("New version \"{}\" updated.", version);
                     }
                     Err(e) => {
                         log::error!(
