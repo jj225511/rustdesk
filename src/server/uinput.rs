@@ -436,6 +436,12 @@ pub mod service {
             }
             DataKeyboard::KeyDown(key) => {
                 if let Ok((k, is_shift)) = map_key(key) {
+                    log::info!(
+                        "===================================== uinput, origin key: {:?}, is shift: {}, key: {:?}",
+                        &key,
+                        is_shift,
+                        &k
+                    );
                     if is_shift {
                         let down_event =
                             InputEvent::new(EventType::KEY, evdev::Key::KEY_LEFTSHIFT.code(), 1);

@@ -457,7 +457,7 @@ static RECORD_CURSOR_POS_RUNNING: AtomicBool = AtomicBool::new(false);
 // We need to do some special handling for macOS when using the legacy mode.
 #[cfg(target_os = "macos")]
 static LAST_KEY_LEGACY_MODE: AtomicBool = AtomicBool::new(true);
-// We use enigo to 
+// We use enigo to
 // 1. Simulate mouse events
 // 2. Simulate the legacy mode key events
 // 3. Simulate the functioin key events, like LockScreen
@@ -1290,6 +1290,10 @@ fn release_capslock() {
 #[cfg(not(target_os = "macos"))]
 #[inline]
 fn simulate_(event_type: &EventType) {
+    log::info!(
+        "===================================== map key, x11, rdev, simulate key, {:?}",
+        &event_type
+    );
     match rdev::simulate(&event_type) {
         Ok(()) => (),
         Err(_simulate_error) => {
@@ -1317,6 +1321,12 @@ fn map_keyboard_mode(evt: &KeyEvent) {
     if !crate::platform::linux::is_x11() {
         let mut en = ENIGO.lock().unwrap();
         let code = evt.chr() as u16;
+
+        log::info!(
+            "===================================== map key, wayland, down: {} , code: {}",
+            evt.down,
+            code
+        );
 
         if evt.down {
             en.key_down(enigo::Key::Raw(code)).ok();
@@ -1713,11 +1723,16 @@ pub fn handle_key_(evt: &KeyEvent) {
         Ok(KeyboardMode::Map) => {
             #[cfg(target_os = "macos")]
             set_last_legacy_mode(false);
+            log::info!("===================================== map key: {:?}", &evt);
             map_keyboard_mode(evt);
         }
         Ok(KeyboardMode::Translate) => {
             #[cfg(target_os = "macos")]
             set_last_legacy_mode(false);
+            log::info!(
+                "===================================== translate key: {:?}",
+                &evt
+            );
             translate_keyboard_mode(evt);
         }
         _ => {
@@ -1725,6 +1740,10 @@ pub fn handle_key_(evt: &KeyEvent) {
             // so we can reset the flag of last legacy mode here.
             #[cfg(target_os = "macos")]
             set_last_legacy_mode(true);
+            log::info!(
+                "===================================== legacy key: {:?}",
+                &evt
+            );
             legacy_keyboard_mode(evt);
         }
     }

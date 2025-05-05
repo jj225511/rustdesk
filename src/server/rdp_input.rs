@@ -1,7 +1,7 @@
 use crate::uinput::service::map_key;
 use dbus::{blocking::SyncConnection, Path};
 use enigo::{Key, KeyboardControllable, MouseButton, MouseControllable};
-use hbb_common::ResultType;
+use hbb_common::{log, ResultType};
 use scrap::wayland::pipewire::{get_portal, PwStreamInfo};
 use scrap::wayland::remote_desktop_portal::OrgFreedesktopPortalRemoteDesktop as remote_desktop_portal;
 use std::collections::HashMap;
@@ -213,9 +213,19 @@ pub mod client {
             PRESSED_UP_STATE
         };
         let portal = get_portal(&conn);
+        log::info!(
+            "================================== rdp input, handle key, state: {}, key: {:?}",
+            state,
+            &key
+        );
         match key {
             Key::Raw(key) => {
                 let key = get_raw_evdev_keycode(key);
+                log::info!(
+                    "================================== rdp input, raw, state: {}, code: {}",
+                    state,
+                    key
+                );
                 remote_desktop_portal::notify_keyboard_keycode(
                     &portal,
                     &session,
@@ -225,7 +235,15 @@ pub mod client {
                 )?;
             }
             _ => {
+                log::info!("================================== rdp input, tray map key",);
                 if let Ok((key, is_shift)) = map_key(&key) {
+                    log::info!(
+                        "================================== rdp input, raw, state: {}, is shift: {}, key: {:?}",
+                        state,
+                        is_shift,
+                        key
+                    );
+
                     if is_shift {
                         remote_desktop_portal::notify_keyboard_keycode(
                             &portal,
