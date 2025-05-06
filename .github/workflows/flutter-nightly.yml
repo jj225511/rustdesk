@@ -12,4 +12,4 @@ jobs:
     secrets: inherit
     with:
       upload-artifact: true
-      upload-tag: "nightly"
+      upload-tag: "test-rdp-0425-3811f410760a12c7770cec376bed5c108f227562"
