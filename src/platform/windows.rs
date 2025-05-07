@@ -573,6 +573,7 @@ async fn run_service(_arguments: Vec<OsString>) -> ResultType<()> {
             let current_active_session = unsafe { get_current_session(share_rdp()) };
             if session_id != current_active_session {
                 session_id = current_active_session;
+                log::info!("============================== loop, session changed");
                 h_process = launch_server(session_id, true).await.unwrap_or(NULL);
             }
         }
@@ -594,7 +595,7 @@ async fn run_service(_arguments: Vec<OsString>) -> ResultType<()> {
                                 if let Some(usid) = usid {
                                     if session_id != usid {
                                         log::info!(
-                                            "session changed from {} to {}",
+                                            "=============== session changed from {} to {}",
                                             session_id,
                                             usid
                                         );
@@ -620,7 +621,7 @@ async fn run_service(_arguments: Vec<OsString>) -> ResultType<()> {
                     }
                     let mut close_sent = false;
                     if tmp != session_id && stored_usid != Some(session_id) {
-                        log::info!("session changed from {} to {}", session_id, tmp);
+                        log::info!("================== session changed from {} to {}", session_id, tmp);
                         session_id = tmp;
                         send_close_async("").await.ok();
                         close_sent = true;
