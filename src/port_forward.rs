@@ -202,6 +202,7 @@ async fn run_forward(forward: Framed<TcpStream, BytesCodec>, stream: Stream) -> 
         tokio::select! {
             res = forward.next() => {
                 if let Some(Ok(bytes)) = res {
+                    log::info!("======================== port forward, send to peer");
                     allow_err!(stream.send_bytes(bytes.into()).await);
                 } else {
                     break;
@@ -209,6 +210,7 @@ async fn run_forward(forward: Framed<TcpStream, BytesCodec>, stream: Stream) -> 
             },
             res = stream.next() => {
                 if let Some(Ok(bytes)) = res {
+                    log::info!("======================== port forward, receive from peer");
                     allow_err!(forward.send(bytes).await);
                 } else {
                     break;

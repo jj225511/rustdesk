@@ -989,7 +989,7 @@ impl Connection {
                     res = forward.next() => {
                         if let Some(res) = res {
                             last_recv_time = Instant::now();
-                            log::info!("================================== send forward data to peer");
+                            log::info!("================================== connection, send to peer");
                             self.stream.send_bytes(res?.into()).await?;
                         } else {
                             bail!("Forward reset by the peer");
@@ -998,7 +998,7 @@ impl Connection {
                     res = self.stream.next() => {
                         if let Some(res) = res {
                             last_recv_time = Instant::now();
-                            log::info!("================================== send peer data to forward");
+                            log::info!("================================== connection, receive from peer");
                             timeout(SEND_TIMEOUT_OTHER, forward.send(res?)).await??;
                         } else {
                             bail!("Stream reset by the peer");
