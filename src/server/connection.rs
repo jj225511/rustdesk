@@ -3531,6 +3531,7 @@ impl Connection {
 
     #[inline]
     async fn send(&mut self, msg: Message) {
+        log::info!("==================================== connection, send: {:?}", &msg);
         allow_err!(self.stream.send(&msg).await);
     }
 
