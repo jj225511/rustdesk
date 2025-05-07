@@ -565,18 +565,18 @@ async fn run_service(_arguments: Vec<OsString>) -> ResultType<()> {
     let mut incoming = ipc::new_listener(crate::POSTFIX_SERVICE).await?;
     let mut stored_usid = None;
     loop {
-        // let sids: Vec<_> = get_available_sessions(false)
-        //     .iter()
-        //     .map(|e| e.sid)
-        //     .collect();
-        // if !sids.contains(&session_id) || !is_share_rdp() {
-        //     let current_active_session = unsafe { get_current_session(share_rdp()) };
-        //     if session_id != current_active_session {
-        //         session_id = current_active_session;
-        //         log::info!("============================== loop, session changed");
-        //         h_process = launch_server(session_id, true).await.unwrap_or(NULL);
-        //     }
-        // }
+        let sids: Vec<_> = get_available_sessions(false)
+            .iter()
+            .map(|e| e.sid)
+            .collect();
+        if !sids.contains(&session_id) || !is_share_rdp() {
+            let current_active_session = unsafe { get_current_session(share_rdp()) };
+            if session_id != current_active_session {
+                session_id = current_active_session;
+                log::info!("============================== loop, session changed");
+                h_process = launch_server(session_id, true).await.unwrap_or(NULL);
+            }
+        }
         let res = timeout(super::SERVICE_INTERVAL, incoming.next()).await;
         match res {
             Ok(res) => match res {
