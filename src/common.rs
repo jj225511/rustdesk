@@ -1306,17 +1306,16 @@ pub fn check_process(arg: &str, mut same_uid: bool) -> bool {
     if let Ok(linked) = path.read_link() {
         path = linked;
     }
-    let path = path.to_string_lossy().to_lowercase();
+    let Some(name) = path.file_name() else {
+        return false;
+    };
+    let name = name.to_string_lossy().to_lowercase();
     let my_uid = sys
         .process((std::process::id() as usize).into())
         .map(|x| x.user_id())
         .unwrap_or_default();
     for (_, p) in sys.processes().iter() {
-        let mut cur_path = p.exe().to_path_buf();
-        if let Ok(linked) = cur_path.read_link() {
-            cur_path = linked;
-        }
-        if cur_path.to_string_lossy().to_lowercase() != path {
+        if p.name().to_lowercase() != name {
             continue;
         }
         if p.pid().to_string() == std::process::id().to_string() {
