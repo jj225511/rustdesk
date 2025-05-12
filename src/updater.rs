@@ -22,7 +22,7 @@ lazy_static::lazy_static! {
 
 static CONTROLLING_SESSION_COUNT: AtomicUsize = AtomicUsize::new(0);
 
-const DUR_ONE_DAY: Duration = Duration::from_secs(60 * 60 * 24);
+const DUR_ONE_DAY: Duration = Duration::from_secs(60);
 
 pub fn update_controlling_session_count(count: usize) {
     CONTROLLING_SESSION_COUNT.store(count, Ordering::SeqCst);
@@ -86,8 +86,8 @@ fn start_auto_update_check_(rx_msg: Receiver<UpdateMsg>) {
         log::error!("Error checking for updates: {}", e);
     }
 
-    const MIN_INTERVAL: Duration = Duration::from_secs(60 * 10);
-    const RETRY_INTERVAL: Duration = Duration::from_secs(60 * 30);
+    const MIN_INTERVAL: Duration = Duration::from_secs(10);
+    const RETRY_INTERVAL: Duration = Duration::from_secs(30);
     let mut last_check_time = Instant::now();
     let mut check_interval = DUR_ONE_DAY;
     loop {
