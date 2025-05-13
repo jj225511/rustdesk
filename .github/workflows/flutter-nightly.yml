@@ -12,4 +12,4 @@ jobs:
     secrets: inherit
     with:
       upload-artifact: true
-      upload-tag: "test-upgrade-1.4.1"
+      upload-tag: "test-upgrade-1.4.2"
