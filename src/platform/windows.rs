@@ -1701,16 +1701,16 @@ pub fn bootstrap() -> bool {
     if let Ok(lic) = get_license_from_exe_name() {
         *config::EXE_RENDEZVOUS_SERVER.write().unwrap() = lic.host.clone();
     }
-    true
-    // #[cfg(debug_assertions)]
-    // {
-    //     true
-    // }
-    // #[cfg(not(debug_assertions))]
-    // {
-    //     // This function will cause `'sciter.dll' was not found neither in PATH nor near the current executable.` when debugging RustDesk.
-    //     set_safe_load_dll()
-    // }
+
+    #[cfg(debug_assertions)]
+    {
+        true
+    }
+    #[cfg(not(debug_assertions))]
+    {
+        // This function will cause `'sciter.dll' was not found neither in PATH nor near the current executable.` when debugging RustDesk.
+        set_safe_load_dll()
+    }
 }
 
 #[cfg(not(debug_assertions))]
