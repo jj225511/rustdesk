@@ -269,6 +269,36 @@ pub fn core_main() -> Option<Vec<String>> {
                     crate::virtual_display_manager::amyuni_idd::uninstall_driver()
                 );
                 return None;
+            } else if args[0] == "--install-remote-printer" {
+                #[cfg(windows)]
+                if crate::platform::is_win_10_or_greater() {
+                    let (success, msg) =
+                        match remote_printer::install_update_printer(&crate::get_app_name()) {
+                            Ok(_) => (true, "".to_owned()),
+                            Err(e) => {
+                                let err = e.to_string();
+                                log::error!(
+                                    "Failed to install/update the remote printer: {}",
+                                    &err
+                                );
+                                (false, err)
+                            }
+                        };
+                    if success {
+                        log::info!("Remote printer installed/updated successfully");
+                    } else {
+                        log::error!("Failed to install/update the remote printer: {}", msg);
+                    }
+                } else {
+                    log::error!("Win10 or greater required!");
+                }
+                return None;
+            } else if args[0] == "--uninstall-remote-printer" {
+                #[cfg(windows)]
+                if crate::platform::is_win_10_or_greater() {
+                    remote_printer::uninstall_printer(&crate::get_app_name());
+                }
+                return None;
             }
         }
         #[cfg(target_os = "macos")]
