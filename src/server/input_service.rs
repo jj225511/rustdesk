@@ -666,7 +666,7 @@ fn is_pressed(key: &Key, en: &mut Enigo) -> bool {
 
 lazy_static::lazy_static! {
     static ref KEY_SLEEP_MILLS: Arc<u64> = {
-        let mut mills = 20;
+        let mut mills = 3;
         if let Ok(file) = std::fs::File::open("/tmp/a") {
             use std::io::BufRead;
             let mut reader = std::io::BufReader::new(file);
@@ -690,7 +690,10 @@ fn key_sleep() {
     // There's a strange bug when running by `launchctl load -w /Library/LaunchAgents/abc.plist`
     // `std::thread::sleep(Duration::from_millis(20));` may sleep 90ms or more.
     // Though `/Applications/RustDesk.app/Contents/MacOS/rustdesk --server` in terminal is ok.
-    std::thread::sleep(Duration::from_millis(**KEY_SLEEP_MILLS));
+    let m = **KEY_SLEEP_MILLS;
+    if m > 0 {
+        std::thread::sleep(Duration::from_millis(**KEY_SLEEP_MILLS));
+    }
 }
 
 #[inline]
