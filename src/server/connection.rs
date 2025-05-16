@@ -887,10 +887,20 @@ impl Connection {
                         if press {
                             msg.down = true;
                         }
+                        let now = Instant::now();
                         handle_key(&msg);
+                        log::info!(
+                            "========================== handle key: {:?}",
+                            now.elapsed()
+                        );
                         if press {
                             msg.down = false;
+                            let now = Instant::now();
                             handle_key(&msg);
+                            log::info!(
+                                "========================== handle key: {:?}",
+                                now.elapsed()
+                            );
                         }
                     }
                     MessageInput::Pointer((msg, id)) => {
@@ -2237,6 +2247,8 @@ impl Connection {
                         return true;
                     }
                     if self.peer_keyboard_enabled() {
+                        log::info!("================================== handle key event");
+
                         if is_enter(&me) {
                             CLICK_TIME.store(get_time(), Ordering::SeqCst);
                         }

@@ -457,7 +457,7 @@ static RECORD_CURSOR_POS_RUNNING: AtomicBool = AtomicBool::new(false);
 // We need to do some special handling for macOS when using the legacy mode.
 #[cfg(target_os = "macos")]
 static LAST_KEY_LEGACY_MODE: AtomicBool = AtomicBool::new(true);
-// We use enigo to 
+// We use enigo to
 // 1. Simulate mouse events
 // 2. Simulate the legacy mode key events
 // 3. Simulate the functioin key events, like LockScreen
@@ -667,7 +667,21 @@ fn is_pressed(key: &Key, en: &mut Enigo) -> bool {
 #[inline]
 #[cfg(target_os = "macos")]
 fn key_sleep() {
-    std::thread::sleep(Duration::from_millis(20));
+    // https://www.reddit.com/r/rustdesk/comments/1kn1w5x/typing_lags_when_connecting_to_macos_clients/
+    //
+    // There's a strange bug when running by `launchctl load -w /Library/LaunchAgents/abc.plist`
+    // `std::thread::sleep(Duration::from_millis(20));` may sleep 90ms or more.
+    // Though `/Applications/RustDesk.app/Contents/MacOS/rustdesk --server` in terminal is ok.
+    if crate::is_server() {
+        let now = Instant::now();
+        // This workaround may results `21~24ms` sleep time in my tests.
+        // But it works well in my tests.
+        while now.elapsed() < Duration::from_millis(20) {
+            std::thread::sleep(Duration::from_millis(5));
+        }
+    } else {
+        std::thread::sleep(Duration::from_millis(20));
+    }
 }
 
 #[inline]
@@ -1190,8 +1204,15 @@ pub fn handle_key(evt: &KeyEvent) {
 pub fn handle_key(evt: &KeyEvent) {
     // having GUI, run main GUI thread, otherwise crash
     let evt = evt.clone();
+    let now = Instant::now();
     QUEUE.exec_async(move || handle_key_(&evt));
+    log::info!(
+        "========================== handle_key_ async, {:?}",
+        now.elapsed()
+    );
+    let now = Instant::now();
     key_sleep();
+    log::info!("========================== key_sleep, {:?}", now.elapsed());
 }
 
 #[cfg(target_os = "macos")]
@@ -1231,7 +1252,9 @@ fn sim_rdev_rawkey_position(code: KeyCode, keydown: bool) {
     } else {
         EventType::KeyRelease(RdevKey::RawKey(rawkey))
     };
+    let now = Instant::now();
     simulate_(&event_type);
+    log::info!("========================== simulate_, {:?}", now.elapsed());
 }
 
 #[cfg(target_os = "windows")]
@@ -1713,7 +1736,12 @@ pub fn handle_key_(evt: &KeyEvent) {
         Ok(KeyboardMode::Map) => {
             #[cfg(target_os = "macos")]
             set_last_legacy_mode(false);
+            let now = Instant::now();
             map_keyboard_mode(evt);
+            log::info!(
+                "========================== map_keyboard_mode, {:?}",
+                now.elapsed()
+            );
         }
         Ok(KeyboardMode::Translate) => {
             #[cfg(target_os = "macos")]
