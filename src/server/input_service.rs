@@ -697,6 +697,26 @@ fn key_sleep() {
 }
 
 #[inline]
+#[cfg(target_os = "macos")]
+fn key_sleep_20ms() {
+    // https://www.reddit.com/r/rustdesk/comments/1kn1w5x/typing_lags_when_connecting_to_macos_clients/
+    //
+    // There's a strange bug when running by `launchctl load -w /Library/LaunchAgents/abc.plist`
+    // `std::thread::sleep(Duration::from_millis(20));` may sleep 90ms or more.
+    // Though `/Applications/RustDesk.app/Contents/MacOS/rustdesk --server` in terminal is ok.
+    if crate::is_server() {
+        let now = Instant::now();
+        // This workaround results `21~24ms` sleep time in my tests.
+        // But it works well in my tests.
+        while now.elapsed() < Duration::from_millis(20) {
+            std::thread::sleep(Duration::from_millis(5));
+        }
+    } else {
+        std::thread::sleep(Duration::from_millis(20));
+    }
+}
+
+#[inline]
 fn get_modifier_state(key: Key, en: &mut Enigo) -> bool {
     // https://github.com/rustdesk/rustdesk/issues/332
     // on Linux, if RightAlt is down, RightAlt status is false, Alt status is true
@@ -1292,7 +1312,7 @@ fn press_capslock() {
         if let Some(input) = &mut VIRTUAL_INPUT_STATE {
             if input.simulate(&EventType::KeyPress(caps_key)).is_ok() {
                 input.capslock_down = true;
-                key_sleep();
+                key_sleep_20ms();
             }
         }
     }
@@ -1307,7 +1327,7 @@ fn release_capslock() {
         if let Some(input) = &mut VIRTUAL_INPUT_STATE {
             if input.simulate(&EventType::KeyRelease(caps_key)).is_ok() {
                 input.capslock_down = false;
-                key_sleep();
+                key_sleep_20ms();
             }
         }
     }
