@@ -245,6 +245,7 @@ impl LockModesHandler {
                 .map_or(false, |input| input.capslock_down)
         };
         let caps_key = RdevKey::RawKey(rdev::RawKey::MacVirtualKeycode(rdev::kVK_CapsLock));
+        log::info!("====================== caps enabled: {}, {}", event_caps_enabled, local_caps_enabled);
         if event_caps_enabled && !local_caps_enabled {
             Self::change_capslock(&EventType::KeyPress(caps_key));
         } else if !event_caps_enabled && local_caps_enabled {
@@ -591,6 +592,7 @@ impl VirtualInputState {
 
     #[inline]
     fn simulate(&self, event_type: &EventType) -> ResultType<()> {
+        log::info!("==================================== simulate: {:?}", event_type);
         Ok(self.virtual_input.simulate(&event_type)?)
     }
 }
