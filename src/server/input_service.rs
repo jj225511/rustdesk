@@ -244,6 +244,7 @@ impl LockModesHandler {
                 .as_ref()
                 .map_or(false, |input| input.capslock_down)
         };
+        log::info!("====================== caps enabled: {}, {}", event_caps_enabled, local_caps_enabled);
         if event_caps_enabled && !local_caps_enabled {
             press_capslock();
         } else if !event_caps_enabled && local_caps_enabled {
