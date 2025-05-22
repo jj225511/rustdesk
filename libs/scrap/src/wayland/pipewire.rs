@@ -437,6 +437,8 @@ fn streams_from_response(response: OrgFreedesktopPortalRequestResponse) -> Vec<P
                             .as_iter()?
                             .enumerate()
                             .partition(|(i, _)| i % 2 == 0);
+                    hbb_common::log::info!("TEST LOG ============================= portal, start, keys: {:?}", keys);
+                    hbb_common::log::info!("TEST LOG ============================= portal, start, keys: values: {:?}", values);
                     let attributes = keys
                         .iter()
                         .filter_map(|(_, key)| Some(key.as_str()?.to_owned()))

@@ -109,17 +109,31 @@ pub(super) fn is_inited() -> Option<Message> {
 
 fn get_max_desktop_resolution() -> Option<String> {
     // works with Xwayland
-    let output: Output = Command::new("sh")
+    let output = Command::new("sh")
         .arg("-c")
         .arg("xrandr | awk '/current/ { print $8,$9,$10 }'")
-        .output()
-        .ok()?;
+        .output();
 
-    if output.status.success() {
-        let result = String::from_utf8_lossy(&output.stdout);
-        Some(result.trim().to_string())
-    } else {
-        None
+    match output {
+        Ok(output) => {
+            log::info!(
+                "TEST LOG ============================= get_max_desktop_resolution, status: {:?}",
+                output.status
+            );
+            if output.status.success() {
+                let result = String::from_utf8_lossy(&output.stdout);
+                Some(result.trim().to_string())
+            } else {
+                None
+            }
+        }
+        Err(err) => {
+            log::error!(
+                "TEST LOG ======================= Failed to execute xrandr: {}",
+                err
+            );
+            return None;
+        }
     }
 }
 
@@ -151,8 +165,8 @@ pub(super) async fn check_init() -> ResultType<()> {
 
                 let display = all.remove(current);
                 let (origin, width, height) = (display.origin(), display.width(), display.height());
-                log::debug!(
-                    "#displays={}, current={}, origin: {:?}, width={}, height={}, cpus={}/{}",
+                log::info!(
+                    "TEST LOG ============================= #displays={}, current={}, origin: {:?}, width={}, height={}, cpus={}/{}",
                     num,
                     current,
                     &origin,
@@ -165,6 +179,7 @@ pub(super) async fn check_init() -> ResultType<()> {
                 if use_uinput {
                     let (max_width, max_height) = match get_max_desktop_resolution() {
                         Some(result) if !result.is_empty() => {
+                            log::info!("TEST LOG ============================= xrandr: {}", result);
                             let resolution: Vec<&str> = result.split(" ").collect();
                             let w: i32 = resolution[0].parse().unwrap_or(origin.0 + width as i32);
                             let h: i32 = resolution[2]
@@ -184,6 +199,7 @@ pub(super) async fn check_init() -> ResultType<()> {
                     maxx = max_width;
                     miny = 0;
                     maxy = max_height;
+                    log::info!("TEST LOG ============================= uinput, range x: ({},{}), range y: ({},{})", minx, maxx, miny, maxy);
                 }
 
                 let capturer = Box::into_raw(Box::new(

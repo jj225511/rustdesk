@@ -515,9 +515,11 @@ pub mod service {
         log::trace!("handle_mouse {:?}", &data);
         match data {
             DataMouse::MoveTo(x, y) => {
+                log::info!("===================== move to x: {}, y: {}", x, y);
                 allow_err!(mouse.move_to(*x as _, *y as _))
             }
             DataMouse::MoveRelative(x, y) => {
+                log::info!("===================== move relative x: {}, y: {}", x, y);
                 allow_err!(mouse.move_relative(*x, *y))
             }
             DataMouse::Down(button) => {
