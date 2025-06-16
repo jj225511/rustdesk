@@ -1954,6 +1954,7 @@ impl<T: InvokeUiSession> Remote<T> {
     }
 
     async fn handle_back_notification(&mut self, notification: BackNotification) -> bool {
+        log::info!("========================= handle back notification: {:?}", &notification);
         match notification.union {
             Some(back_notification::Union::BlockInputState(state)) => {
                 self.handle_back_msg_block_input(

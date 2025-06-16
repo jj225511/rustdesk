@@ -3383,6 +3383,7 @@ impl Connection {
             }
 
             let turn_on_res = privacy_mode::turn_on_privacy(&impl_key, self.inner.id).await;
+            log::info!("======================== Turn on privacy mode: {:?}", turn_on_res);
             match turn_on_res {
                 Some(Ok(res)) => {
                     if res {
@@ -3398,7 +3399,7 @@ impl Connection {
                             )
                         } else {
                             log::error!(
-                                "Check privacy mode failed: {}, turn off privacy mode.",
+                                "===================== Check privacy mode failed: {}, turn off privacy mode.",
                                 &err_msg
                             );
                             let _ = Self::turn_off_privacy_to_msg(self.inner.id);
@@ -3409,6 +3410,9 @@ impl Connection {
                             )
                         }
                     } else {
+                        log::error!(
+                            "===================== Turn on privacy mode failed, turn off privacy mode."
+                        );
                         crate::common::make_privacy_mode_msg(
                             back_notification::PrivacyModeState::PrvOnFailedPlugin,
                             impl_key,
@@ -3416,7 +3420,7 @@ impl Connection {
                     }
                 }
                 Some(Err(e)) => {
-                    log::error!("Failed to turn on privacy mode. {}", e);
+                    log::error!("============================ Failed to turn on privacy mode. {}", e);
                     if privacy_mode::is_in_privacy_mode() {
                         let _ = Self::turn_off_privacy_to_msg(
                             privacy_mode::INVALID_PRIVACY_MODE_CONN_ID,

@@ -217,6 +217,7 @@ async fn turn_on_privacy_async(impl_key: String, conn_id: i32) -> Option<ResultT
     let (tx, rx) = oneshot::channel();
     std::thread::spawn(move || {
         let res = turn_on_privacy_sync(&impl_key, conn_id);
+        hbb_common::log::info!("========================== Turn on privacy mode result: {:?}", res);
         let _ = tx.send(res);
     });
     // Wait at most 5 seconds for the result.
