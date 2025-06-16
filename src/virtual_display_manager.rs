@@ -120,6 +120,14 @@ pub fn plug_out_monitor_indices(
     }
 }
 
+pub fn replug_monitors() -> ResultType<()> {
+    match IDD_IMPL {
+        IDD_IMPL_RUSTDESK => rustdesk_idd::replug_monitors(),
+        IDD_IMPL_AMYUNI => amyuni_idd::replug_monitors(),
+        _ => bail!("Unsupported virtual display implementation."),
+    }
+}
+
 pub fn reset_all() -> ResultType<()> {
     match IDD_IMPL {
         IDD_IMPL_RUSTDESK => rustdesk_idd::reset_all(),
@@ -334,6 +342,25 @@ pub mod rustdesk_idd {
         Ok(())
     }
 
+    pub fn replug_monitors() -> ResultType<()> {
+        let mut manager = VIRTUAL_DISPLAY_MANAGER.lock().unwrap();
+        manager.prepare_driver()?;
+
+        // Replug headless display.
+        if let Some((index, _)) = &manager.headless_index_name {
+            allow_err!(virtual_display::plug_out_monitor(*index));
+            allow_err!(virtual_display::plug_in_monitor(*index));
+        }
+
+        // Replug peer displays.
+        for (index, _) in manager.peer_index_name.iter() {
+            allow_err!(virtual_display::plug_out_monitor(*index));
+            allow_err!(virtual_display::plug_in_monitor(*index));
+        }
+
+        Ok(())
+    }
+
     pub fn is_virtual_display(name: &str) -> bool {
         let lock = VIRTUAL_DISPLAY_MANAGER.lock().unwrap();
         if let Some((_, device_name)) = &lock.headless_index_name {
@@ -384,7 +411,7 @@ pub mod rustdesk_idd {
 pub mod amyuni_idd {
     use super::windows;
     use crate::platform::{reg_display_settings, win_device};
-    use hbb_common::{bail, lazy_static, log, tokio::time::Instant, ResultType};
+    use hbb_common::{allow_err, bail, lazy_static, log, tokio::time::Instant, ResultType};
     use std::{
         ptr::null_mut,
         sync::{atomic, Arc, Mutex},
@@ -718,6 +745,19 @@ pub mod amyuni_idd {
 
         for _i in 0..to_plug_out_count {
             let _ = plug_monitor_(false, None);
+        }
+        Ok(())
+    }
+
+    pub fn replug_monitors() -> ResultType<()> {
+        let _l = LOCK.lock().unwrap();
+        let c = get_monitor_count();
+        if c == 0 {
+            return Ok(());
+        }
+        plug_out_monitor(super::IDD_PLUG_OUT_ALL_INDEX, true, false)?;
+        for _ in 0..c {
+            allow_err!(plug_in_monitor());
         }
         Ok(())
     }
