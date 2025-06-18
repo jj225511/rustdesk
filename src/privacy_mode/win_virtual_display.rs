@@ -404,6 +404,8 @@ impl PrivacyModeImpl {
         Self::restore_displays(&self.virtual_displays);
         Self::restore_displays(&self.displays);
         allow_err!(Self::commit_change_display(0));
+        restore_reg_connectivity(false);
+        std::thread::sleep(Duration::from_millis(500));
         self.restore_plug_out_monitor();
         self.displays.clear();
         self.virtual_displays.clear();
@@ -511,7 +513,6 @@ impl PrivacyMode for PrivacyModeImpl {
         super::win_input::unhook()?;
         let _tmp_ignore_changed_holder = crate::display_service::temp_ignore_displays_changed();
         self.restore();
-        restore_reg_connectivity(false);
 
         if self.conn_id != INVALID_PRIVACY_MODE_CONN_ID {
             if let Some(state) = state {
