@@ -854,7 +854,7 @@ class FfiModel with ChangeNotifier {
       showConnectedWaitingForImage(dialogManager, sessionId, type, title, text);
     } else if (title == 'Privacy mode') {
       final hasRetry = evt['hasRetry'] == 'true';
-      showPrivacyFailedDialog(
+      showPrivacyModeDialog(
           sessionId, type, title, text, link, hasRetry, dialogManager);
     } else {
       final hasRetry = evt['hasRetry'] == 'true';
@@ -983,7 +983,7 @@ class FfiModel with ChangeNotifier {
     bind.sessionOnWaitingForImageDialogShow(sessionId: sessionId);
   }
 
-  void showPrivacyFailedDialog(
+  void showPrivacyModeDialog(
       SessionID sessionId,
       String type,
       String title,
