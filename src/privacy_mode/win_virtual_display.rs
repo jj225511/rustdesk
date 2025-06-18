@@ -401,15 +401,22 @@ impl PrivacyModeImpl {
     }
 
     fn restore(&mut self) {
-        Self::restore_displays(&self.displays);
-        Self::restore_displays(&self.virtual_displays);
-        allow_err!(Self::commit_change_display(0));
+        Self::restore_displays(&self.virtual_displays, true);
+        Self::restore_displays(&self.displays, false);
+        if let Err(e) = Self::commit_change_display(0) {
+            log::error!(
+                "========= Failed to commit change display settings after restoring displays: {}",
+                e
+            );
+        }
+        std::thread::sleep(std::time::Duration::from_millis(500));
+        restore_reg_connectivity(false);
         self.restore_plug_out_monitor();
         self.displays.clear();
         self.virtual_displays.clear();
     }
 
-    fn restore_displays(displays: &[Display]) {
+    fn restore_displays(displays: &[Display], is_virtual: bool) {
         for display in displays {
             unsafe {
                 let mut dm = display.dm.clone();
@@ -418,13 +425,33 @@ impl PrivacyModeImpl {
                 } else {
                     CDS_NORESET | CDS_UPDATEREGISTRY
                 };
-                ChangeDisplaySettingsExW(
+                log::info!(
+                    "======================== Restore display, virtual: {}, ({},{}) - ({},{})",
+                    is_virtual,
+                    dm.u1.s2().dmPosition.x,
+                    dm.u1.s2().dmPosition.y,
+                    dm.dmPelsWidth,
+                    dm.dmPelsHeight,
+                );
+                let rc = ChangeDisplaySettingsExW(
                     display.name.as_ptr(),
                     &mut dm,
                     std::ptr::null_mut(),
                     flags,
                     std::ptr::null_mut(),
                 );
+                if rc != DISP_CHANGE_SUCCESSFUL {
+                    let err = Self::change_display_settings_ex_err_msg(rc);
+                    log::error!(
+                        "======================== Failed to restore display, virtual: {}, ({},{}) - ({},{}), {}",
+                        is_virtual,
+                        dm.u1.s2().dmPosition.x,
+                        dm.u1.s2().dmPosition.y,
+                        dm.dmPelsWidth,
+                        dm.dmPelsHeight,
+                        &err
+                    );
+                }
             }
         }
     }
@@ -511,7 +538,6 @@ impl PrivacyMode for PrivacyModeImpl {
         super::win_input::unhook()?;
         let _tmp_ignore_changed_holder = crate::display_service::temp_ignore_displays_changed();
         self.restore();
-        restore_reg_connectivity(false);
 
         if self.conn_id != INVALID_PRIVACY_MODE_CONN_ID {
             if let Some(state) = state {
