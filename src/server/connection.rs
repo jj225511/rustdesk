@@ -887,10 +887,14 @@ impl Connection {
                         if press {
                             msg.down = true;
                         }
+                        let now = Instant::now();
                         handle_key(&msg);
+                        log::info!("============================ handle_key {:?} {:?}", msg, now.elapsed());
                         if press {
                             msg.down = false;
+                            let now = Instant::now();
                             handle_key(&msg);
+                            log::info!("============================ handle_key {:?} {:?}", msg, now.elapsed());
                         }
                     }
                     MessageInput::Pointer((msg, id)) => {
