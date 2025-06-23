@@ -852,9 +852,12 @@ impl Connection {
             raii::AuthedConnID::check_remove_session(conn.inner.id(), conn.session_key());
         }
 
-        conn.post_conn_audit(json!({
-            "action": "close",
-        }));
+        conn.post_conn_audit(
+            json!({
+                "action": "close",
+            }),
+            None,
+        );
         if let Some(s) = conn.server.upgrade() {
             let mut s = s.write().unwrap();
             s.remove_connection(&conn.inner);
@@ -1087,10 +1090,13 @@ impl Connection {
         msg_out.set_hash(self.hash.clone());
         self.send(msg_out).await;
         self.get_api_server();
-        self.post_conn_audit(json!({
-            "ip": addr.ip(),
-            "action": "new",
-        }));
+        self.post_conn_audit(
+            json!({
+                "ip": addr.ip(),
+                "action": "new",
+            }),
+            None,
+        );
         true
     }
 
@@ -1107,7 +1113,7 @@ impl Connection {
         );
     }
 
-    fn post_conn_audit(&self, v: Value) {
+    fn post_conn_audit(&self, v: Value, delay_secs: Option<f32>) {
         if self.server_audit_conn.is_empty() {
             return;
         }
@@ -1118,7 +1124,16 @@ impl Connection {
         v["conn_id"] = json!(self.inner.id);
         v["session_id"] = json!(self.lr.session_id);
         tokio::spawn(async move {
-            allow_err!(Self::post_audit_async(url, v).await);
+            if let Some(delay) = delay_secs {
+                hbb_common::sleep(delay).await;
+            }
+            log::info!("===================== post conn audit, post data: {:?}", &v);
+            let res = Self::post_audit_async(url, v.clone()).await;
+            log::info!(
+                "===================== post conn audit, res: {:?}, post data: {:?}",
+                res,
+                &v
+            );
         });
     }
 
@@ -1254,8 +1269,10 @@ impl Connection {
             .unwrap()
             .get(&self.session_key())
             .map(|s| s.last_recv_time.clone());
+        // Delay is to ensure the update reuqest is sent after the "new" request.
         self.post_conn_audit(
             json!({"peer": ((&self.lr.my_id, &self.lr.my_name)), "type": conn_type}),
+            Some(1.0f32),
         );
         #[allow(unused_mut)]
         let mut username = crate::platform::get_active_username();
@@ -1379,7 +1396,8 @@ impl Connection {
         }
         #[cfg(not(any(target_os = "android", target_os = "ios")))]
         if self.file_transfer.is_some() {
-            if crate::platform::is_prelogin() { // }|| self.tx_to_cm.send(ipc::Data::Test).is_err() {
+            if crate::platform::is_prelogin() {
+                // }|| self.tx_to_cm.send(ipc::Data::Test).is_err() {
                 username = "".to_owned();
             }
         }
