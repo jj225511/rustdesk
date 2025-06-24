@@ -517,6 +517,7 @@ pub fn get_active_userid() -> String {
 }
 
 fn get_cm() -> bool {
+    log::info!("========================================== get cm");
     if let Ok(output) = Command::new("ps").args(vec!["aux"]).output() {
         for line in String::from_utf8_lossy(&output.stdout).lines() {
             if line.contains(&format!(
@@ -688,6 +689,7 @@ where
     // -E is required to preserve env
     args.insert(0, "-E");
 
+    log::info!("================================ run as user: {:?}", &args);
     let task = Command::new("sudo").envs(envs).args(args).spawn()?;
     Ok(Some(task))
 }
@@ -750,6 +752,7 @@ pub fn get_default_pa_source() -> Option<(String, String)> {
 }
 
 pub fn lock_screen() {
+    log::info!("=================================== lock screen");
     Command::new("xdg-screensaver").arg("lock").spawn().ok();
 }
 
@@ -984,6 +987,7 @@ pub fn current_resolution(name: &str) -> ResultType<Resolution> {
 }
 
 pub fn change_resolution_directly(name: &str, width: usize, height: usize) -> ResultType<()> {
+    log::info!("================================= change resolution {}x{} for {}", width, height, name);
     Command::new("xrandr")
         .args(vec![
             "--output",
@@ -1207,6 +1211,7 @@ mod desktop {
 
         fn get_display_by_user(user: &str) -> String {
             // log::debug!("w {}", &user);
+            log::info!("================================= get display by user");
             if let Ok(output) = std::process::Command::new("w").arg(&user).output() {
                 for line in String::from_utf8_lossy(&output.stdout).lines() {
                     let mut iter = line.split_whitespace();
@@ -1221,6 +1226,7 @@ mod desktop {
             // above not work for gdm user
             //log::debug!("ls -l /tmp/.X11-unix/");
             let mut last = "".to_owned();
+            log::info!("================================= get display by user ls");
             if let Ok(output) = std::process::Command::new("ls")
                 .args(vec!["-l", "/tmp/.X11-unix/"])
                 .output()
@@ -1339,6 +1345,7 @@ impl WakeLock {
 }
 
 fn has_cmd(cmd: &str) -> bool {
+    log::info!("=============================== has cmd: {}", cmd);
     std::process::Command::new("which")
         .arg(cmd)
         .status()

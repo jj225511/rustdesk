@@ -337,6 +337,7 @@ pub fn core_main() -> Option<Vec<String>> {
             #[cfg(target_os = "linux")]
             {
                 hbb_common::allow_err!(crate::platform::check_autostart_config());
+                log::info!("=============================== pkill --tray");
                 std::process::Command::new("pkill")
                     .arg("-f")
                     .arg(&format!("{} --tray", crate::get_app_name().to_lowercase()))

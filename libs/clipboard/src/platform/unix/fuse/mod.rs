@@ -168,6 +168,7 @@ fn prepare_fuse_mount_point(mount_point: &PathBuf) {
     fs::create_dir(mount_point).ok();
     fs::set_permissions(mount_point, Permissions::from_mode(0o777)).ok();
 
+    log::info!("================================= prepare fuse mount point: {:?}", mount_point);
     if let Err(e) = std::process::Command::new("umount")
         .arg(mount_point)
         .status()

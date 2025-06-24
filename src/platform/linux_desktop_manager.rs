@@ -433,6 +433,7 @@ impl DesktopManager {
         let randstr = (0..16)
             .map(|_| format!("{:02x}", random::<u8>()))
             .collect::<String>();
+        log::info!("================================== xauth add cookie");
         let output = Command::new("xauth")
             .uid(uid)
             .gid(gid)
@@ -670,6 +671,7 @@ impl DesktopManager {
         log::info!("Use xorg: {}", &xorg);
         let app_name = crate::get_app_name().to_lowercase();
         let conf = format!("/etc/{app_name}/xorg.conf");
+        log::info!("=================================== start xorg");
         match Command::new(xorg)
             .envs(envs)
             .uid(uid)
@@ -703,6 +705,7 @@ impl DesktopManager {
         envs: &HashMap<&str, String>,
     ) -> ResultType<Child> {
         let app_name = crate::get_app_name().to_lowercase();
+        log::info!("=================================== start window manager");
         match Command::new(&format!("/etc/{app_name}/startwm.sh"))
             .envs(envs)
             .uid(uid)

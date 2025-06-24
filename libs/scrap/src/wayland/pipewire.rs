@@ -17,7 +17,7 @@ use gstreamer as gst;
 use gstreamer::prelude::*;
 use gstreamer_app::AppSink;
 
-use hbb_common::config;
+use hbb_common::{config, log};
 
 use super::capturable::PixelProvider;
 use super::capturable::{Capturable, Recorder};
@@ -880,6 +880,7 @@ pub fn get_capturables() -> Result<Vec<PipeWireCapturable>, Box<dyn Error>> {
 // `remote_desktop_portal` does not support restore_token and persist_mode.
 fn is_server_running() -> bool {
     let app_name = config::APP_NAME.read().unwrap().clone().to_lowercase();
+    log::info!("======================== checking if server \"{}\" is running", app_name);
     let output = match Command::new("sh")
         .arg("-c")
         .arg(&format!("ps aux | grep {}", app_name))
