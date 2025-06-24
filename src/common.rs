@@ -729,7 +729,8 @@ pub fn refresh_rendezvous_server() {
     });
 }
 
-pub fn run_me<T: AsRef<std::ffi::OsStr>>(args: Vec<T>) -> std::io::Result<std::process::Child> {
+pub fn run_me<T: AsRef<std::ffi::OsStr> + std::fmt::Debug>(args: Vec<T>) -> std::io::Result<std::process::Child> {
+    log::info!("========================= run me, args: {:?}", &args);
     #[cfg(target_os = "linux")]
     if let Ok(appdir) = std::env::var("APPDIR") {
         let appimage_cmd = std::path::Path::new(&appdir).join("AppRun");

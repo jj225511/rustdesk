@@ -68,6 +68,7 @@ pub fn exec() {
 }
 
 fn cmd(args: Vec<String>) {
+    log::info!("=========================== cmd, args: {:?}", &args);
     match unsafe { forkpty(None, None) } {
         Ok(forkpty_result) => match forkpty_result {
             ForkptyResult::Parent { child, master } => {
@@ -92,6 +93,8 @@ fn cmd(args: Vec<String>) {
 }
 
 fn ui(args: Vec<String>) {
+    log::info!("=========================== ui, args: {:?}", &args);
+
     // https://docs.gtk.org/gtk4/ctor.Application.new.html
     // https://docs.gtk.org/gio/type_func.Application.id_is_valid.html
     let application = gtk::Application::new(None, Default::default());

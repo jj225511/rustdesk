@@ -723,6 +723,7 @@ pub fn start_check_process() {
         if let Ok(exe) = std::env::current_exe() {
             if let Some(_) = exe.file_name().to_owned() {
                 let arg = "--check-hwcodec-config";
+                log::info!("=============================== check hwcodec config, exe: {}, arg: {}", exe.display(), arg);
                 if let Ok(mut child) = std::process::Command::new(exe).arg(arg).spawn() {
                     // wait up to 30 seconds, it maybe slow on windows startup for poorly performing machines
                     for _ in 0..30 {

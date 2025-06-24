@@ -427,6 +427,7 @@ impl ClipboardContext {
                 // It's not correct in the server process.
                 #[cfg(target_os = "linux")]
                 let is_kde_x11 = {
+                    log::info!("================================ check if KDE Plasma is running");
                     let is_kde = std::process::Command::new("sh")
                         .arg("-c")
                         .arg("ps -e | grep -E kded[0-9]+ | grep -v grep")
