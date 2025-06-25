@@ -67,7 +67,25 @@ fn run(sp: EmptyExtraFieldService) -> ResultType<()> {
     };
 
     let (tx_cb_result, rx_cb_result) = channel();
-    let ctx = Some(ClipboardContext::new().map_err(|e| io::Error::new(io::ErrorKind::Other, e))?);
+    let mut ctx = None;
+    let mut last_ctx_log = std::time::Instant::now();
+    while sp.ok() && ctx.is_none() {
+        // Try to create a ClipboardContext, if it fails, wait for a while and try again.
+        // This is to avoid the spamming of error logs when the clipboard service is not available.
+        match ClipboardContext::new() {
+            Ok(c) => {
+                ctx = Some(c);
+            }
+            Err(e) => {
+                if last_ctx_log.elapsed() > Duration::from_secs(5) {
+                    log::error!("Failed to create ClipboardContext: {}", e);
+                    last_ctx_log = std::time::Instant::now();
+                }
+                std::thread::sleep(Duration::from_millis(INTERVAL));
+            }
+        }
+    }
+
     clipboard_listener::subscribe(sp.name(), tx_cb_result)?;
     let mut handler = Handler {
         ctx,

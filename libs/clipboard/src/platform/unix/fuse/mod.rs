@@ -66,35 +66,74 @@ pub fn init_fuse_context(is_client: bool) -> Result<(), CliprdrError> {
     let (server, tx) = FuseServer::new(FUSE_TIMEOUT);
     let server = Arc::new(Mutex::new(server));
 
-    prepare_fuse_mount_point(&mount_point);
+    prepare_fuse_mount_point(&mount_point)?;
+
     let mnt_opts = [
         MountOption::FSName("rustdesk-cliprdr-fs".to_string()),
         MountOption::NoAtime,
         MountOption::RO,
     ];
     log::info!("mounting clipboard FUSE to {}", mount_point.display());
-    // to-do: ignore the error if the mount point is already mounted
-    // Because the sciter version uses separate processes as the controlling side.
-    let session = fuser::spawn_mount2(
-        FuseServer::client(server.clone()),
-        mount_point.clone(),
-        &mnt_opts,
-    )
-    .map_err(|e| {
-        log::error!("failed to mount cliprdr fuse: {:?}", e);
-        CliprdrError::CliprdrInit
-    })?;
-    let session = Mutex::new(Some(session));
 
-    let ctx = FuseContext {
-        server,
-        tx,
-        mount_point,
-        session,
-        conn_id: 0,
-    };
-    *fuse_context_lock = Some(ctx);
-    Ok(())
+    // Try to mount with retry logic
+    let max_retries = 3;
+    let mut retry_delay = Duration::from_millis(100);
+    let mut last_error = None;
+
+    for attempt in 1..=max_retries {
+        log::debug!("FUSE mount attempt {} of {}", attempt, max_retries);
+
+        match fuser::spawn_mount2(
+            FuseServer::client(server.clone()),
+            mount_point.clone(),
+            &mnt_opts,
+        ) {
+            Ok(session) => {
+                log::info!(
+                    "Successfully mounted FUSE filesystem on attempt {}",
+                    attempt
+                );
+                let session = Mutex::new(Some(session));
+                let ctx = FuseContext {
+                    server,
+                    tx,
+                    mount_point,
+                    session,
+                    conn_id: 0,
+                };
+                *fuse_context_lock = Some(ctx);
+                return Ok(());
+            }
+            Err(e) => {
+                last_error = Some(e);
+                log::error!("FUSE mount attempt {} failed: {:?}", attempt, last_error);
+
+                if attempt < max_retries {
+                    // Clean up and retry
+                    log::info!(
+                        "Cleaning up mount point and retrying after {:?}",
+                        retry_delay
+                    );
+                    cleanup_mount_point(&mount_point);
+                    std::thread::sleep(retry_delay);
+                    retry_delay *= 2; // Exponential backoff
+
+                    // Re-prepare mount point for next attempt
+                    if let Err(e) = prepare_fuse_mount_point(&mount_point) {
+                        log::error!("Failed to prepare mount point for retry: {:?}", e);
+                    }
+                }
+            }
+        }
+    }
+
+    log::error!(
+        "Failed to mount FUSE after {} attempts: {:?}",
+        max_retries,
+        last_error
+    );
+
+    Err(CliprdrError::CliprdrInit)
 }
 
 pub fn uninit_fuse_context(is_client: bool) {
@@ -111,6 +150,13 @@ pub fn format_data_response_to_urls(
     } else {
         FUSE_CONTEXT_SERVER.lock()
     };
+
+    // If FUSE context is not initialized, return a more descriptive error
+    if ctx.is_none() {
+        log::debug!("FUSE context not initialized for format_data_response_to_urls");
+        return Err(CliprdrError::CliprdrInit);
+    }
+
     ctx.as_mut()
         .ok_or(CliprdrError::CliprdrInit)?
         .format_data_response_to_urls(format_data, conn_id)
@@ -158,21 +204,115 @@ struct FuseContext {
     conn_id: i32,
 }
 
-// this function must be called after the main IPC is up
-fn prepare_fuse_mount_point(mount_point: &PathBuf) {
+// This function must be called after the main IPC is up
+fn prepare_fuse_mount_point(mount_point: &PathBuf) -> Result<(), CliprdrError> {
     use std::{
         fs::{self, Permissions},
         os::unix::prelude::PermissionsExt,
     };
 
-    fs::create_dir(mount_point).ok();
-    fs::set_permissions(mount_point, Permissions::from_mode(0o777)).ok();
+    // Create parent directories if they don't exist
+    if let Some(parent) = mount_point.parent() {
+        if let Err(e) = fs::create_dir_all(parent) {
+            log::error!(
+                "Failed to create parent directories for mount point: {:?}",
+                e
+            );
+            return Err(CliprdrError::CliprdrInit);
+        }
+    }
 
-    if let Err(e) = std::process::Command::new("umount")
-        .arg(mount_point)
+    // Try to create the mount point directory
+    match fs::create_dir(mount_point) {
+        Ok(_) => log::debug!("Created mount point directory: {:?}", mount_point),
+        Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {
+            log::debug!("Mount point already exists: {:?}", mount_point);
+        }
+        Err(e) => {
+            log::error!("Failed to create mount point: {:?}", e);
+            return Err(CliprdrError::CliprdrInit);
+        }
+    }
+
+    // Set permissions
+    if let Err(e) = fs::set_permissions(mount_point, Permissions::from_mode(0o777)) {
+        log::warn!("Failed to set mount point permissions: {:?}", e);
+    }
+
+    // Clean up any existing mount
+    cleanup_mount_point(mount_point);
+
+    Ok(())
+}
+
+// Helper function to clean up mount point
+fn cleanup_mount_point(mount_point: &PathBuf) {
+    // Try different umount methods
+    let umount_commands = [
+        vec!["fusermount", "-u", mount_point.to_str().unwrap_or("")],
+        vec!["fusermount3", "-u", mount_point.to_str().unwrap_or("")],
+        vec!["umount", mount_point.to_str().unwrap_or("")],
+    ];
+
+    for cmd_parts in &umount_commands {
+        if cmd_parts.is_empty() {
+            continue;
+        }
+
+        match std::process::Command::new(cmd_parts[0])
+            .args(&cmd_parts[1..])
+            .output()
+        {
+            Ok(output) => {
+                if output.status.success() {
+                    log::debug!(
+                        "Successfully unmounted with {}: {:?}",
+                        cmd_parts[0],
+                        mount_point
+                    );
+                    break;
+                } else {
+                    log::debug!(
+                        "Failed to unmount with {}: {}",
+                        cmd_parts[0],
+                        String::from_utf8_lossy(&output.stderr)
+                    );
+                }
+            }
+            Err(e) => {
+                log::debug!("Command {} not available: {:?}", cmd_parts[0], e);
+            }
+        }
+    }
+
+    // Check if mount point is still mounted
+    if is_mount_point_mounted(mount_point) {
+        log::warn!(
+            "Mount point still mounted after cleanup attempts: {:?}",
+            mount_point
+        );
+    }
+}
+
+// Check if a path is currently a mount point
+fn is_mount_point_mounted(path: &PathBuf) -> bool {
+    match std::process::Command::new("mountpoint")
+        .arg("-q")
+        .arg(path)
         .status()
     {
-        log::warn!("umount {:?} may fail: {:?}", mount_point, e);
+        Ok(status) => status.success(),
+        Err(_) => {
+            // fallback: check /proc/mounts
+            if let Ok(mounts) = std::fs::read_to_string("/proc/mounts") {
+                let path_str = path.to_string_lossy();
+                mounts
+                    .lines()
+                    .any(|line| line.split_whitespace().nth(1) == Some(&*path_str))
+            } else {
+                false
+            }
+        }
     }
 }
 
@@ -186,8 +326,20 @@ fn uninit_fuse_context_(is_client: bool) {
 
 impl Drop for FuseContext {
     fn drop(&mut self) {
-        self.session.lock().take().map(|s| s.join());
-        log::info!("unmounting clipboard FUSE from {}", self.mount_point.display());
+        if let Some(session) = self.session.lock().take() {
+            log::info!(
+                "Shutting down FUSE session for {}",
+                self.mount_point.display()
+            );
+            session.join();
+        }
+
+        // Clean up the mount point on drop
+        cleanup_mount_point(&self.mount_point);
+        log::info!(
+            "Unmounted clipboard FUSE from {}",
+            self.mount_point.display()
+        );
     }
 }
 
