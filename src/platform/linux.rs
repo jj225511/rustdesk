@@ -519,6 +519,7 @@ pub fn get_active_userid() -> String {
 
 fn get_cm() -> bool {
     if let Ok(output) = Command::new(CMD_PS.as_str()).args(vec!["aux"]).output() {
+        log::info!("========================= get_cm, {}, output: {:?}", CMD_PS.as_str(), &output);
         for line in String::from_utf8_lossy(&output.stdout).lines() {
             if line.contains(&format!(
                 "{} --cm",
