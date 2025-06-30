@@ -877,7 +877,7 @@ class InputModel {
   void onPointHoverImage(PointerHoverEvent e) {
     _stopFling = true;
     if (isViewOnly) return;
-    if (e.kind != ui.PointerDeviceKind.mouse) return;
+    if (!kMouseLikeDeviceKinds.contains(e.kind)) return;
     if (!isPhysicalMouse.value) {
       isPhysicalMouse.value = true;
     }
@@ -1039,7 +1039,7 @@ class InputModel {
     _windowRect = null;
     if (isViewOnly) return;
     if (isViewCamera) return;
-    if (e.kind != ui.PointerDeviceKind.mouse) {
+    if (!kMouseLikeDeviceKinds.contains(e.kind)) {
       if (isPhysicalMouse.value) {
         isPhysicalMouse.value = false;
       }
@@ -1053,7 +1053,7 @@ class InputModel {
     if (isDesktop) _queryOtherWindowCoords = false;
     if (isViewOnly) return;
     if (isViewCamera) return;
-    if (e.kind != ui.PointerDeviceKind.mouse) return;
+    if (!kMouseLikeDeviceKinds.contains(e.kind)) return;
     if (isPhysicalMouse.value) {
       handleMouse(_getMouseEvent(e, _kMouseEventUp), e.position);
     }
@@ -1062,7 +1062,7 @@ class InputModel {
   void onPointMoveImage(PointerMoveEvent e) {
     if (isViewOnly) return;
     if (isViewCamera) return;
-    if (e.kind != ui.PointerDeviceKind.mouse) return;
+    if (!kMouseLikeDeviceKinds.contains(e.kind)) return;
     if (_queryOtherWindowCoords) {
       Future.delayed(Duration.zero, () async {
         _windowRect = await fillRemoteCoordsAndGetCurFrame(_remoteWindowCoords);
