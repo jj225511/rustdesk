@@ -2758,7 +2758,7 @@ class QualityMonitorModel with ChangeNotifier {
   }
 
   addEvents(String evt) {
-    if (events.length > 6) {
+    if (events.length > 12) {
       events.removeAt(0);
     }
     events.add(evt);

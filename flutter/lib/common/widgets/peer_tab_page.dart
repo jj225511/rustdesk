@@ -309,7 +309,7 @@ class _PeerTabPageState extends State<PeerTabPage>
     } else {
       return Listener(
           onPointerDown: (e) {
-            if (!kMouseLikeDeviceKinds.contains(e.kind)) {
+            if (e.kind != ui.PointerDeviceKind.mouse) {
               return;
             }
             if (e.buttons == 2) {

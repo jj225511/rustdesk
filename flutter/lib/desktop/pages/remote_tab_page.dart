@@ -189,7 +189,7 @@ class _ConnectionTabPageState extends State<ConnectionTabPage> {
 
             return Listener(
               onPointerDown: (e) {
-                if (!kMouseLikeDeviceKinds.contains(e.kind)) {
+                if (e.kind != ui.PointerDeviceKind.mouse) {
                   return;
                 }
                 final remotePage = tabController.state.value.tabs
