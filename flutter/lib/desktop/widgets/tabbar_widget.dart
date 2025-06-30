@@ -1115,7 +1115,7 @@ class _TabState extends State<_Tab> with RestorationMixin {
 
     return Listener(
       onPointerDown: (e) {
-        if (e.kind != ui.PointerDeviceKind.mouse) {
+        if (!kMouseLikeDeviceKinds.contains(e.kind)) {
           return;
         }
         if (e.buttons == 2) {

@@ -2745,6 +2745,8 @@ class QualityMonitorModel with ChangeNotifier {
   bool get show => _show;
   QualityMonitorData get data => _data;
 
+  List<String> events = [];
+
   checkShowQualityMonitor(SessionID sessionId) async {
     final show = await bind.sessionGetToggleOption(
             sessionId: sessionId, arg: 'show-quality-monitor') ==
@@ -2753,6 +2755,14 @@ class QualityMonitorModel with ChangeNotifier {
       _show = show;
       notifyListeners();
     }
+  }
+
+  addEvents(String evt) {
+    if (events.length > 6) {
+      events.removeAt(0);
+    }
+    events.add(evt);
+    notifyListeners();
   }
 
   updateQualityStatus(Map<String, dynamic> evt) {
