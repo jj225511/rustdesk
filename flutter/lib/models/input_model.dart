@@ -875,9 +875,10 @@ class InputModel {
   }
 
   void onPointHoverImage(PointerHoverEvent e) {
+    gFFI.qualityMonitorModel.addEvents('pointer hover: ${isPhysicalMouse.value}. ${e.kind}, pos: (${e.position.dx.toStringAsFixed(2)},${e.position.dy.toStringAsFixed(2)}), btns: ${e.buttons}');
     _stopFling = true;
     if (isViewOnly) return;
-    if (e.kind != ui.PointerDeviceKind.mouse) return;
+    if (!kMouseLikeDeviceKinds.contains(e.kind)) return;
     if (!isPhysicalMouse.value) {
       isPhysicalMouse.value = true;
     }
@@ -887,6 +888,7 @@ class InputModel {
   }
 
   void onPointerPanZoomStart(PointerPanZoomStartEvent e) {
+    gFFI.qualityMonitorModel.addEvents('zoom start: ${isPhysicalMouse.value}. ${e.kind}, pos: (${e.position.dx.toStringAsFixed(2)},${e.position.dy.toStringAsFixed(2)}), btns: ${e.buttons}');
     _lastScale = 1.0;
     _stopFling = true;
     if (isViewOnly) return;
@@ -898,6 +900,7 @@ class InputModel {
 
   // https://docs.flutter.dev/release/breaking-changes/trackpad-gestures
   void onPointerPanZoomUpdate(PointerPanZoomUpdateEvent e) {
+    gFFI.qualityMonitorModel.addEvents('zoom update: ${isPhysicalMouse.value}. ${e.kind}, pos: (${e.position.dx.toStringAsFixed(2)},${e.position.dy.toStringAsFixed(2)}), btns: ${e.buttons}');
     if (isViewOnly) return;
     if (isViewCamera) return;
     if (peerPlatform != kPeerPlatformAndroid) {
@@ -1003,6 +1006,7 @@ class InputModel {
   }
 
   void onPointerPanZoomEnd(PointerPanZoomEndEvent e) {
+    gFFI.qualityMonitorModel.addEvents('zoom end: ${isPhysicalMouse.value}. ${e.kind}, pos: (${e.position.dx.toStringAsFixed(2)},${e.position.dy.toStringAsFixed(2)}), btns: ${e.buttons}');
     if (isViewCamera) return;
     if (peerPlatform == kPeerPlatformAndroid) {
       handlePointerEvent('touch', kMouseEventTypePanEnd, e.position);
@@ -1032,6 +1036,8 @@ class InputModel {
   }
 
   void onPointDownImage(PointerDownEvent e) {
+    gFFI.qualityMonitorModel.addEvents(
+        'down: ${isPhysicalMouse.value}. ${e.kind}, pos: (${e.position.dx.toStringAsFixed(2)},${e.position.dy.toStringAsFixed(2)}), btns: ${e.buttons}');
     debugPrint("onPointDownImage ${e.kind}");
     _stopFling = true;
     if (isDesktop) _queryOtherWindowCoords = true;
@@ -1039,7 +1045,7 @@ class InputModel {
     _windowRect = null;
     if (isViewOnly) return;
     if (isViewCamera) return;
-    if (e.kind != ui.PointerDeviceKind.mouse) {
+    if (!kMouseLikeDeviceKinds.contains(e.kind)) {
       if (isPhysicalMouse.value) {
         isPhysicalMouse.value = false;
       }
@@ -1050,19 +1056,23 @@ class InputModel {
   }
 
   void onPointUpImage(PointerUpEvent e) {
+    gFFI.qualityMonitorModel.addEvents(
+        'up: ${isPhysicalMouse.value}. ${e.kind}, pos: (${e.position.dx.toStringAsFixed(2)},${e.position.dy.toStringAsFixed(2)}), btns: ${e.buttons}');
     if (isDesktop) _queryOtherWindowCoords = false;
     if (isViewOnly) return;
     if (isViewCamera) return;
-    if (e.kind != ui.PointerDeviceKind.mouse) return;
+    if (!kMouseLikeDeviceKinds.contains(e.kind)) return;
     if (isPhysicalMouse.value) {
       handleMouse(_getMouseEvent(e, _kMouseEventUp), e.position);
     }
   }
 
   void onPointMoveImage(PointerMoveEvent e) {
+    gFFI.qualityMonitorModel.addEvents(
+        'move: ${isPhysicalMouse.value}. ${e.kind}, pos: (${e.position.dx.toStringAsFixed(2)},${e.position.dy.toStringAsFixed(2)}), btns: ${e.buttons}');
     if (isViewOnly) return;
     if (isViewCamera) return;
-    if (e.kind != ui.PointerDeviceKind.mouse) return;
+    if (!kMouseLikeDeviceKinds.contains(e.kind)) return;
     if (_queryOtherWindowCoords) {
       Future.delayed(Duration.zero, () async {
         _windowRect = await fillRemoteCoordsAndGetCurFrame(_remoteWindowCoords);
@@ -1095,6 +1105,7 @@ class InputModel {
   }
 
   void onPointerSignalImage(PointerSignalEvent e) {
+    gFFI.qualityMonitorModel.addEvents('ps: ${isPhysicalMouse.value}. ${e.kind}, pos: (${e.position.dx.toStringAsFixed(2)},${e.position.dy.toStringAsFixed(2)}), btns: ${e.buttons}');
     if (isViewOnly) return;
     if (isViewCamera) return;
     if (e is PointerScrollEvent) {
