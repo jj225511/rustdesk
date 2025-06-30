@@ -188,7 +188,7 @@ class _ViewCameraTabPageState extends State<ViewCameraTabPage> {
 
             return Listener(
               onPointerDown: (e) {
-                if (!kMouseLikeDeviceKinds.contains(e.kind)) {
+                if (e.kind != ui.PointerDeviceKind.mouse) {
                   return;
                 }
                 final viewCameraPage = tabController.state.value.tabs

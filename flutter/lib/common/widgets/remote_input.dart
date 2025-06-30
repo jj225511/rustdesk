@@ -112,12 +112,29 @@ class _RawTouchGestureDetectorRegionState
   }
 
   bool isNotTouchBasedDevice() {
-    return !kTouchBasedDeviceKinds.contains(lastDeviceKind); 
+    return !kTouchBasedDeviceKinds.contains(lastDeviceKind);
+  }
+
+  String kindToPrnt(PointerDeviceKind? k) {
+    switch (k) {
+      case PointerDeviceKind.touch:
+        return 'Touch';
+      case PointerDeviceKind.mouse:
+        return 'Mouse';
+      case PointerDeviceKind.trackpad:
+        return 'Trackpad';
+      case PointerDeviceKind.stylus:
+        return 'Stylus';
+      case PointerDeviceKind.invertedStylus:
+        return 'Inverted Stylus';
+      default:
+        return 'Unknown';
+    }
   }
 
   onTapDown(TapDownDetails d) async {
     gFFI.qualityMonitorModel.addEvents(
-        'onTapDown. ${d.kind}, pos: (${d.localPosition.dx},${d.localPosition.dy})');
+        '1.onTapDown. ${kindToPrnt(d.kind)}, pos: (${d.localPosition.dx.toStringAsFixed(0)},${d.localPosition.dy.toStringAsFixed(0)})');
     lastDeviceKind = d.kind;
     if (isNotTouchBasedDevice()) {
       return;
@@ -131,7 +148,7 @@ class _RawTouchGestureDetectorRegionState
 
   onTapUp(TapUpDetails d) async {
     gFFI.qualityMonitorModel.addEvents(
-        'onTapUp. ${d.kind}, pos: (${d.localPosition.dx},${d.localPosition.dy})');
+        '1.onTapUp. ${kindToPrnt(d.kind)}, pos: (${d.localPosition.dx.toStringAsFixed(0)},${d.localPosition.dy.toStringAsFixed(0)})');
     final TapDownDetails? lastTapDownDetails = _lastTapDownDetails;
     _lastTapDownDetails = null;
     if (isNotTouchBasedDevice()) {
@@ -161,7 +178,7 @@ class _RawTouchGestureDetectorRegionState
 
   onDoubleTapDown(TapDownDetails d) async {
     gFFI.qualityMonitorModel.addEvents(
-        'onDoubleTapDown. ${d.kind}, pos: (${d.localPosition.dx},${d.localPosition.dy})');
+        '1.onDoubleTapDown. ${kindToPrnt(d.kind)}, pos: (${d.localPosition.dx.toStringAsFixed(0)},${d.localPosition.dy.toStringAsFixed(0)})');
     lastDeviceKind = d.kind;
     if (isNotTouchBasedDevice()) {
       return;
@@ -189,7 +206,7 @@ class _RawTouchGestureDetectorRegionState
 
   onLongPressDown(LongPressDownDetails d) async {
     gFFI.qualityMonitorModel.addEvents(
-        'onLongPressDown. ${d.kind}, pos: (${d.localPosition.dx},${d.localPosition.dy})');
+        '1.onLongPressDown. ${kindToPrnt(d.kind)}, pos: (${d.localPosition.dx.toStringAsFixed(0)},${d.localPosition.dy.toStringAsFixed(0)})');
     lastDeviceKind = d.kind;
     if (isNotTouchBasedDevice()) {
       return;
@@ -241,7 +258,7 @@ class _RawTouchGestureDetectorRegionState
 
   onLongPressMoveUpdate(LongPressMoveUpdateDetails d) async {
     gFFI.qualityMonitorModel.addEvents(
-        'onLongPressMoveUpdate ${lastDeviceKind}. pos: (${d.localPosition.dx},${d.localPosition.dy})');
+        '1.onLongPressMoveUpdate${kindToPrnt(lastDeviceKind)}. pos:(${d.localPosition.dx.toStringAsFixed(0)},${d.localPosition.dy.toStringAsFixed(0)})');
     if (!ffiModel.isPeerMobile || isNotTouchBasedDevice()) {
       return;
     }
@@ -255,7 +272,7 @@ class _RawTouchGestureDetectorRegionState
 
   onDoubleFinerTapDown(TapDownDetails d) async {
     gFFI.qualityMonitorModel.addEvents(
-        'onDoubleFinerTapDown. ${d.kind}, pos: (${d.localPosition.dx},${d.localPosition.dy})');
+        '1.onDoubleFinerTapDown. ${kindToPrnt(d.kind)}, pos: (${d.localPosition.dx.toStringAsFixed(0)},${d.localPosition.dy.toStringAsFixed(0)})');
     lastDeviceKind = d.kind;
     if (isNotTouchBasedDevice()) {
       return;
@@ -266,7 +283,7 @@ class _RawTouchGestureDetectorRegionState
 
   onDoubleFinerTap(TapDownDetails d) async {
     gFFI.qualityMonitorModel.addEvents(
-        'onDoubleFinerTap. ${d.kind}, pos: (${d.localPosition.dx},${d.localPosition.dy})');
+        '1.onDoubleFinerTap. ${kindToPrnt(d.kind)}, pos: (${d.localPosition.dx.toStringAsFixed(0)},${d.localPosition.dy.toStringAsFixed(0)})');
     lastDeviceKind = d.kind;
     if (isNotTouchBasedDevice()) {
       return;
@@ -284,7 +301,7 @@ class _RawTouchGestureDetectorRegionState
 
   onHoldDragStart(DragStartDetails d) async {
     gFFI.qualityMonitorModel.addEvents(
-        'onHoldDragStart. ${d.kind}, pos: (${d.localPosition.dx},${d.localPosition.dy})');
+        '1.onHoldDragStart. ${kindToPrnt(d.kind)}, pos: (${d.localPosition.dx.toStringAsFixed(0)},${d.localPosition.dy.toStringAsFixed(0)})');
     lastDeviceKind = d.kind;
     if (isNotTouchBasedDevice()) {
       return;
@@ -296,7 +313,7 @@ class _RawTouchGestureDetectorRegionState
 
   onHoldDragUpdate(DragUpdateDetails d) async {
     gFFI.qualityMonitorModel.addEvents(
-        'onHoldDragUpdate. ${lastDeviceKind}, pos: (${d.localPosition.dx},${d.localPosition.dy})');
+        '1.onHoldDragUpdate.${kindToPrnt(lastDeviceKind)}, pos: (${d.localPosition.dx.toStringAsFixed(0)},${d.localPosition.dy.toStringAsFixed(0)})');
     if (isNotTouchBasedDevice()) {
       return;
     }
@@ -307,7 +324,7 @@ class _RawTouchGestureDetectorRegionState
 
   onHoldDragEnd(DragEndDetails d) async {
     gFFI.qualityMonitorModel.addEvents(
-        'onHoldDragEnd: ${lastDeviceKind}. pos: (${d.primaryVelocity},${d.velocity.pixelsPerSecond.dx})');
+        '1.onHoldDragEnd:${kindToPrnt(lastDeviceKind)}. pos:(${d.primaryVelocity},${d.velocity.pixelsPerSecond.dx})');
     if (isNotTouchBasedDevice()) {
       return;
     }
@@ -318,7 +335,8 @@ class _RawTouchGestureDetectorRegionState
 
   onOneFingerPanStart(BuildContext context, DragStartDetails d) async {
     gFFI.qualityMonitorModel.addEvents(
-        'onOneFingerPanStart. ${d.kind}, pos: (${d.localPosition.dx},${d.localPosition.dy})');
+        '1.onOneFingerPanStart. ${kindToPrnt(d.kind)}, pos: (${d.localPosition.dx.toStringAsFixed(0)},${d.localPosition.dy.toStringAsFixed(0)})');
+    inputModel.incOneFingerPanCount();
     final TapDownDetails? lastTapDownDetails = _lastTapDownDetails;
     _lastTapDownDetails = null;
     lastDeviceKind = d.kind ?? lastDeviceKind;
@@ -369,7 +387,7 @@ class _RawTouchGestureDetectorRegionState
 
   onOneFingerPanUpdate(DragUpdateDetails d) async {
     gFFI.qualityMonitorModel.addEvents(
-        'onOneFingerPanUpdate: ${lastDeviceKind}. pos: (${d.localPosition.dx},${d.localPosition.dy})');
+        '1.onOneFingerPanUpdate:${kindToPrnt(lastDeviceKind)}. pos:(${d.localPosition.dx.toStringAsFixed(0)},${d.localPosition.dy.toStringAsFixed(0)})');
     if (isNotTouchBasedDevice()) {
       return;
     }
@@ -384,7 +402,7 @@ class _RawTouchGestureDetectorRegionState
 
   onOneFingerPanEnd(DragEndDetails d) async {
     gFFI.qualityMonitorModel.addEvents(
-        'onOneFingerPanEnd: ${lastDeviceKind}. pos: (${d.primaryVelocity},${d.velocity.pixelsPerSecond.dx})');
+        '1.onOneFingerPanEnd:${kindToPrnt(lastDeviceKind)}. pos:(${d.primaryVelocity},${d.velocity.pixelsPerSecond.dx})');
     _touchModePanStarted = false;
     if (isNotTouchBasedDevice()) {
       return;
@@ -400,7 +418,7 @@ class _RawTouchGestureDetectorRegionState
   // scale + pan event
   onTwoFingerScaleStart(ScaleStartDetails d) {
     gFFI.qualityMonitorModel.addEvents(
-        'onTwoFingerScaleStart. ${lastDeviceKind}, pos: (${d.focalPoint.dx},${d.focalPoint.dy})');
+        '1.onTwoFingerScaleStart.${kindToPrnt(lastDeviceKind)}, pos: (${d.focalPoint.dx},${d.focalPoint.dy})');
     _lastTapDownDetails = null;
     if (isNotTouchBasedDevice()) {
       return;
@@ -409,7 +427,7 @@ class _RawTouchGestureDetectorRegionState
 
   onTwoFingerScaleUpdate(ScaleUpdateDetails d) async {
     gFFI.qualityMonitorModel.addEvents(
-        'onTwoFingerScaleUpdate. ${lastDeviceKind}, pos: (${d.focalPoint.dx},${d.focalPoint.dy}), scale: ${d.scale}');
+        '1.onTwoFingerScaleUpdate.${kindToPrnt(lastDeviceKind)}, pos: (${d.focalPoint.dx},${d.focalPoint.dy}), scale: ${d.scale}');
     if (isNotTouchBasedDevice()) {
       return;
     }
@@ -436,7 +454,7 @@ class _RawTouchGestureDetectorRegionState
 
   onTwoFingerScaleEnd(ScaleEndDetails d) async {
     gFFI.qualityMonitorModel.addEvents(
-        'onTwoFingerScaleEnd: ${lastDeviceKind}. pos: (${d.velocity.pixelsPerSecond.dx},${d.velocity.pixelsPerSecond.dy})');
+        '1.onTwoFingerScaleEnd:${kindToPrnt(lastDeviceKind)}. pos:(${d.velocity.pixelsPerSecond.dx},${d.velocity.pixelsPerSecond.dy})');
     if (isNotTouchBasedDevice()) {
       return;
     }
