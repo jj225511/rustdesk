@@ -365,17 +365,17 @@ fn should_start_server(
         should_kill = true;
     }
 
-    if !should_kill
-        && !cm
-        && ((*cm0 && last_restart.elapsed().as_secs() > 60)
-            || last_restart.elapsed().as_secs() > 3600)
-    {
-        // restart server if new connections all closed, or every one hour,
-        // as a workaround to resolve "SpotUdp" (dns resolve)
-        // and x server get displays failure issue
-        should_kill = true;
-        log::info!("restart server");
-    }
+    // if !should_kill
+    //     && !cm
+    //     && ((*cm0 && last_restart.elapsed().as_secs() > 60)
+    //         || last_restart.elapsed().as_secs() > 3600)
+    // {
+    //     // restart server if new connections all closed, or every one hour,
+    //     // as a workaround to resolve "SpotUdp" (dns resolve)
+    //     // and x server get displays failure issue
+    //     should_kill = true;
+    //     log::info!("restart server");
+    // }
 
     if should_kill {
         if let Some(ps) = server.as_mut() {
