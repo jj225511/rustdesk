@@ -265,8 +265,10 @@ fn ensure_cleanup_task() {
 #[cfg(target_os = "linux")]
 pub fn get_sessions_count(include_zombie_tasks: bool) -> usize {
     let mut c = TERMINAL_SERVICES.lock().unwrap().len();
+    hbb_common::log::info!("================================ c1: {}", c);
     if include_zombie_tasks {
         c += TERMINAL_TASKS.lock().unwrap().len();
+        log::info!("============================ c2: {}", c);
     }
     c
 }
@@ -450,11 +452,15 @@ impl TerminalSession {
             drop(input_tx);
         }
 
+        log::info!("============================= reader thread, joining...");
+
         // Wait for threads to finish
         // The reader thread will should join before the writer thread on Windows.
         if let Some(reader_thread) = self.reader_thread.take() {
             let _ = reader_thread.join();
         }
+
+        log::info!("============================= writer thread, joining...");
 
         // The read can read the last "\r\n" after the writer thread (not the child process) exits 
         // on Linux in my tests.
@@ -463,11 +469,15 @@ impl TerminalSession {
             let _ = writer_thread.join();
         }
 
+        log::info!("============================= child killing...");
+
         if let Some(mut child) = self.child.take() {
             // Kill the process
             let _ = child.kill();
             add_to_reaper(child);
         }
+
+        log::info!("============================= terminal session stopped");
     }
 }
 
