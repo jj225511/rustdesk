@@ -357,7 +357,7 @@ class InputModel {
   bool _pointerMovedAfterEnter = false;
 
   // mouse
-  final isPhysicalMouse = false.obs;
+  final isPhysicalMouse = true.obs;
   int _lastButtons = 0;
   Offset lastMousePos = Offset.zero;
 
@@ -892,9 +892,9 @@ class InputModel {
     if (isViewOnly) return;
     final isTrackpad = e.kind == ui.PointerDeviceKind.touch && _hoverPointerCount >= 5 && _oneFingerPanCount == 0;
     if (!isTrackpad && e.kind != ui.PointerDeviceKind.mouse) {
-      if (isPhysicalMouse.value) {
-        isPhysicalMouse.value = false;
-      }
+      // if (isPhysicalMouse.value) {
+      //   isPhysicalMouse.value = false;
+      // }
       return;
     }
     if (!isPhysicalMouse.value) {
@@ -1067,9 +1067,9 @@ class InputModel {
     if (isViewOnly) return;
     if (isViewCamera) return;
     if (e.kind != ui.PointerDeviceKind.mouse) {
-      if (isPhysicalMouse.value) {
-        isPhysicalMouse.value = false;
-      }
+      // if (isPhysicalMouse.value) {
+      //   isPhysicalMouse.value = false;
+      // }
     } else {
       if (!isPhysicalMouse.value) {
         isPhysicalMouse.value = true;
@@ -1098,9 +1098,9 @@ class InputModel {
     if (isViewOnly) return;
     if (isViewCamera) return;
     if (e.kind != ui.PointerDeviceKind.mouse) {
-      if (isPhysicalMouse.value) {
-        isPhysicalMouse.value = false;
-      }
+      // if (isPhysicalMouse.value) {
+      //   isPhysicalMouse.value = false;
+      // }
       return;
     }
     if (_queryOtherWindowCoords) {
