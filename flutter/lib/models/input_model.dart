@@ -885,24 +885,24 @@ class InputModel {
   void onPointHoverImage(PointerHoverEvent e) {
     gFFI.qualityMonitorModel.addEvents(
         '2.pointer hover:${isPhysicalMouse.value}.${kindToPrnt(e.kind)}, pos1:(${e.localPosition.dx.toStringAsFixed(0)},${e.localPosition.dy.toStringAsFixed(0)}),pos2:(${e.position.dx.toStringAsFixed(0)},${e.position.dy.toStringAsFixed(0)}),btns: ${e.buttons}');
-    _stopFling = true;
-    if (_hoverPointerCount < 5) {
-      _hoverPointerCount++;
-    }
-    if (isViewOnly) return;
-    final isTrackpad = e.kind == ui.PointerDeviceKind.touch && _hoverPointerCount >= 5 && _oneFingerPanCount == 0;
-    if (!isTrackpad && e.kind != ui.PointerDeviceKind.mouse) {
-      // if (isPhysicalMouse.value) {
-      //   isPhysicalMouse.value = false;
-      // }
-      return;
-    }
-    if (!isPhysicalMouse.value) {
-      isPhysicalMouse.value = true;
-    }
-    if (isPhysicalMouse.value) {
-      handleMouse(_getMouseEvent(e, _kMouseEventMove), e.position);
-    }
+    // _stopFling = true;
+    // if (_hoverPointerCount < 5) {
+    //   _hoverPointerCount++;
+    // }
+    // if (isViewOnly) return;
+    // final isTrackpad = e.kind == ui.PointerDeviceKind.touch && _hoverPointerCount >= 5 && _oneFingerPanCount == 0;
+    // if (!isTrackpad && e.kind != ui.PointerDeviceKind.mouse) {
+    //   // if (isPhysicalMouse.value) {
+    //   //   isPhysicalMouse.value = false;
+    //   // }
+    //   return;
+    // }
+    // if (!isPhysicalMouse.value) {
+    //   isPhysicalMouse.value = true;
+    // }
+    // if (isPhysicalMouse.value) {
+    //   handleMouse(_getMouseEvent(e, _kMouseEventMove), e.position);
+    // }
   }
 
   void onPointerPanZoomStart(PointerPanZoomStartEvent e) {

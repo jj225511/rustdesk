@@ -571,11 +571,11 @@ class RawPointerMouseRegion extends StatelessWidget {
     return Listener(
       onPointerHover: inputModel.onPointHoverImage,
       onPointerDown: (evt) {
-        onPointerDown?.call(evt);
+        // onPointerDown?.call(evt);
         inputModel.onPointDownImage(evt);
       },
       onPointerUp: (evt) {
-        onPointerUp?.call(evt);
+        // onPointerUp?.call(evt);
         inputModel.onPointUpImage(evt);
       },
       onPointerMove: inputModel.onPointMoveImage,
