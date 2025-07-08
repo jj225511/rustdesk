@@ -1316,34 +1316,34 @@ class InputModel {
       refreshMousePos();
     }
 
-    final pos = handlePointerDevicePos(
-      kPointerEventKindMouse,
-      x,
-      y,
-      isMove,
-      type,
-      onExit: onExit,
-      buttons: evt['buttons'],
-    );
-    if (pos == null) {
-      return;
-    }
-    if (type != '') {
-      evt['x'] = '0';
-      evt['y'] = '0';
-    } else {
-      evt['x'] = '${pos.x.toInt()}';
-      evt['y'] = '${pos.y.toInt()}';
-    }
+    // final pos = handlePointerDevicePos(
+    //   kPointerEventKindMouse,
+    //   x,
+    //   y,
+    //   isMove,
+    //   type,
+    //   onExit: onExit,
+    //   buttons: evt['buttons'],
+    // );
+    // if (pos == null) {
+    //   return;
+    // }
+    // if (type != '') {
+    //   evt['x'] = '0';
+    //   evt['y'] = '0';
+    // } else {
+    //   evt['x'] = '${pos.x.toInt()}';
+    //   evt['y'] = '${pos.y.toInt()}';
+    // }
 
-    Map<int, String> mapButtons = {
-      kPrimaryMouseButton: 'left',
-      kSecondaryMouseButton: 'right',
-      kMiddleMouseButton: 'wheel',
-      kBackMouseButton: 'back',
-      kForwardMouseButton: 'forward'
-    };
-    evt['buttons'] = mapButtons[evt['buttons']] ?? '';
+    // Map<int, String> mapButtons = {
+    //   kPrimaryMouseButton: 'left',
+    //   kSecondaryMouseButton: 'right',
+    //   kMiddleMouseButton: 'wheel',
+    //   kBackMouseButton: 'back',
+    //   kForwardMouseButton: 'forward'
+    // };
+    // evt['buttons'] = mapButtons[evt['buttons']] ?? '';
     // bind.sessionSendMouse(sessionId: sessionId, msg: json.encode(modify(evt)));
   }
 
