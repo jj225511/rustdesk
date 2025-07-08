@@ -884,30 +884,30 @@ class InputModel {
 
   void onPointHoverImage(PointerHoverEvent e) {
     gFFI.qualityMonitorModel.addEvents(
-        '2.pointer hover:${isPhysicalMouse.value}.${kindToPrnt(e.kind)}, pos1:(${e.localPosition.dx.toStringAsFixed(0)},${e.localPosition.dy.toStringAsFixed(0)}),pos2:(${e.position.dx.toStringAsFixed(0)},${e.position.dy.toStringAsFixed(0)}),btns: ${e.buttons}');
-    // _stopFling = true;
-    // if (_hoverPointerCount < 5) {
-    //   _hoverPointerCount++;
-    // }
-    // if (isViewOnly) return;
-    // final isTrackpad = e.kind == ui.PointerDeviceKind.touch && _hoverPointerCount >= 5 && _oneFingerPanCount == 0;
-    // if (!isTrackpad && e.kind != ui.PointerDeviceKind.mouse) {
-    //   // if (isPhysicalMouse.value) {
-    //   //   isPhysicalMouse.value = false;
-    //   // }
-    //   return;
-    // }
-    // if (!isPhysicalMouse.value) {
-    //   isPhysicalMouse.value = true;
-    // }
-    // if (isPhysicalMouse.value) {
-    //   handleMouse(_getMouseEvent(e, _kMouseEventMove), e.position);
-    // }
+        '4.pointer hover:${isPhysicalMouse.value}.${kindToPrnt(e.kind)}, pos1:(${e.localPosition.dx.toStringAsFixed(0)},${e.localPosition.dy.toStringAsFixed(0)}),pos2:(${e.position.dx.toStringAsFixed(0)},${e.position.dy.toStringAsFixed(0)}),btns: ${e.buttons}');
+    _stopFling = true;
+    if (_hoverPointerCount < 5) {
+      _hoverPointerCount++;
+    }
+    if (isViewOnly) return;
+    final isTrackpad = e.kind == ui.PointerDeviceKind.touch && _hoverPointerCount >= 5 && _oneFingerPanCount == 0;
+    if (!isTrackpad && e.kind != ui.PointerDeviceKind.mouse) {
+      // if (isPhysicalMouse.value) {
+      //   isPhysicalMouse.value = false;
+      // }
+      return;
+    }
+    if (!isPhysicalMouse.value) {
+      isPhysicalMouse.value = true;
+    }
+    if (isPhysicalMouse.value) {
+      handleMouse(_getMouseEvent(e, _kMouseEventMove), e.position);
+    }
   }
 
   void onPointerPanZoomStart(PointerPanZoomStartEvent e) {
     gFFI.qualityMonitorModel.addEvents(
-        '2.zoom start:${isPhysicalMouse.value}.${kindToPrnt(e.kind)}, pos1:(${e.localPosition.dx.toStringAsFixed(0)},${e.localPosition.dy.toStringAsFixed(0)}),pos2:(${e.position.dx.toStringAsFixed(0)},${e.position.dy.toStringAsFixed(0)}), btns: ${e.buttons}');
+        '4.zoom start:${isPhysicalMouse.value}.${kindToPrnt(e.kind)}, pos1:(${e.localPosition.dx.toStringAsFixed(0)},${e.localPosition.dy.toStringAsFixed(0)}),pos2:(${e.position.dx.toStringAsFixed(0)},${e.position.dy.toStringAsFixed(0)}), btns: ${e.buttons}');
     _lastScale = 1.0;
     _stopFling = true;
     if (isViewOnly) return;
@@ -920,7 +920,7 @@ class InputModel {
   // https://docs.flutter.dev/release/breaking-changes/trackpad-gestures
   void onPointerPanZoomUpdate(PointerPanZoomUpdateEvent e) {
     gFFI.qualityMonitorModel.addEvents(
-        '2.zoom update:${isPhysicalMouse.value}.${kindToPrnt(e.kind)},btns: ${e.buttons}');
+        '4.zoom update:${isPhysicalMouse.value}.${kindToPrnt(e.kind)},btns: ${e.buttons}');
     if (isViewOnly) return;
     if (isViewCamera) return;
     if (peerPlatform != kPeerPlatformAndroid) {
@@ -1027,7 +1027,7 @@ class InputModel {
 
   void onPointerPanZoomEnd(PointerPanZoomEndEvent e) {
     gFFI.qualityMonitorModel.addEvents(
-        '2.zoom end:${isPhysicalMouse.value}.${kindToPrnt(e.kind)}, btns: ${e.buttons}');
+        '4.zoom end:${isPhysicalMouse.value}.${kindToPrnt(e.kind)}, btns: ${e.buttons}');
     if (isViewCamera) return;
     if (peerPlatform == kPeerPlatformAndroid) {
       handlePointerEvent('touch', kMouseEventTypePanEnd, e.position);
@@ -1058,7 +1058,7 @@ class InputModel {
 
   void onPointDownImage(PointerDownEvent e) {
     gFFI.qualityMonitorModel.addEvents(
-        '2.down:${isPhysicalMouse.value}.${kindToPrnt(e.kind)},pos1:(${e.localPosition.dx.toStringAsFixed(0)},${e.localPosition.dy.toStringAsFixed(0)}),pos2:(${e.position.dx.toStringAsFixed(0)},${e.position.dy.toStringAsFixed(0)}),btns: ${e.buttons}');
+        '4.down:${isPhysicalMouse.value}.${kindToPrnt(e.kind)},pos1:(${e.localPosition.dx.toStringAsFixed(0)},${e.localPosition.dy.toStringAsFixed(0)}),pos2:(${e.position.dx.toStringAsFixed(0)},${e.position.dy.toStringAsFixed(0)}),btns: ${e.buttons}');
     debugPrint("onPointDownImage ${e.kind}");
     _stopFling = true;
     if (isDesktop) _queryOtherWindowCoords = true;
@@ -1066,15 +1066,15 @@ class InputModel {
     _windowRect = null;
     if (isViewOnly) return;
     if (isViewCamera) return;
-    if (e.kind != ui.PointerDeviceKind.mouse) {
-      // if (isPhysicalMouse.value) {
-      //   isPhysicalMouse.value = false;
-      // }
-    } else {
-      if (!isPhysicalMouse.value) {
-        isPhysicalMouse.value = true;
-      }
-    }
+    // if (e.kind != ui.PointerDeviceKind.mouse) {
+    //   // if (isPhysicalMouse.value) {
+    //   //   isPhysicalMouse.value = false;
+    //   // }
+    // } else {
+    //   if (!isPhysicalMouse.value) {
+    //     isPhysicalMouse.value = true;
+    //   }
+    // }
     if (isPhysicalMouse.value) {
       handleMouse(_getMouseEvent(e, _kMouseEventDown), e.position);
     }
@@ -1082,7 +1082,7 @@ class InputModel {
 
   void onPointUpImage(PointerUpEvent e) {
     gFFI.qualityMonitorModel.addEvents(
-        '2.up:${isPhysicalMouse.value}.${kindToPrnt(e.kind)},pos1:(${e.localPosition.dx.toStringAsFixed(0)},${e.localPosition.dy.toStringAsFixed(0)}),pos2:(${e.position.dx.toStringAsFixed(0)},${e.position.dy.toStringAsFixed(0)}),btns: ${e.buttons}');
+        '4.up:${isPhysicalMouse.value}.${kindToPrnt(e.kind)},pos1:(${e.localPosition.dx.toStringAsFixed(0)},${e.localPosition.dy.toStringAsFixed(0)}),pos2:(${e.position.dx.toStringAsFixed(0)},${e.position.dy.toStringAsFixed(0)}),btns: ${e.buttons}');
     if (isDesktop) _queryOtherWindowCoords = false;
     if (isViewOnly) return;
     if (isViewCamera) return;
@@ -1094,24 +1094,24 @@ class InputModel {
 
   void onPointMoveImage(PointerMoveEvent e) {
     gFFI.qualityMonitorModel.addEvents(
-        '2.move:${isPhysicalMouse.value}.${kindToPrnt(e.kind)},pos1:(${e.localPosition.dx.toStringAsFixed(0)},${e.localPosition.dy.toStringAsFixed(0)}),pos2:(${e.position.dx.toStringAsFixed(0)},${e.position.dy.toStringAsFixed(0)}),btns: ${e.buttons}');
-    if (isViewOnly) return;
-    if (isViewCamera) return;
-    if (e.kind != ui.PointerDeviceKind.mouse) {
-      // if (isPhysicalMouse.value) {
-      //   isPhysicalMouse.value = false;
-      // }
-      return;
-    }
-    if (_queryOtherWindowCoords) {
-      Future.delayed(Duration.zero, () async {
-        _windowRect = await fillRemoteCoordsAndGetCurFrame(_remoteWindowCoords);
-      });
-      _queryOtherWindowCoords = false;
-    }
-    if (isPhysicalMouse.value) {
-      handleMouse(_getMouseEvent(e, _kMouseEventMove), e.position);
-    }
+        '4.move:${isPhysicalMouse.value}.${kindToPrnt(e.kind)},pos1:(${e.localPosition.dx.toStringAsFixed(0)},${e.localPosition.dy.toStringAsFixed(0)}),pos2:(${e.position.dx.toStringAsFixed(0)},${e.position.dy.toStringAsFixed(0)}),btns: ${e.buttons}');
+    // if (isViewOnly) return;
+    // if (isViewCamera) return;
+    // if (e.kind != ui.PointerDeviceKind.mouse) {
+    //   // if (isPhysicalMouse.value) {
+    //   //   isPhysicalMouse.value = false;
+    //   // }
+    //   return;
+    // }
+    // if (_queryOtherWindowCoords) {
+    //   Future.delayed(Duration.zero, () async {
+    //     _windowRect = await fillRemoteCoordsAndGetCurFrame(_remoteWindowCoords);
+    //   });
+    //   _queryOtherWindowCoords = false;
+    // }
+    // if (isPhysicalMouse.value) {
+    //   handleMouse(_getMouseEvent(e, _kMouseEventMove), e.position);
+    // }
   }
 
   static Future<Rect?> fillRemoteCoordsAndGetCurFrame(
@@ -1153,26 +1153,26 @@ class InputModel {
 
   void onPointerSignalImage(PointerSignalEvent e) {
     gFFI.qualityMonitorModel.addEvents(
-        '2.ps:${isPhysicalMouse.value}.${kindToPrnt(e.kind)}, pos: (${e.localPosition.dx.toStringAsFixed(0)},${e.localPosition.dy.toStringAsFixed(0)}), btns: ${e.buttons}');
-    if (isViewOnly) return;
-    if (isViewCamera) return;
-    if (e is PointerScrollEvent) {
-      var dx = e.scrollDelta.dx.toInt();
-      var dy = e.scrollDelta.dy.toInt();
-      if (dx > 0) {
-        dx = -1;
-      } else if (dx < 0) {
-        dx = 1;
-      }
-      if (dy > 0) {
-        dy = -1;
-      } else if (dy < 0) {
-        dy = 1;
-      }
-      bind.sessionSendMouse(
-          sessionId: sessionId,
-          msg: '{"type": "wheel", "x": "$dx", "y": "$dy"}');
-    }
+        '4.ps:${isPhysicalMouse.value}.${kindToPrnt(e.kind)}, pos: (${e.localPosition.dx.toStringAsFixed(0)},${e.localPosition.dy.toStringAsFixed(0)}), btns: ${e.buttons}');
+    // if (isViewOnly) return;
+    // if (isViewCamera) return;
+    // if (e is PointerScrollEvent) {
+    //   var dx = e.scrollDelta.dx.toInt();
+    //   var dy = e.scrollDelta.dy.toInt();
+    //   if (dx > 0) {
+    //     dx = -1;
+    //   } else if (dx < 0) {
+    //     dx = 1;
+    //   }
+    //   if (dy > 0) {
+    //     dy = -1;
+    //   } else if (dy < 0) {
+    //     dy = 1;
+    //   }
+    //   bind.sessionSendMouse(
+    //       sessionId: sessionId,
+    //       msg: '{"type": "wheel", "x": "$dx", "y": "$dy"}');
+    // }
   }
 
   void refreshMousePos() => handleMouse({
