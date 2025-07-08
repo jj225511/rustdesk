@@ -1076,7 +1076,7 @@ class InputModel {
     //   }
     // }
     if (isPhysicalMouse.value) {
-      handleMouse(_getMouseEvent(e, _kMouseEventDown), e.position);
+      // handleMouse(_getMouseEvent(e, _kMouseEventDown), e.position);
     }
   }
 
@@ -1088,7 +1088,7 @@ class InputModel {
     if (isViewCamera) return;
     if (e.kind != ui.PointerDeviceKind.mouse) return;
     if (isPhysicalMouse.value) {
-      handleMouse(_getMouseEvent(e, _kMouseEventUp), e.position);
+      // handleMouse(_getMouseEvent(e, _kMouseEventUp), e.position);
     }
   }
 
