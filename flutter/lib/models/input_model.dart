@@ -1292,29 +1292,29 @@ class InputModel {
       return;
     }
 
-    var type = kMouseEventTypeDefault;
-    var isMove = false;
-    switch (evt['type']) {
-      case _kMouseEventDown:
-        type = kMouseEventTypeDown;
-        break;
-      case _kMouseEventUp:
-        type = kMouseEventTypeUp;
-        break;
-      case _kMouseEventMove:
-        _pointerMovedAfterEnter = true;
-        isMove = true;
-        break;
-      default:
-        return;
-    }
-    evt['type'] = type;
+    // var type = kMouseEventTypeDefault;
+    // var isMove = false;
+    // switch (evt['type']) {
+    //   case _kMouseEventDown:
+    //     type = kMouseEventTypeDown;
+    //     break;
+    //   case _kMouseEventUp:
+    //     type = kMouseEventTypeUp;
+    //     break;
+    //   case _kMouseEventMove:
+    //     _pointerMovedAfterEnter = true;
+    //     isMove = true;
+    //     break;
+    //   default:
+    //     return;
+    // }
+    // evt['type'] = type;
 
-    if (type == kMouseEventTypeDown && !_pointerMovedAfterEnter) {
-      // Move mouse to the position of the down event first.
-      lastMousePos = ui.Offset(x, y);
-      refreshMousePos();
-    }
+    // if (type == kMouseEventTypeDown && !_pointerMovedAfterEnter) {
+    //   // Move mouse to the position of the down event first.
+    //   lastMousePos = ui.Offset(x, y);
+    //   refreshMousePos();
+    // }
 
     // final pos = handlePointerDevicePos(
     //   kPointerEventKindMouse,
