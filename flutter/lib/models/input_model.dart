@@ -884,7 +884,7 @@ class InputModel {
 
   void onPointHoverImage(PointerHoverEvent e) {
     gFFI.qualityMonitorModel.addEvents(
-        '4.pointer hover:${isPhysicalMouse.value}.${kindToPrnt(e.kind)}, pos1:(${e.localPosition.dx.toStringAsFixed(0)},${e.localPosition.dy.toStringAsFixed(0)}),pos2:(${e.position.dx.toStringAsFixed(0)},${e.position.dy.toStringAsFixed(0)}),btns: ${e.buttons}');
+        '10.pointer hover:${isPhysicalMouse.value}.${kindToPrnt(e.kind)}, pos1:(${e.localPosition.dx.toStringAsFixed(0)},${e.localPosition.dy.toStringAsFixed(0)}),pos2:(${e.position.dx.toStringAsFixed(0)},${e.position.dy.toStringAsFixed(0)}),btns: ${e.buttons}');
     _stopFling = true;
     if (_hoverPointerCount < 5) {
       _hoverPointerCount++;
@@ -901,13 +901,13 @@ class InputModel {
       isPhysicalMouse.value = true;
     }
     if (isPhysicalMouse.value) {
-      handleMouse(_getMouseEvent(e, _kMouseEventMove), e.position);
+      // handleMouse(_getMouseEvent(e, _kMouseEventMove), e.position);
     }
   }
 
   void onPointerPanZoomStart(PointerPanZoomStartEvent e) {
     gFFI.qualityMonitorModel.addEvents(
-        '4.zoom start:${isPhysicalMouse.value}.${kindToPrnt(e.kind)}, pos1:(${e.localPosition.dx.toStringAsFixed(0)},${e.localPosition.dy.toStringAsFixed(0)}),pos2:(${e.position.dx.toStringAsFixed(0)},${e.position.dy.toStringAsFixed(0)}), btns: ${e.buttons}');
+        '10.zoom start:${isPhysicalMouse.value}.${kindToPrnt(e.kind)}, pos1:(${e.localPosition.dx.toStringAsFixed(0)},${e.localPosition.dy.toStringAsFixed(0)}),pos2:(${e.position.dx.toStringAsFixed(0)},${e.position.dy.toStringAsFixed(0)}), btns: ${e.buttons}');
     _lastScale = 1.0;
     _stopFling = true;
     if (isViewOnly) return;
@@ -920,7 +920,7 @@ class InputModel {
   // https://docs.flutter.dev/release/breaking-changes/trackpad-gestures
   void onPointerPanZoomUpdate(PointerPanZoomUpdateEvent e) {
     gFFI.qualityMonitorModel.addEvents(
-        '4.zoom update:${isPhysicalMouse.value}.${kindToPrnt(e.kind)},btns: ${e.buttons}');
+        '10.zoom update:${isPhysicalMouse.value}.${kindToPrnt(e.kind)},btns: ${e.buttons}');
     if (isViewOnly) return;
     if (isViewCamera) return;
     if (peerPlatform != kPeerPlatformAndroid) {
@@ -1027,7 +1027,7 @@ class InputModel {
 
   void onPointerPanZoomEnd(PointerPanZoomEndEvent e) {
     gFFI.qualityMonitorModel.addEvents(
-        '4.zoom end:${isPhysicalMouse.value}.${kindToPrnt(e.kind)}, btns: ${e.buttons}');
+        '10.zoom end:${isPhysicalMouse.value}.${kindToPrnt(e.kind)}, btns: ${e.buttons}');
     if (isViewCamera) return;
     if (peerPlatform == kPeerPlatformAndroid) {
       handlePointerEvent('touch', kMouseEventTypePanEnd, e.position);
@@ -1058,7 +1058,7 @@ class InputModel {
 
   void onPointDownImage(PointerDownEvent e) {
     gFFI.qualityMonitorModel.addEvents(
-        '4.down:${isPhysicalMouse.value}.${kindToPrnt(e.kind)},pos1:(${e.localPosition.dx.toStringAsFixed(0)},${e.localPosition.dy.toStringAsFixed(0)}),pos2:(${e.position.dx.toStringAsFixed(0)},${e.position.dy.toStringAsFixed(0)}),btns: ${e.buttons}');
+        '10.down:${isPhysicalMouse.value}.${kindToPrnt(e.kind)},pos1:(${e.localPosition.dx.toStringAsFixed(0)},${e.localPosition.dy.toStringAsFixed(0)}),pos2:(${e.position.dx.toStringAsFixed(0)},${e.position.dy.toStringAsFixed(0)}),btns: ${e.buttons}');
     debugPrint("onPointDownImage ${e.kind}");
     _stopFling = true;
     if (isDesktop) _queryOtherWindowCoords = true;
@@ -1082,7 +1082,7 @@ class InputModel {
 
   void onPointUpImage(PointerUpEvent e) {
     gFFI.qualityMonitorModel.addEvents(
-        '4.up:${isPhysicalMouse.value}.${kindToPrnt(e.kind)},pos1:(${e.localPosition.dx.toStringAsFixed(0)},${e.localPosition.dy.toStringAsFixed(0)}),pos2:(${e.position.dx.toStringAsFixed(0)},${e.position.dy.toStringAsFixed(0)}),btns: ${e.buttons}');
+        '10.up:${isPhysicalMouse.value}.${kindToPrnt(e.kind)},pos1:(${e.localPosition.dx.toStringAsFixed(0)},${e.localPosition.dy.toStringAsFixed(0)}),pos2:(${e.position.dx.toStringAsFixed(0)},${e.position.dy.toStringAsFixed(0)}),btns: ${e.buttons}');
     if (isDesktop) _queryOtherWindowCoords = false;
     if (isViewOnly) return;
     if (isViewCamera) return;
@@ -1094,7 +1094,7 @@ class InputModel {
 
   void onPointMoveImage(PointerMoveEvent e) {
     gFFI.qualityMonitorModel.addEvents(
-        '4.move:${isPhysicalMouse.value}.${kindToPrnt(e.kind)},pos1:(${e.localPosition.dx.toStringAsFixed(0)},${e.localPosition.dy.toStringAsFixed(0)}),pos2:(${e.position.dx.toStringAsFixed(0)},${e.position.dy.toStringAsFixed(0)}),btns: ${e.buttons}');
+        '10.move:${isPhysicalMouse.value}.${kindToPrnt(e.kind)},pos1:(${e.localPosition.dx.toStringAsFixed(0)},${e.localPosition.dy.toStringAsFixed(0)}),pos2:(${e.position.dx.toStringAsFixed(0)},${e.position.dy.toStringAsFixed(0)}),btns: ${e.buttons}');
     // if (isViewOnly) return;
     // if (isViewCamera) return;
     // if (e.kind != ui.PointerDeviceKind.mouse) {
@@ -1153,7 +1153,7 @@ class InputModel {
 
   void onPointerSignalImage(PointerSignalEvent e) {
     gFFI.qualityMonitorModel.addEvents(
-        '4.ps:${isPhysicalMouse.value}.${kindToPrnt(e.kind)}, pos: (${e.localPosition.dx.toStringAsFixed(0)},${e.localPosition.dy.toStringAsFixed(0)}), btns: ${e.buttons}');
+        '10.ps:${isPhysicalMouse.value}.${kindToPrnt(e.kind)}, pos: (${e.localPosition.dx.toStringAsFixed(0)},${e.localPosition.dy.toStringAsFixed(0)}), btns: ${e.buttons}');
     // if (isViewOnly) return;
     // if (isViewCamera) return;
     // if (e is PointerScrollEvent) {
