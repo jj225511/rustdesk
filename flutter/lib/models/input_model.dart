@@ -1344,7 +1344,7 @@ class InputModel {
       kForwardMouseButton: 'forward'
     };
     evt['buttons'] = mapButtons[evt['buttons']] ?? '';
-    bind.sessionSendMouse(sessionId: sessionId, msg: json.encode(modify(evt)));
+    // bind.sessionSendMouse(sessionId: sessionId, msg: json.encode(modify(evt)));
   }
 
   Point? handlePointerDevicePos(
