@@ -192,7 +192,11 @@ impl<T: InvokeUiSession> Session<T> {
     }
 
     pub fn is_default(&self) -> bool {
-        self.lc.read().unwrap().conn_type.eq(&ConnType::DEFAULT_CONN)
+        self.lc
+            .read()
+            .unwrap()
+            .conn_type
+            .eq(&ConnType::DEFAULT_CONN)
     }
 
     pub fn is_view_camera(&self) -> bool {
@@ -201,6 +205,14 @@ impl<T: InvokeUiSession> Session<T> {
 
     pub fn is_terminal(&self) -> bool {
         self.lc.read().unwrap().conn_type.eq(&ConnType::TERMINAL)
+    }
+
+    pub fn is_terminal_admin(&self) -> bool {
+        self.lc
+            .read()
+            .unwrap()
+            .conn_type
+            .eq(&ConnType::TERMINAL_ADMIN)
     }
 
     pub fn is_port_forward(&self) -> bool {
@@ -803,7 +815,6 @@ impl<T: InvokeUiSession> Session<T> {
         msg_out.set_terminal_action(action);
         self.send(Data::Message(msg_out));
     }
-
 
     pub fn capture_displays(&self, add: Vec<i32>, sub: Vec<i32>, set: Vec<i32>) {
         let mut misc = Misc::new();
@@ -1547,7 +1558,7 @@ impl<T: InvokeUiSession> Session<T> {
                                 self.read_remote_dir(remote_dir, show_hidden);
                             }
                         }
-                    } else if !self.is_terminal() {
+                    } else if !(self.is_terminal() || self.is_terminal_admin()) {
                         self.msgbox(
                             "success",
                             "Successful",
@@ -1723,7 +1734,7 @@ impl<T: InvokeUiSession> Interface for Session<T> {
                 self.on_error("No active console user logged on, please connect and logon first.");
                 return;
             }
-        } else if !self.is_port_forward() && !self.is_terminal() {
+        } else if !self.is_port_forward() && !(self.is_terminal() || self.is_terminal_admin()) {
             if pi.displays.is_empty() {
                 self.lc.write().unwrap().handle_peer_info(&pi);
                 self.update_privacy_mode();
@@ -1755,7 +1766,7 @@ impl<T: InvokeUiSession> Interface for Session<T> {
         self.set_peer_info(&pi);
         if self.is_file_transfer() {
             self.close_success();
-        } else if !self.is_port_forward() && !self.is_terminal() {
+        } else if !self.is_port_forward() && !(self.is_terminal() || self.is_terminal_admin()) {
             self.msgbox(
                 "success",
                 "Successful",

@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter_hbb/common.dart';
 import 'package:get/get.dart';
 import '../../models/model.dart';
 
@@ -17,6 +18,7 @@ class TerminalConnectionManager {
     required bool? isSharedPassword,
     required bool? forceRelay,
     required String? connToken,
+    required ConnType connType,
   }) {
     final existingFfi = _connections[peerId];
     if (existingFfi != null && !existingFfi.closed) {
@@ -35,7 +37,7 @@ class TerminalConnectionManager {
       isSharedPassword: isSharedPassword,
       forceRelay: forceRelay,
       connToken: connToken,
-      isTerminal: true,
+      connType: connType,
     );
     
     _connections[peerId] = ffi;

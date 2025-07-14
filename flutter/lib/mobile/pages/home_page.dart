@@ -205,7 +205,7 @@ class WebHomePage extends StatelessWidget {
     }
     bool isFileTransfer = false;
     bool isViewCamera = false;
-    bool isTerminal = false;
+    ConnType connType = ConnType.defaultConn;
     String? id;
     String? password;
     for (int i = 0; i < args.length; i++) {
@@ -226,7 +226,12 @@ class WebHomePage extends StatelessWidget {
           i++;
           break;
         case '--terminal':
-          isTerminal = true;
+          connType = ConnType.terminal;
+          id = args[i + 1];
+          i++;
+          break;
+        case '--terminal-admin':
+          connType = ConnType.terminalAdmin;
           id = args[i + 1];
           i++;
           break;
@@ -242,7 +247,7 @@ class WebHomePage extends StatelessWidget {
       connect(context, id, 
         isFileTransfer: isFileTransfer, 
         isViewCamera: isViewCamera, 
-        isTerminal: isTerminal,
+        connType: connType,
         password: password);
     }
   }

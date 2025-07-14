@@ -491,7 +491,11 @@ abstract class BasePeerCard extends StatelessWidget {
     bool isViewCamera = false,
     bool isTcpTunneling = false,
     bool isRDP = false,
-    bool isTerminal = false,
+    // Use `connType` to determine the connection type.
+    // `connType` is a duplicate of the `is*` parameters.
+    // We should use `isFileTransfer`, `isViewCamera`, `isTcpTunneling`, and `isRDP` first, then `connType`, because existing code uses these parameters.
+    // Later connection types should use `connType` to avoid confusion.
+    ConnType connType = ConnType.defaultConn,
   }) {
     return MenuEntryButton<String>(
       childBuilder: (TextStyle? style) => Text(
@@ -507,7 +511,7 @@ abstract class BasePeerCard extends StatelessWidget {
           isViewCamera: isViewCamera,
           isTcpTunneling: isTcpTunneling,
           isRDP: isRDP,
-          isTerminal: isTerminal,
+          connType: connType,
         );
       },
       padding: menuPadding,
@@ -548,7 +552,16 @@ abstract class BasePeerCard extends StatelessWidget {
     return _connectCommonAction(
       context,
       translate('Terminal'),
-      isTerminal: true,
+      connType: ConnType.terminal,
+    );
+  }
+
+  @protected
+  MenuEntryBase<String> _terminalRunAsAdminAction(BuildContext context) {
+    return _connectCommonAction(
+      context,
+      translate('Terminal (Run as administrator)'),
+      connType: ConnType.terminalAdmin,
     );
   }
 
@@ -906,6 +919,10 @@ class RecentPeerCard extends BasePeerCard {
       _terminalAction(context),
     ];
 
+    if (peer.platform == kPeerPlatformWindows) {
+      menuItems.add(_terminalRunAsAdminAction(context));
+    }
+
     final List favs = (await bind.mainGetFav()).toList();
 
     if (isDesktop && peer.platform != kPeerPlatformAndroid) {
@@ -966,6 +983,11 @@ class FavoritePeerCard extends BasePeerCard {
       _viewCameraAction(context),
       _terminalAction(context),
     ];
+
+    if (peer.platform == kPeerPlatformWindows) {
+      menuItems.add(_terminalRunAsAdminAction(context));
+    }
+
     if (isDesktop && peer.platform != kPeerPlatformAndroid) {
       menuItems.add(_tcpTunnelingAction(context));
     }
@@ -1022,6 +1044,10 @@ class DiscoveredPeerCard extends BasePeerCard {
       _terminalAction(context),
     ];
 
+    if (peer.platform == kPeerPlatformWindows) {
+      menuItems.add(_terminalRunAsAdminAction(context));
+    }
+
     final List favs = (await bind.mainGetFav()).toList();
 
     if (isDesktop && peer.platform != kPeerPlatformAndroid) {
@@ -1076,6 +1102,11 @@ class AddressBookPeerCard extends BasePeerCard {
       _viewCameraAction(context),
       _terminalAction(context),
     ];
+
+    if (peer.platform == kPeerPlatformWindows) {
+      menuItems.add(_terminalRunAsAdminAction(context));
+    }
+
     if (isDesktop && peer.platform != kPeerPlatformAndroid) {
       menuItems.add(_tcpTunnelingAction(context));
     }
@@ -1212,6 +1243,11 @@ class MyGroupPeerCard extends BasePeerCard {
       _viewCameraAction(context),
       _terminalAction(context),
     ];
+
+    if (peer.platform == kPeerPlatformWindows) {
+      menuItems.add(_terminalRunAsAdminAction(context));
+    }
+
     if (isDesktop && peer.platform != kPeerPlatformAndroid) {
       menuItems.add(_tcpTunnelingAction(context));
     }
@@ -1437,7 +1473,7 @@ void connectInPeerTab(BuildContext context, Peer peer, PeerTabIndex tab,
     bool isViewCamera = false,
     bool isTcpTunneling = false,
     bool isRDP = false,
-    bool isTerminal = false}) async {
+    ConnType connType = ConnType.defaultConn}) async {
   var password = '';
   bool isSharedPassword = false;
   if (tab == PeerTabIndex.ab) {
@@ -1461,7 +1497,7 @@ void connectInPeerTab(BuildContext context, Peer peer, PeerTabIndex tab,
       password: password,
       isSharedPassword: isSharedPassword,
       isFileTransfer: isFileTransfer,
-      isTerminal: isTerminal,
+      connType: connType,
       isViewCamera: isViewCamera,
       isTcpTunneling: isTcpTunneling,
       isRDP: isRDP);

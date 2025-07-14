@@ -330,12 +330,12 @@ class _ConnectionPageState extends State<ConnectionPage>
   void onConnect(
       {bool isFileTransfer = false,
       bool isViewCamera = false,
-      bool isTerminal = false}) {
+      ConnType connType = ConnType.defaultConn}) {
     var id = _idController.id;
     connect(context, id,
         isFileTransfer: isFileTransfer,
         isViewCamera: isViewCamera,
-        isTerminal: isTerminal);
+        connType: connType);
   }
 
   /// UI for the remote ID TextField.
@@ -564,7 +564,7 @@ class _ConnectionPageState extends State<ConnectionPage>
                               ),
                               (
                                 'Terminal',
-                                () => onConnect(isTerminal: true)
+                                () => onConnect(connType: ConnType.terminal)
                               ),
                             ]
                                 .map((e) => MenuEntryButton<String>(

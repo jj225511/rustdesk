@@ -348,7 +348,8 @@ class RustDeskMultiWindowManager {
   }
 
   Future<MultiWindowCallResult> newTerminal(
-    String remoteId, {
+    String remoteId,
+    ConnType connType, {
     String? password,
     bool? isSharedPassword,
     bool? forceRelay,
@@ -364,9 +365,10 @@ class RustDeskMultiWindowManager {
       "forceRelay": forceRelay,
       "isSharedPassword": isSharedPassword,
       "connToken": connToken,
+      "connType": connType.value,
     };
     final msg = jsonEncode(params);
-    
+
     // Always create a new window for terminal
     final windowId = await newSessionWindow(
         WindowType.Terminal, remoteId, msg, _terminalWindows, false);

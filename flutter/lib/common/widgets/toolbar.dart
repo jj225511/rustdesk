@@ -160,12 +160,12 @@ List<TTextMenu> toolbarControls(BuildContext context, String id, FFI ffi) {
       {bool isFileTransfer = false,
       bool isViewCamera = false,
       bool isTcpTunneling = false,
-      bool isTerminal = false}) {
+      ConnType connType = ConnType.defaultConn}) {
     final connToken = bind.sessionGetConnToken(sessionId: ffi.sessionId);
     connect(context, id,
         isFileTransfer: isFileTransfer,
         isViewCamera: isViewCamera,
-        isTerminal: isTerminal,
+        connType: connType,
         isTcpTunneling: isTcpTunneling,
         connToken: connToken);
   }
@@ -184,7 +184,7 @@ List<TTextMenu> toolbarControls(BuildContext context, String id, FFI ffi) {
     v.add(
       TTextMenu(
           child: Text(translate('Terminal')),
-          onPressed: () => connectWithToken(isTerminal: true)),
+          onPressed: () => connectWithToken(connType: ConnType.terminal)),
     );
     v.add(
       TTextMenu(

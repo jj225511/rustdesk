@@ -157,7 +157,7 @@ impl<T: InvokeUiSession> Remote<T> {
             ConnType::FILE_TRANSFER
         } else if self.handler.is_view_camera() {
             ConnType::VIEW_CAMERA
-        } else if self.handler.is_terminal() {
+        } else if self.handler.is_terminal() || self.handler.is_terminal_admin() {
             ConnType::TERMINAL
         } else {
             ConnType::default()
@@ -436,6 +436,7 @@ impl<T: InvokeUiSession> Remote<T> {
         if self.handler.is_file_transfer()
             || self.handler.is_port_forward()
             || self.handler.is_terminal()
+            || self.handler.is_terminal_admin()
         {
             return None;
         }
@@ -1307,7 +1308,7 @@ impl<T: InvokeUiSession> Remote<T> {
                                 return false;
                             }
                         }
-                        if self.handler.is_terminal() {
+                        if self.handler.is_terminal() || self.handler.is_terminal_admin() {
                             if !self.check_terminal_support(&peer_version) {
                                 self.handler.lc.write().unwrap().handle_peer_info(&pi);
                                 return false;

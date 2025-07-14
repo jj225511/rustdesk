@@ -1956,7 +1956,7 @@ impl LoginConfigHandler {
             .into();
         } else if name == keys::OPTION_TERMINAL_PERSISTENT {
             config.terminal_persistent.v = !config.terminal_persistent.v;
-	    option.terminal_persistent = (if config.terminal_persistent.v {
+            option.terminal_persistent = (if config.terminal_persistent.v {
                 BoolOption::Yes
             } else {
                 BoolOption::No
@@ -2059,7 +2059,7 @@ impl LoginConfigHandler {
             return None;
         }
         let mut msg = OptionMessage::new();
-        if self.conn_type.eq(&ConnType::TERMINAL) {
+        if self.conn_type.eq(&ConnType::TERMINAL) || self.conn_type.eq(&ConnType::TERMINAL_ADMIN) {
             if self.get_toggle_option(keys::OPTION_TERMINAL_PERSISTENT) {
                 msg.terminal_persistent = BoolOption::Yes.into();
                 return Some(msg);
@@ -2542,7 +2542,7 @@ impl LoginConfigHandler {
                 port: self.port_forward.1,
                 ..Default::default()
             }),
-            ConnType::TERMINAL => {
+            ConnType::TERMINAL | ConnType::TERMINAL_ADMIN => {
                 let mut terminal = Terminal::new();
                 terminal.service_id = self.get_option("terminal-service-id");
                 lr.set_terminal(terminal);
@@ -3274,6 +3274,18 @@ pub async fn handle_hash(
     }
 
     lc.write().unwrap().password = password.clone();
+
+    let is_terminal_admin = lc.read().unwrap().conn_type.eq(&ConnType::TERMINAL_ADMIN);
+    if is_terminal_admin {
+        if password.is_empty() {
+            interface.msgbox("terminal-admin-login-password", "", "", "");
+        } else {
+            interface.msgbox("terminal-admin-login", "", "", "");
+        }
+        lc.write().unwrap().hash = hash;
+        return;
+    }
+
     let password = if password.is_empty() {
         // login without password, the remote side can click accept
         interface.msgbox("input-password", "Password Required", "", "");
@@ -3285,8 +3297,15 @@ pub async fn handle_hash(
         hasher.finalize()[..].into()
     };
 
-    let os_username = lc.read().unwrap().get_option("os-username");
-    let os_password = lc.read().unwrap().get_option("os-password");
+    let is_terminal = lc.read().unwrap().conn_type.eq(&ConnType::TERMINAL);
+    let (os_username, os_password) = if is_terminal || is_terminal_admin {
+        ("".to_owned(), "".to_owned())
+    } else {
+        (
+            lc.read().unwrap().get_option("os-username"),
+            lc.read().unwrap().get_option("os-password"),
+        )
+    };
 
     send_login(lc.clone(), os_username, os_password, password, peer).await;
     lc.write().unwrap().hash = hash;

@@ -1268,6 +1268,10 @@ pub fn session_add_existed(
 /// * `is_file_transfer` - If the session is used for file transfer.
 /// * `is_view_camera` - If the session is used for view camera.
 /// * `is_port_forward` - If the session is used for port forward.
+/// * `connType` - To determine the connection type.
+/// `connType`` is a duplicate of the `is*` parameters.
+/// We should use `isFileTransfer``, `isViewCamera``, `isTcpTunneling``, and `isRDP`` first, then `connType``, because existing code uses these parameters.
+/// Later connection types should use `connType` to avoid confusion.
 pub fn session_add(
     session_id: &SessionID,
     id: &str,
@@ -1275,7 +1279,7 @@ pub fn session_add(
     is_view_camera: bool,
     is_port_forward: bool,
     is_rdp: bool,
-    is_terminal: bool,
+    conn_type: i32,
     switch_uuid: &str,
     force_relay: bool,
     password: String,
@@ -1286,8 +1290,10 @@ pub fn session_add(
         ConnType::FILE_TRANSFER
     } else if is_view_camera {
         ConnType::VIEW_CAMERA
-    } else if is_terminal {
+    } else if conn_type == ConnType::TERMINAL as i32 {
         ConnType::TERMINAL
+    } else if conn_type == ConnType::TERMINAL_ADMIN as i32 {
+        ConnType::TERMINAL_ADMIN
     } else if is_port_forward {
         if is_rdp {
             ConnType::RDP

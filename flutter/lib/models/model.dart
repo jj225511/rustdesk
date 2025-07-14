@@ -836,10 +836,16 @@ class FfiModel with ChangeNotifier {
     } else if (type == 'input-password') {
       enterPasswordDialog(sessionId, dialogManager);
     } else if (type == 'session-login' || type == 'session-re-login') {
-      enterUserLoginDialog(sessionId, dialogManager);
-    } else if (type == 'session-login-password' ||
-        type == 'session-login-password') {
-      enterUserLoginAndPasswordDialog(sessionId, dialogManager);
+      enterUserLoginDialog(sessionId, dialogManager, 'login_linux_tip', true);
+    } else if (type == 'session-login-password') {
+      enterUserLoginAndPasswordDialog(
+          sessionId, dialogManager, 'login_linux_tip', true);
+    } else if (type == 'terminal-admin-login') {
+      enterUserLoginDialog(
+          sessionId, dialogManager, 'terminal-admin-login-tip', false);
+    } else if (type == 'terminal-admin-login-password') {
+      enterUserLoginAndPasswordDialog(
+          sessionId, dialogManager, 'terminal-admin-login-tip', false);
     } else if (type == 'restarting') {
       showMsgBox(sessionId, type, title, text, link, false, dialogManager,
           hasCancel: false);
@@ -2835,16 +2841,6 @@ class ElevationModel with ChangeNotifier {
   onPortableServiceRunning(bool running) => _running = running;
 }
 
-// The index values of `ConnType` are same as rust protobuf.
-enum ConnType {
-  defaultConn,
-  fileTransfer,
-  portForward,
-  rdp,
-  viewCamera,
-  terminal
-}
-
 /// Flutter state manager and data communication with the Rust core.
 class FFI {
   var id = '';
@@ -2931,7 +2927,7 @@ class FFI {
     bool isViewCamera = false,
     bool isPortForward = false,
     bool isRdp = false,
-    bool isTerminal = false,
+    ConnType connType = ConnType.defaultConn,
     String? switchUuid,
     String? password,
     bool? isSharedPassword,
@@ -2948,9 +2944,15 @@ class FFI {
         (!(isPortForward && isViewCamera)) &&
             (!(isViewCamera && isPortForward)) &&
             (!(isPortForward && isFileTransfer)) &&
-            (!(isTerminal && isFileTransfer)) &&
-            (!(isTerminal && isViewCamera)) &&
-            (!(isTerminal && isPortForward)),
+            (!((connType == ConnType.terminal ||
+                    connType == ConnType.terminalAdmin) &&
+                isFileTransfer)) &&
+            (!((connType == ConnType.terminal ||
+                    connType == ConnType.terminalAdmin) &&
+                isViewCamera)) &&
+            (!((connType == ConnType.terminal ||
+                    connType == ConnType.terminalAdmin) &&
+                isPortForward)),
         'more than one connect type');
     if (isFileTransfer) {
       connType = ConnType.fileTransfer;
@@ -2958,9 +2960,8 @@ class FFI {
       connType = ConnType.viewCamera;
     } else if (isPortForward) {
       connType = ConnType.portForward;
-    } else if (isTerminal) {
-      connType = ConnType.terminal;
-    } else {
+    } else if (connType != ConnType.terminal &&
+        connType != ConnType.terminalAdmin) {
       chatModel.resetClientMode();
       connType = ConnType.defaultConn;
       canvasModel.id = id;
@@ -2980,7 +2981,7 @@ class FFI {
         isViewCamera: isViewCamera,
         isPortForward: isPortForward,
         isRdp: isRdp,
-        isTerminal: isTerminal,
+        connType: connType.value,
         switchUuid: switchUuid ?? '',
         forceRelay: forceRelay ?? false,
         password: password ?? '',
