@@ -1613,10 +1613,11 @@ packages:
   xterm:
     dependency: "direct main"
     description:
-      name: xterm
-      sha256: "168dfedca77cba33fdb6f52e2cd001e9fde216e398e89335c19b524bb22da3a2"
-      url: "https://pub.dev"
-    source: hosted
+      path: "."
+      ref: "89245c7db3f205b80d7dd1698039ab729ea591f1"
+      resolved-ref: "89245c7db3f205b80d7dd1698039ab729ea591f1"
+      url: "https://github.com/fufesou/xterm.dart"
+    source: git
     version: "4.0.0"
   yaml:
     dependency: transitive

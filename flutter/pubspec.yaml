@@ -109,7 +109,7 @@ dependencies:
   xterm:
     git:
       url: https://github.com/fufesou/xterm.dart
-      ref: 224028a7cf7e98ab02255f2f613739acd910d1c9
+      ref: 89245c7db3f205b80d7dd1698039ab729ea591f1
   sqflite: 2.2.0
 
 dev_dependencies:

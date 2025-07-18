@@ -795,6 +795,7 @@ impl TerminalServiceProxy {
                 }
             }
             while let Ok(data) = input_rx.recv() {
+                log::info!("=========================== writes: {:?}", &data);
                 if let Err(e) = writer.write_all(&data) {
                     log::error!("Terminal {} write error: {}", terminal_id, e);
                     break;
