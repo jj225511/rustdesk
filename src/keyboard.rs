@@ -109,8 +109,10 @@ pub mod client {
         if is_long_press(&event) {
             return;
         }
+        log::info!("====================== debug keyboard, mode: {}, event: {:?}", keyboard_mode, event);
         let peer = get_peer_platform().to_lowercase();
         for key_event in event_to_key_events(peer, &event, keyboard_mode, lock_modes) {
+            log::info!("============================= debug keyboard, send event: {}, event: {:?}", keyboard_mode, key_event);
             send_key_event(&key_event);
         }
     }

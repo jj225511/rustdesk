@@ -925,6 +925,7 @@ impl Connection {
                         handle_mouse(&msg, id);
                     }
                     MessageInput::Key((mut msg, press)) => {
+                        log::info!("============================= debug keyboard, received event: {:?}", &msg);
                         // Set the press state to false, use `down` only in `handle_key()`.
                         msg.press = false;
                         if press {
