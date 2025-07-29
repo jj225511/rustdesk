@@ -12,6 +12,7 @@ use nokhwa::{
 };
 
 use hbb_common::message_proto::{DisplayInfo, Resolution};
+use hbb_common::log;
 
 #[cfg(feature = "vram")]
 use crate::AdapterDevice;
@@ -39,7 +40,9 @@ impl Cameras {
     pub fn all_info() -> ResultType<Vec<DisplayInfo>> {
         match query(ApiBackend::Auto) {
             Ok(cameras) => {
+                log::info!("=============================== debug camera, get cameras: {}", cameras.len());
                 let mut camera_displays = SYNC_CAMERA_DISPLAYS.lock().unwrap();
+                log::info!("=============================== debug camera, mutex lock acquired");
                 camera_displays.clear();
                 // FIXME: nokhwa returns duplicate info for one physical camera on linux for now.
                 // issue: https://github.com/l1npengtul/nokhwa/issues/171
@@ -82,7 +85,9 @@ impl Cameras {
                     } else {
                         let mut x = 0;
                         for info in &cameras {
+                            log::info!("=============================== debug camera, create camera: {:?}", info.index());
                             let camera = Self::create_camera(info.index())?;
+                            log::info!("=============================== debug camera, get camera resolution");
                             let resolution = camera.resolution();
                             let (width, height) = (resolution.width() as i32, resolution.height() as i32);
                             camera_displays.push(DisplayInfo {
@@ -126,10 +131,12 @@ impl Cameras {
         } else {
             RequestedFormatType::AbsoluteHighestResolution
         };
+        log::info!("=============================== debug camera, create camera {:?}, new", index);
         let result = Camera::new(
             index.clone(),
             RequestedFormat::new::<RgbAFormat>(format_type),
         );
+        log::info!("=============================== debug camera, create camera {:?}, end", index);
         match result {
             Ok(camera) => Ok(camera),
             Err(e) => bail!("create camera{} error:  {}", index, e),

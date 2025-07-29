@@ -1472,10 +1472,13 @@ impl Connection {
             log::info!("peer info supported_encoding: {:?}", supported_encoding);
             pi.encoding = Some(supported_encoding).into();
 
+            log::info!("=============================== debug camera, all info, begin");
             pi.displays = camera::Cameras::all_info().unwrap_or(Vec::new());
+            log::info!("=============================== debug camera, all info, end");
             pi.current_display = camera::PRIMARY_CAMERA_IDX as _;
             #[cfg(not(any(target_os = "android", target_os = "ios")))]
             {
+                log::info!("=============================== debug camera, get camera resolution, begin");
                 pi.resolutions = Some(SupportedResolutions {
                     resolutions: camera::Cameras::get_camera_resolution(
                         pi.current_display as usize,
@@ -1486,9 +1489,12 @@ impl Connection {
                     ..Default::default()
                 })
                 .into();
+                log::info!("=============================== debug camera, get camera resolution, end");
             }
             res.set_peer_info(pi);
+            log::info!("=============================== debug camera, update_codec_on_login, begin");
             self.update_codec_on_login();
+            log::info!("=============================== debug camera, update_codec_on_login, end");
         } else {
             let supported_encoding = scrap::codec::Encoder::supported_encoding();
             self.last_supported_encoding = Some(supported_encoding.clone());

@@ -4369,10 +4369,11 @@ dependencies = [
 [[package]]
 name = "nokhwa"
 version = "0.10.7"
-source = "git+https://github.com/rustdesk-org/nokhwa.git?branch=fix_from_raw_parts#f32e7d68be61db9b1e99016b24edb14543d0383b"
+source = "git+https://github.com/fufesou/nokhwa.git?branch=test/win_camera#286899996687b27c7d085bc8dc9432cca2783e00"
 dependencies = [
  "flume",
  "image 0.25.1",
+ "log",
  "nokhwa-bindings-linux",
  "nokhwa-bindings-macos",
  "nokhwa-bindings-windows",
@@ -4384,7 +4385,7 @@ dependencies = [
 [[package]]
 name = "nokhwa-bindings-linux"
 version = "0.1.1"
-source = "git+https://github.com/rustdesk-org/nokhwa.git?branch=fix_from_raw_parts#f32e7d68be61db9b1e99016b24edb14543d0383b"
+source = "git+https://github.com/fufesou/nokhwa.git?branch=test/win_camera#286899996687b27c7d085bc8dc9432cca2783e00"
 dependencies = [
  "nokhwa-core",
  "v4l",
@@ -4393,7 +4394,7 @@ dependencies = [
 [[package]]
 name = "nokhwa-bindings-macos"
 version = "0.2.2"
-source = "git+https://github.com/rustdesk-org/nokhwa.git?branch=fix_from_raw_parts#f32e7d68be61db9b1e99016b24edb14543d0383b"
+source = "git+https://github.com/fufesou/nokhwa.git?branch=test/win_camera#286899996687b27c7d085bc8dc9432cca2783e00"
 dependencies = [
  "block",
  "cocoa-foundation",
@@ -4409,10 +4410,11 @@ dependencies = [
 [[package]]
 name = "nokhwa-bindings-windows"
 version = "0.4.2"
-source = "git+https://github.com/rustdesk-org/nokhwa.git?branch=fix_from_raw_parts#f32e7d68be61db9b1e99016b24edb14543d0383b"
+source = "git+https://github.com/fufesou/nokhwa.git?branch=test/win_camera#286899996687b27c7d085bc8dc9432cca2783e00"
 dependencies = [
  "dlopen",
  "lazy_static",
+ "log",
  "nokhwa-core",
  "once_cell",
  "windows 0.43.0",
@@ -4421,7 +4423,7 @@ dependencies = [
 [[package]]
 name = "nokhwa-core"
 version = "0.1.5"
-source = "git+https://github.com/rustdesk-org/nokhwa.git?branch=fix_from_raw_parts#f32e7d68be61db9b1e99016b24edb14543d0383b"
+source = "git+https://github.com/fufesou/nokhwa.git?branch=test/win_camera#286899996687b27c7d085bc8dc9432cca2783e00"
 dependencies = [
  "bytes",
  "image 0.25.1",
