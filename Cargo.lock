@@ -1864,7 +1864,7 @@ version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "330c60081dcc4c72131f8eb70510f1ac07223e5d4163db481a04a0befcffa412"
 dependencies = [
- "libloading 0.8.4",
+ "libloading 0.7.4",
 ]
 
 [[package]]
@@ -3792,7 +3792,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e310b3a6b5907f99202fcdb4960ff45b93735d7c7d96b760fcff8db2dc0e103d"
 dependencies = [
  "cfg-if 1.0.0",
- "windows-targets 0.52.5",
+ "windows-targets 0.48.5",
 ]
 
 [[package]]
@@ -4369,7 +4369,7 @@ dependencies = [
 [[package]]
 name = "nokhwa"
 version = "0.10.7"
-source = "git+https://github.com/fufesou/nokhwa.git?branch=test/win_camera#286899996687b27c7d085bc8dc9432cca2783e00"
+source = "git+https://github.com/fufesou/nokhwa.git?branch=test/win_camera#710a41a617f25b85c8ced71f90b3025056b281db"
 dependencies = [
  "flume",
  "image 0.25.1",
@@ -4385,7 +4385,7 @@ dependencies = [
 [[package]]
 name = "nokhwa-bindings-linux"
 version = "0.1.1"
-source = "git+https://github.com/fufesou/nokhwa.git?branch=test/win_camera#286899996687b27c7d085bc8dc9432cca2783e00"
+source = "git+https://github.com/fufesou/nokhwa.git?branch=test/win_camera#710a41a617f25b85c8ced71f90b3025056b281db"
 dependencies = [
  "nokhwa-core",
  "v4l",
@@ -4394,7 +4394,7 @@ dependencies = [
 [[package]]
 name = "nokhwa-bindings-macos"
 version = "0.2.2"
-source = "git+https://github.com/fufesou/nokhwa.git?branch=test/win_camera#286899996687b27c7d085bc8dc9432cca2783e00"
+source = "git+https://github.com/fufesou/nokhwa.git?branch=test/win_camera#710a41a617f25b85c8ced71f90b3025056b281db"
 dependencies = [
  "block",
  "cocoa-foundation",
@@ -4410,7 +4410,7 @@ dependencies = [
 [[package]]
 name = "nokhwa-bindings-windows"
 version = "0.4.2"
-source = "git+https://github.com/fufesou/nokhwa.git?branch=test/win_camera#286899996687b27c7d085bc8dc9432cca2783e00"
+source = "git+https://github.com/fufesou/nokhwa.git?branch=test/win_camera#710a41a617f25b85c8ced71f90b3025056b281db"
 dependencies = [
  "dlopen",
  "lazy_static",
@@ -4423,7 +4423,7 @@ dependencies = [
 [[package]]
 name = "nokhwa-core"
 version = "0.1.5"
-source = "git+https://github.com/fufesou/nokhwa.git?branch=test/win_camera#286899996687b27c7d085bc8dc9432cca2783e00"
+source = "git+https://github.com/fufesou/nokhwa.git?branch=test/win_camera#710a41a617f25b85c8ced71f90b3025056b281db"
 dependencies = [
  "bytes",
  "image 0.25.1",
