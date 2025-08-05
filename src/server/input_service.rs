@@ -667,7 +667,7 @@ fn is_pressed(key: &Key, en: &mut Enigo) -> bool {
 // Sleep for 8ms is enough in my tests, but we sleep 12ms to be safe.
 // sleep 12ms In my test, the characters are already output in real time.
 #[inline]
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 fn key_sleep() {
     // https://www.reddit.com/r/rustdesk/comments/1kn1w5x/typing_lags_when_connecting_to_macos_clients/
     //
@@ -675,7 +675,7 @@ fn key_sleep() {
     // `std::thread::sleep(Duration::from_millis(20));` may sleep 90ms or more.
     // Though `/Applications/RustDesk.app/Contents/MacOS/rustdesk --server` in terminal is ok.
     let now = Instant::now();
-    while now.elapsed() < Duration::from_millis(12) {
+    while now.elapsed() < Duration::from_millis(25) {
         std::thread::sleep(Duration::from_millis(1));
     }
 }
@@ -1187,6 +1187,10 @@ pub async fn lock_screen() {
 #[cfg(target_os = "linux")]
 pub fn handle_key(evt: &KeyEvent) {
     handle_key_(evt);
+    let skip_sleep = matches!(evt.mode.enum_value(), Ok(KeyboardMode::Map)) && !evt.down;
+    if !skip_sleep {
+        key_sleep();
+    }
 }
 
 #[inline]
