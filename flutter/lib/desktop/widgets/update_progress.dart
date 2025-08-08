@@ -7,10 +7,10 @@ import 'package:flutter_hbb/models/platform_model.dart';
 import 'package:get/get.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-final _isExtracting = false.obs;
+bool _isInstalling = false;
 
 void handleUpdate(String releasePageUrl) {
-  _isExtracting.value = false;
+  _isInstalling = false;
   String downloadUrl = releasePageUrl.replaceAll('tag', 'download');
   String version = downloadUrl.substring(downloadUrl.lastIndexOf('/') + 1);
   final String downloadFile =
@@ -28,14 +28,14 @@ void handleUpdate(String releasePageUrl) {
   gFFI.dialogManager.dismissAll();
   gFFI.dialogManager.show((setState, close, context) {
     return CustomAlertDialog(
-        title: Obx(() => Text(translate(
-            _isExtracting.isTrue ? 'Installing ...' : 'Downloading {$appName}'))),
+        title: Text(translate(
+            _isInstalling ? 'Installing ...' : 'Downloading {$appName}')),
         content:
             UpdateProgress(releasePageUrl, downloadUrl, downloadId, onCanceled)
                 .marginSymmetric(horizontal: 8)
                 .paddingOnly(top: 12),
         actions: [
-          if (_isExtracting.isFalse) dialogButton(translate('Cancel'), onPressed: () async {
+          if (_isInstalling) dialogButton(translate('Cancel'), onPressed: () async {
             onCanceled.value();
             await bind.mainSetCommon(
                 key: 'cancel-downloader', value: downloadId.value);
@@ -211,13 +211,7 @@ class UpdateProgressState extends State<UpdateProgress> {
           _onError('The download file size is 0.');
         } else {
           setState(() {});
-          if (isMacOS) {
-            bind.mainSetCommon(
-                key: 'extract-update-dmg', value: widget.downloadUrl);
-            _isExtracting.value = true;
-          } else {
-            updateMsgBox();
-          }
+          updateMsgBox();
         }
       } else {
         setState(() {});
@@ -235,14 +229,21 @@ class UpdateProgressState extends State<UpdateProgress> {
       gFFI.dialogManager,
       onSubmit: () {
         debugPrint('Downloaded, update to new version now');
-        bind.mainSetCommon(key: 'update-me', value: widget.downloadUrl);
+        if (isMacOS) {
+          bind.mainSetCommon(
+              key: 'extract-update-dmg', value: widget.downloadUrl);
+          _isInstalling = true;
+          handleUpdate(widget.releasePageUrl);
+        } else {
+          bind.mainSetCommon(key: 'update-me', value: widget.downloadUrl);
+        }
       },
       submitTimeout: 5,
     );
   }
 
   Future<void> handleExtractUpdateDmg(Map<String, dynamic> evt) async {
-    _isExtracting.value = false;
+    _isInstalling = false;
     if (evt.containsKey('err') && (evt['err'] as String).isNotEmpty) {
       _onError(evt['err'] as String, isExtractDmg: true);
     } else {
@@ -256,7 +257,7 @@ class UpdateProgressState extends State<UpdateProgress> {
         ? 0.0
         : (_totalSize == 0 ? 1.0 : _downloadedSize / _totalSize!);
     return LinearProgressIndicator(
-      value: _isExtracting.isTrue ? null : getValue(),
+      value: _isInstalling ? null : getValue(),
       minHeight: 20,
       borderRadius: BorderRadius.circular(5),
       backgroundColor: Colors.grey[300],
