@@ -441,6 +441,7 @@ class _DesktopHomePageState extends State<DesktopHomePage>
       };
       if (isToUpdate) {
         onPressed = () {
+          resetInstallingState();
           handleUpdate(updateUrl);
         };
       }
