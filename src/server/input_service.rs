@@ -2,6 +2,7 @@
 use super::rdp_input::client::{RdpInputKeyboard, RdpInputMouse};
 use super::*;
 use crate::input::*;
+use crate::whiteboard;
 #[cfg(target_os = "macos")]
 use dispatch::Queue;
 use enigo::{Enigo, Key, KeyboardControllable, MouseButton, MouseControllable};
@@ -1020,6 +1021,11 @@ pub fn handle_mouse_(evt: &MouseEvent, conn: i32) {
     match evt_type {
         MOUSE_TYPE_MOVE => {
             en.mouse_move_to(evt.x, evt.y);
+            whiteboard::update_whiteboard(whiteboard::CustomEvent::Cursor(whiteboard::Cursor {
+                x: evt.x as _,
+                y: evt.y as _,
+                text: String::new(),
+            }));
             *LATEST_PEER_INPUT_CURSOR.lock().unwrap() = Input {
                 conn,
                 time: get_time(),

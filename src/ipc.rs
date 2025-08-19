@@ -287,6 +287,7 @@ pub enum Data {
     #[cfg(target_os = "windows")]
     PortForwardSessionCount(Option<usize>),
     SocksWs(Option<Box<(Option<config::Socks5Server>, String)>>),
+    Whiteboard(crate::whiteboard::CustomEvent),
 }
 
 #[tokio::main(flavor = "current_thread")]

@@ -2064,6 +2064,8 @@ impl Connection {
 
             #[cfg(not(any(target_os = "android", target_os = "ios")))]
             self.try_start_cm_ipc();
+            #[cfg(not(any(target_os = "android", target_os = "ios")))]
+            crate::whiteboard::start_whiteboard();
 
             #[cfg(not(target_os = "linux"))]
             let err_msg = "".to_owned();
@@ -2237,6 +2239,8 @@ impl Connection {
                             );
                             #[cfg(not(any(target_os = "android", target_os = "ios")))]
                             self.try_start_cm_ipc();
+                            #[cfg(not(any(target_os = "android", target_os = "ios")))]
+                            crate::whiteboard::start_whiteboard();
                         }
                     }
                 }
@@ -4742,6 +4746,8 @@ mod raii {
                 let _ = virtual_display_manager::reset_all();
                 #[cfg(target_os = "linux")]
                 scrap::wayland::pipewire::try_close_session();
+                #[cfg(not(any(target_os = "android", target_os = "ios")))]
+                crate::whiteboard::stop_whiteboard();
             }
             Self::check_wake_lock();
         }
