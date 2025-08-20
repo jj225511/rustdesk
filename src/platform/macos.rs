@@ -608,11 +608,24 @@ pub fn is_root() -> bool {
 }
 
 pub fn run_as_user(arg: Vec<&str>) -> ResultType<Option<std::process::Child>> {
-    let uid = get_active_userid();
     let cmd = std::env::current_exe()?;
-    let mut args = vec!["asuser", &uid, cmd.to_str().unwrap_or("")];
-    args.append(&mut arg.clone());
-    let task = std::process::Command::new("launchctl").args(args).spawn()?;
+    let task = if arg.first() == Some(&"--whiteboard") {
+        // Whiteboard is a GUI element and must be launched as a proper application
+        // to get the right windowing context. `launchctl` is for daemons.
+        Command::new("open")
+            .arg("-n") // Create a new instance
+            .arg("-a") // Specify application path
+            .arg(&cmd)
+            .arg("--args")
+            .args(&arg)
+            .spawn()?
+    } else {
+        // Keep original logic for other commands like --server
+        let uid = get_active_userid();
+        let mut args = vec!["asuser", &uid, cmd.to_str().unwrap_or("")];
+        args.append(&mut arg.clone());
+        Command::new("launchctl").args(args).spawn()?
+    };
     Ok(Some(task))
 }
 

@@ -6297,6 +6297,7 @@ dependencies = [
  "percent-encoding",
  "portable-pty",
  "qrcode-generator",
+ "raw-window-handle 0.6.2",
  "rdev",
  "remote_printer",
  "repng",

@@ -578,6 +578,28 @@ pub fn core_main() -> Option<Vec<String>> {
         } else if args[0] == "--whiteboard" {
             #[cfg(not(any(target_os = "android", target_os = "ios")))]
             {
+                #[cfg(target_os = "macos")]
+                {
+                    // This is a low-level Carbon API call to transform a regular process
+                    // into a background-only UI element application. This is the most reliable
+                    // way to ensure the process has no Dock icon or menu bar.
+                    #[repr(C)]
+                    #[derive(Clone, Copy)]
+                    struct ProcessSerialNumber { highLongOfPSN: u32, lowLongOfPSN: u32 }
+                    type OSErr = i16;
+                    const K_CURRENT_PROCESS: u32 = 2;
+                    const K_PROCESS_TRANSFORM_TO_UIELEMENT_APPLICATION: u32 = 2;
+
+                    #[link(name = "ApplicationServices", kind = "framework")]
+                    extern "C" {
+                        fn TransformProcessType(psn: *const ProcessSerialNumber, transform: u32) -> OSErr;
+                    }
+
+                    unsafe {
+                        let psn = ProcessSerialNumber { highLongOfPSN: 0, lowLongOfPSN: K_CURRENT_PROCESS };
+                        TransformProcessType(&psn, K_PROCESS_TRANSFORM_TO_UIELEMENT_APPLICATION);
+                    }
+                }
                 crate::whiteboard::run();
             }
             return None;

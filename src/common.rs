@@ -730,6 +730,24 @@ pub fn refresh_rendezvous_server() {
 }
 
 pub fn run_me<T: AsRef<std::ffi::OsStr>>(args: Vec<T>) -> std::io::Result<std::process::Child> {
+    #[cfg(target_os = "macos")]
+    {
+        if let Some(first_arg) = args.first() {
+            if first_arg.as_ref().to_str() == Some("--whiteboard") {
+                // Whiteboard is a GUI element and must be launched as a proper application
+                // to get the right windowing context.
+                let cmd = std::env::current_exe()?;
+                return std::process::Command::new("open")
+                    .arg("-n") // Create a new instance
+                    .arg("-a") // Specify application path
+                    .arg(&cmd)
+                    .arg("--args")
+                    .args(&args)
+                    .spawn();
+            }
+        }
+    }
+
     #[cfg(target_os = "linux")]
     if let Ok(appdir) = std::env::var("APPDIR") {
         let appimage_cmd = std::path::Path::new(&appdir).join("AppRun");

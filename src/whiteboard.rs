@@ -16,6 +16,8 @@ use std::{
     num::NonZeroU32,
     sync::{Arc, RwLock},
 };
+#[cfg(target_os = "macos")]
+use tao::platform::macos::WindowBuilderExtMacOS;
 #[cfg(target_os = "linux")]
 use tao::platform::unix::WindowBuilderExtUnix;
 #[cfg(target_os = "windows")]
@@ -265,16 +267,77 @@ async fn handle_new_stream(mut conn: Connection) {
 
 fn create_event_loop() -> ResultType<()> {
     let event_loop = EventLoopBuilder::<CustomEvent>::with_user_event().build();
-    let window = Arc::new(
-        WindowBuilder::new()
-            .with_title("Whiteboard Demo")
-            .with_fullscreen(Some(tao::window::Fullscreen::Borderless(None)))
-            .with_transparent(true)
-            .with_always_on_top(true)
-            .with_skip_taskbar(true)
-            .build::<CustomEvent>(&event_loop)?,
-    );
+
+    let mut window_builder = WindowBuilder::new()
+        .with_title("Whiteboard Demo")
+        .with_transparent(true)
+        .with_always_on_top(true);
+
+    #[cfg(target_os = "macos")]
+    {
+        use tao::platform::macos::WindowBuilderExtMacOS;
+        // Create a borderless window, we will set all other properties manually.
+        window_builder = window_builder
+            .with_decorations(false)
+            .with_has_shadow(false);
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        // For other platforms, borderless fullscreen is fine.
+        window_builder =
+            window_builder.with_fullscreen(Some(tao::window::Fullscreen::Borderless(None)));
+    }
+
+    let window = Arc::new(window_builder.build::<CustomEvent>(&event_loop)?);
     window.set_ignore_cursor_events(true)?;
+
+    #[cfg(target_os = "macos")]
+    {
+        use cocoa::appkit::{NSColor, NSWindow, NSWindowCollectionBehavior, NSWindowStyleMask};
+        use cocoa::base::{id, nil, YES};
+        use objc::{class, msg_send, sel, sel_impl};
+        use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
+
+        // Manually set size and position to cover the whole screen.
+        if let Some(monitor) = window.current_monitor() {
+            window.set_inner_size(monitor.size());
+            window.set_outer_position(monitor.position());
+        }
+
+        // Based on working examples and direct system values, we now manually
+        // set all the required properties on the native NSWindow object.
+        if let Ok(handle) = window.raw_window_handle() {
+            if let RawWindowHandle::AppKit(appkit_handle) = handle {
+                let ns_view = appkit_handle.ns_view.as_ptr() as id;
+                let ns_window: id = unsafe { msg_send![ns_view, window] };
+                if ns_window != nil {
+                    unsafe {
+                        // 1. Set the style mask to be borderless.
+                        let _: () = msg_send![ns_window, setStyleMask:
+   NSWindowStyleMask::NSBorderlessWindowMask];
+
+                        // 2. Set the window level to be the screen saver level (1000) minus one.
+                        // This is an extremely high level to ensure it's on top of everything.
+                        let level = 1000 - 1;
+                        let _: () = msg_send![ns_window, setLevel: level as i64];
+
+                        // 3. Set the collection behavior to appear on all spaces.
+                        let behavior = NSWindowCollectionBehavior::NSWindowCollectionBehaviorCanJoinAllSpaces
+                               | NSWindowCollectionBehavior::NSWindowCollectionBehaviorFullScreenAuxiliary;
+                        let _: () = msg_send![ns_window, setCollectionBehavior: behavior];
+
+                        // 4. Force the window to be transparent.
+                        let clear_color: id = msg_send![class!(NSColor), clearColor];
+                        let _: () = msg_send![ns_window, setBackgroundColor: clear_color];
+                        let _: () = msg_send![ns_window, setOpaque: false];
+
+                        // 5. Ensure the window ignores mouse events for click-through.
+                        let _: () = msg_send![ns_window, setIgnoresMouseEvents: YES];
+                    }
+                }
+            }
+        }
+    }
 
     let context = Context::new(window.clone()).map_err(|e| {
         log::error!("Failed to create context: {}", e);
@@ -297,9 +360,6 @@ fn create_event_loop() -> ResultType<()> {
     println!("============================== create event loop");
 
     event_loop.run(move |event, _, control_flow| {
-        // This line will print every event, which can be very verbose.
-        // println!("============================ Received event: {:?}", event);
-
         *control_flow = ControlFlow::Poll;
 
         match event {
@@ -350,10 +410,6 @@ fn create_event_loop() -> ResultType<()> {
                     let mut paint = Paint::default();
                     paint.anti_alias = true;
 
-                    // // Define a paint for the text
-                    // let mut text_paint = paint.clone();
-                    // text_paint.set_color_rgba8(255, 255, 255, 255); // White text
-
                     let mut pb = PathBuilder::new();
                     pb.move_to(cursor.x + 50.0, cursor.y);
                     pb.line_to(cursor.x, cursor.y + 100.0);
@@ -371,16 +427,6 @@ fn create_event_loop() -> ResultType<()> {
                         Transform::identity(),
                         None,
                     );
-                    // draw_text(
-                    //     &mut pixmap,
-                    //     &face,
-                    //     "triangle",
-                    //     220.0,
-                    //     160.0,
-                    //     //&text_paint,
-                    //     &paint,
-                    //     24.0,
-                    // );
 
                     if let Err(e) = buffer.present() {
                         log::error!("Failed to present surface: {}", e);
