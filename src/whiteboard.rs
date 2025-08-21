@@ -32,15 +32,10 @@ use tiny_skia::{Color, FillRule, Paint, PathBuilder, PixmapMut, Point, Stroke, T
 use ttf_parser::Face;
 
 lazy_static! {
-    static ref EVENT_PROXY: RwLock<Option<EventLoopProxy<CustomEvent>>> = RwLock::new(None);
-    static ref TX_WHITEBOARD: RwLock<Option<UnboundedSender<CustomEvent>>> = RwLock::new(None);
-    // to-do: conn id
-    static ref LAST_CURSOR_EVT: RwLock<LastCursorEvent> = RwLock::new(LastCursorEvent {
-        evt: None,
-        tm: Instant::now(),
-        c: 0,
-    });
-    static ref LAST_CURSOR_POS: RwLock<HashMap<i32, (f32, f32)>> = Default::default();
+    static ref EVENT_PROXY: RwLock<Option<EventLoopProxy<(String, CustomEvent)>>> =
+        RwLock::new(None);
+    static ref TX_WHITEBOARD: RwLock<Option<UnboundedSender<(String, CustomEvent)>>> =
+        RwLock::new(None);
     static ref CONNS: RwLock<HashMap<String, Conn>> = Default::default();
 }
 
@@ -181,11 +176,17 @@ pub fn register_whiteboard(k: String) {
 pub fn unregister_whiteboard(k: String) {
     let mut conns = CONNS.write().unwrap();
     conns.remove(&k);
-    if conns.is_empty() {
+    let is_conns_empty = conns.is_empty();
+    drop(conns);
+
+    TX_WHITEBOARD.read().unwrap().as_ref().map(|tx| {
+        allow_err!(tx.send((k, CustomEvent::Clear)));
+    });
+    if is_conns_empty {
         std::thread::spawn(|| {
             let mut whiteboard = TX_WHITEBOARD.write().unwrap();
             whiteboard.as_ref().map(|tx| {
-                allow_err!(tx.send(CustomEvent::Exit));
+                allow_err!(tx.send(("".to_string(), CustomEvent::Exit)));
                 // Simple sleep to wait the whiteboard process exiting.
                 std::thread::sleep(std::time::Duration::from_millis(3_00));
             });
@@ -208,13 +209,13 @@ pub fn update_whiteboard(k: String, e: CustomEvent) {
                 if conn.last_cursor_evt.c > 3 {
                     conn.last_cursor_evt.c = 0;
                     conn.last_cursor_evt.evt = None;
-                    tx_send_event(conn, e);
+                    tx_send_event(conn, k, e);
                 } else {
                     conn.last_cursor_evt.evt = Some(e);
                 }
             } else {
                 if let Some(evt) = conn.last_cursor_evt.evt.take() {
-                    tx_send_event(conn, evt);
+                    tx_send_event(conn, k.clone(), evt);
                     conn.last_cursor_evt.c = 0;
                 }
                 let click_evt = CustomEvent::Cursor(Cursor {
@@ -224,17 +225,17 @@ pub fn update_whiteboard(k: String, e: CustomEvent) {
                     btns: cursor.btns,
                     text: cursor.text.clone(),
                 });
-                tx_send_event(conn, click_evt);
+                tx_send_event(conn, k, click_evt);
             }
         }
         _ => {
-            tx_send_event(conn, e);
+            tx_send_event(conn, k, e);
         }
     }
 }
 
 #[inline]
-fn tx_send_event(conn: &mut Conn, event: CustomEvent) {
+fn tx_send_event(conn: &mut Conn, k: String, event: CustomEvent) {
     if let CustomEvent::Cursor(cursor) = &event {
         if cursor.btns == 0 {
             conn.last_cursor_pos = (cursor.x, cursor.y);
@@ -242,7 +243,7 @@ fn tx_send_event(conn: &mut Conn, event: CustomEvent) {
     }
 
     TX_WHITEBOARD.read().unwrap().as_ref().map(|tx| {
-        allow_err!(tx.send(event));
+        allow_err!(tx.send((k, event)));
     });
 }
 
@@ -340,7 +341,7 @@ async fn start_whiteboard_() -> ResultType<()> {
             res = rx.recv() => {
                 match res {
                     Some(data) => {
-                        if matches!(data, CustomEvent::Exit) {
+                        if matches!(data.1, CustomEvent::Exit) {
                             break;
                         } else {
                             allow_err!(stream.send(&Data::Whiteboard(data)).await);
@@ -353,17 +354,23 @@ async fn start_whiteboard_() -> ResultType<()> {
                 }
             },
             _ = timer.tick() => {
-                let mut last_cursor_evt = LAST_CURSOR_EVT.write().unwrap();
-                if last_cursor_evt.tm.elapsed().as_millis() > 300 {
-                    if let Some(evt) = last_cursor_evt.evt.take() {
-                        allow_err!(stream.send(&Data::Whiteboard(evt)).await);
-                        last_cursor_evt.c = 0;
+                let mut conns = CONNS.write().unwrap();
+                for (k, conn) in conns.iter_mut() {
+                    if conn.last_cursor_evt.tm.elapsed().as_millis() > 300 {
+                        if let Some(evt) = conn.last_cursor_evt.evt.take() {
+                            allow_err!(stream.send(&Data::Whiteboard((k.clone(), evt))).await);
+                            conn.last_cursor_evt.c = 0;
+                        }
                     }
                 }
             }
         }
     }
-    allow_err!(stream.send(&Data::Whiteboard(CustomEvent::Exit)).await);
+    allow_err!(
+        stream
+            .send(&Data::Whiteboard(("".to_string(), CustomEvent::Exit)))
+            .await
+    );
     Ok(())
 }
 
@@ -421,13 +428,13 @@ async fn handle_new_stream(mut conn: Connection) {
                     }
                     Ok(Some(data)) => {
                         match data {
-                            Data::Whiteboard(evt) => {
+                            Data::Whiteboard((k, evt)) => {
                                 if matches!(evt, CustomEvent::Exit) {
                                     log::info!("whiteboard ipc connection closed");
                                     break;
                                 } else {
                                     EVENT_PROXY.read().unwrap().as_ref().map(|ep| {
-                                        allow_err!(ep.send_event(evt));
+                                        allow_err!(ep.send_event((k, evt)));
                                     });
                                 }
                             }
@@ -445,7 +452,7 @@ async fn handle_new_stream(mut conn: Connection) {
         }
     }
     EVENT_PROXY.read().unwrap().as_ref().map(|ep| {
-        allow_err!(ep.send_event(CustomEvent::Exit));
+        allow_err!(ep.send_event(("".to_string(), CustomEvent::Exit)));
     });
 }
 
@@ -480,19 +487,58 @@ fn create_event_loop() -> ResultType<()> {
         }
     };
 
-    let event_loop = EventLoopBuilder::<CustomEvent>::with_user_event().build();
+    let event_loop = EventLoopBuilder::<(String, CustomEvent)>::with_user_event().build();
     let mut window_builder = WindowBuilder::new()
         .with_title("RustDesk whiteboard")
-        .with_fullscreen(Some(tao::window::Fullscreen::Borderless(None)))
         .with_transparent(true)
-        .with_always_on_top(true);
+        .with_always_on_top(true)
+        .with_decorations(false);
+
+    use tao::dpi::{PhysicalPosition, PhysicalSize};
+    let mut final_size = None;
+    if let Ok(displays) = crate::server::display_service::try_get_displays() {
+        if displays.len() > 1 {
+            let mut min_x = i32::MAX;
+            let mut min_y = i32::MAX;
+            let mut max_x = i32::MIN;
+            let mut max_y = i32::MIN;
+
+            for display in displays {
+                let (x, y) = (display.origin().0 as i32, display.origin().1 as i32);
+                let (w, h) = (display.width() as i32, display.height() as i32);
+                min_x = min_x.min(x);
+                min_y = min_y.min(y);
+                max_x = max_x.max(x + w);
+                max_y = max_y.max(y + h);
+            }
+
+            let (x, y) = (min_x, min_y);
+            let (w, h) = ((max_x - min_x) as u32, (max_y - min_y) as u32);
+
+            if w > 0 && h > 0 {
+                final_size = Some(PhysicalSize::new(w, h));
+                window_builder = window_builder
+                    .with_position(PhysicalPosition::new(x, y))
+                    .with_inner_size(PhysicalSize::new(1, 1));
+            } else {
+                window_builder =
+                    window_builder.with_fullscreen(Some(tao::window::Fullscreen::Borderless(None)));
+            }
+        } else {
+            window_builder =
+                window_builder.with_fullscreen(Some(tao::window::Fullscreen::Borderless(None)));
+        }
+    } else {
+        window_builder =
+            window_builder.with_fullscreen(Some(tao::window::Fullscreen::Borderless(None)));
+    }
 
     #[cfg(any(target_os = "windows", target_os = "linux"))]
     {
         window_builder = window_builder.with_skip_taskbar(true);
     }
 
-    let window = Arc::new(window_builder.build::<CustomEvent>(&event_loop)?);
+    let window = Arc::new(window_builder.build::<(String, CustomEvent)>(&event_loop)?);
     window.set_ignore_cursor_events(true)?;
 
     let context = Context::new(window.clone()).map_err(|e| {
@@ -519,7 +565,8 @@ fn create_event_loop() -> ResultType<()> {
         start_time: Instant,
     }
     let mut ripples: Vec<Ripple> = Vec::new();
-    let mut last_cursor: Option<Cursor> = None;
+    let mut last_cursors: HashMap<String, Cursor> = HashMap::new();
+    let mut resized = final_size.is_none();
 
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Poll;
@@ -532,6 +579,14 @@ fn create_event_loop() -> ResultType<()> {
                 _ => {}
             },
             Event::RedrawRequested(_) => {
+                if !resized {
+                    if let Some(size) = final_size.take() {
+                        window.set_inner_size(size);
+                    }
+                    resized = true;
+                    return;
+                }
+
                 let (width, height) = {
                     let size = window.inner_size();
                     (size.width, size.height)
@@ -569,7 +624,7 @@ fn create_event_loop() -> ResultType<()> {
                 for ripple in &ripples {
                     let elapsed = ripple.start_time.elapsed();
                     let progress = elapsed.as_secs_f32() / ripple_duration.as_secs_f32();
-                    let radius = 30.0 * progress;
+                    let radius = 45.0 * progress;
                     let alpha = 1.0 - progress;
 
                     let mut ripple_paint = Paint::default();
@@ -590,7 +645,7 @@ fn create_event_loop() -> ResultType<()> {
                     }
                 }
 
-                if let Some(cursor) = &last_cursor {
+                for cursor in last_cursors.values() {
                     let (x, y) = (cursor.x as f64, cursor.y as f64);
                     let (x, y) = (x as f32, y as f32);
                     let size = 1.5 as f32;
@@ -657,7 +712,7 @@ fn create_event_loop() -> ResultType<()> {
             Event::MainEventsCleared => {
                 window.request_redraw();
             }
-            Event::UserEvent(evt) => match evt {
+            Event::UserEvent((k, evt)) => match evt {
                 CustomEvent::Cursor(cursor) => {
                     if cursor.btns != 0 {
                         ripples.push(Ripple {
@@ -666,7 +721,7 @@ fn create_event_loop() -> ResultType<()> {
                             start_time: Instant::now(),
                         });
                     }
-                    last_cursor = Some(cursor);
+                    last_cursors.insert(k, cursor);
                 }
                 CustomEvent::Exit => {
                     *control_flow = ControlFlow::Exit;
