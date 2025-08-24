@@ -19,17 +19,35 @@ use std::{
     sync::{Arc, RwLock},
     time::Instant,
 };
-#[cfg(target_os = "linux")]
-use tao::platform::unix::WindowBuilderExtUnix;
-#[cfg(target_os = "windows")]
-use tao::platform::windows::WindowBuilderExtWindows;
-use tao::{
-    event::{Event, WindowEvent},
-    event_loop::{ControlFlow, EventLoopBuilder, EventLoopProxy},
-    window::WindowBuilder,
-};
+use winit::raw_window_handle::{DisplayHandle, HasDisplayHandle};
 use tiny_skia::{Color, FillRule, Paint, PathBuilder, PixmapMut, Point, Stroke, Transform};
 use ttf_parser::Face;
+// use winit::application::ApplicationHandler;
+// use winit::{
+//     application::ApplicationHandler,
+//     event::{Event, WindowEvent},
+//     event_loop::{ActiveEventLoop, ControlFlow, EventLoop, EventLoopBuilder, EventLoopProxy},
+//     window::{Window, WindowAttributes, WindowBuilder, WindowId},
+// };
+use winit::application::ApplicationHandler;
+use winit::dpi::{LogicalSize, PhysicalPosition, PhysicalSize};
+use winit::event::{DeviceEvent, DeviceId, Ime, MouseButton, MouseScrollDelta, WindowEvent};
+use winit::event_loop::{ActiveEventLoop, EventLoop, EventLoopProxy};
+use winit::keyboard::{Key, ModifiersState};
+use winit::window::{Fullscreen, ResizeDirection, Window, WindowId, WindowLevel};
+
+#[cfg(target_os = "macos")]
+use cocoa::appkit::{NSColor, NSWindow};
+#[cfg(target_os = "macos")]
+use cocoa::base::{nil, NO};
+#[cfg(target_os = "macos")]
+use winit::platform::macos::{WindowAttributesExtMacOS, WindowExtMacOS};
+#[cfg(any(x11_platform, wayland_platform))]
+use winit::platform::startup_notify::{
+    self, EventLoopExtStartupNotify, WindowAttributesExtStartupNotify, WindowExtStartupNotify,
+};
+#[cfg(x11_platform)]
+use winit::platform::x11::WindowAttributesExtX11;
 
 lazy_static! {
     static ref EVENT_PROXY: RwLock<Option<EventLoopProxy<(String, CustomEvent)>>> =
@@ -375,12 +393,31 @@ async fn start_whiteboard_() -> ResultType<()> {
 }
 
 pub fn run() {
+    let event_loop = match EventLoop::<(String, CustomEvent)>::with_user_event().build() {
+        Ok(el) => el,
+        Err(e) => {
+            log::error!("Failed to create event loop: {}", e);
+            return;
+        }
+    };
+    let mut app = match WhiteboardApplication::new(&event_loop) {
+        Ok(app) => app,
+        Err(e) => {
+            log::error!("Failed to create whiteboard application: {}", e);
+            return;
+        }
+    };
+
+    let event_loop_proxy = event_loop.create_proxy();
+    EVENT_PROXY.write().unwrap().replace(event_loop_proxy);
+
     let (tx_exit, rx_exit) = unbounded_channel();
     std::thread::spawn(move || {
         start_ipc(rx_exit);
     });
-    if let Err(e) = create_event_loop() {
-        log::error!("Failed to create event loop: {}", e);
+
+    if let Err(e) = event_loop.run_app(&mut app) {
+        log::error!("Failed to run app: {}", e);
         tx_exit.send(()).ok();
         return;
     }
@@ -478,257 +515,296 @@ fn create_font_face() -> ResultType<Face<'static>> {
     Ok(face)
 }
 
-fn create_event_loop() -> ResultType<()> {
-    let face = match create_font_face() {
-        Ok(face) => Some(face),
-        Err(err) => {
-            log::error!("Failed to create font face: {}", err);
-            None
+struct Ripple {
+    x: f32,
+    y: f32,
+    start_time: Instant,
+}
+
+struct WhiteboardApplication {
+    window: Arc<Window>,
+    // Drawing context.
+    //
+    // With OpenGL it could be EGLDisplay.
+    context: Option<Context<DisplayHandle<'static>>>,
+    // NOTE: This surface must be dropped before the `Window`.
+    surface: Surface<DisplayHandle<'static>, Arc<Window>>,
+    face: Option<Face<'static>>,
+    ripples: Vec<Ripple>,
+    last_cursors: HashMap<String, Cursor>,
+    close_requested: bool,
+}
+
+impl WhiteboardApplication {
+    fn new<T>(event_loop: &EventLoop<T>) -> ResultType<Self> {
+        #[allow(unused_mut)]
+        let mut window_attributes = Window::default_attributes()
+            .with_title("RustDesk whiteboard")
+            .with_transparent(true)
+            .with_decorations(false);
+
+        #[cfg(target_os = "macos")]
+        {
+            window_attributes = window_attributes.with_window_level(WindowLevel::AlwaysOnTop);
         }
-    };
 
-    let event_loop = EventLoopBuilder::<(String, CustomEvent)>::with_user_event().build();
-    let mut window_builder = WindowBuilder::new()
-        .with_title("RustDesk whiteboard")
-        .with_transparent(true)
-        .with_always_on_top(true)
-        .with_decorations(false);
-
-    use tao::dpi::{PhysicalPosition, PhysicalSize};
-    let mut final_size = None;
-    if let Ok(displays) = crate::server::display_service::try_get_displays() {
-        if displays.len() > 1 {
-            let mut min_x = i32::MAX;
-            let mut min_y = i32::MAX;
-            let mut max_x = i32::MIN;
-            let mut max_y = i32::MIN;
-
-            for display in displays {
-                let (x, y) = (display.origin().0 as i32, display.origin().1 as i32);
-                let (w, h) = (display.width() as i32, display.height() as i32);
-                min_x = min_x.min(x);
-                min_y = min_y.min(y);
-                max_x = max_x.max(x + w);
-                max_y = max_y.max(y + h);
-            }
-
-            let (x, y) = (min_x, min_y);
-            let (w, h) = ((max_x - min_x) as u32, (max_y - min_y) as u32);
-
-            if w > 0 && h > 0 {
-                final_size = Some(PhysicalSize::new(w, h));
-                window_builder = window_builder
-                    .with_position(PhysicalPosition::new(x, y))
-                    .with_inner_size(PhysicalSize::new(1, 1));
-            } else {
-                window_builder =
-                    window_builder.with_fullscreen(Some(tao::window::Fullscreen::Borderless(None)));
-            }
-        } else {
-            window_builder =
-                window_builder.with_fullscreen(Some(tao::window::Fullscreen::Borderless(None)));
+        #[cfg(any(x11_platform, wayland_platform))]
+        if let Some(token) = event_loop.read_token_from_env() {
+            startup_notify::reset_activation_token_env();
+            info!("Using token {:?} to activate a window", token);
+            window_attributes = window_attributes.with_activation_token(token);
         }
-    } else {
-        window_builder =
-            window_builder.with_fullscreen(Some(tao::window::Fullscreen::Borderless(None)));
+
+        #[cfg(x11_platform)]
+        match std::env::var("X11_VISUAL_ID") {
+            Ok(visual_id_str) => {
+                info!("Using X11 visual id {visual_id_str}");
+                let visual_id = visual_id_str.parse()?;
+                window_attributes = window_attributes.with_x11_visual(visual_id);
+            }
+            Err(_) => info!("Set the X11_VISUAL_ID env variable to request specific X11 visual"),
+        }
+
+        #[cfg(x11_platform)]
+        match std::env::var("X11_SCREEN_ID") {
+            Ok(screen_id_str) => {
+                info!("Placing the window on X11 screen {screen_id_str}");
+                let screen_id = screen_id_str.parse()?;
+                window_attributes = window_attributes.with_x11_screen(screen_id);
+            }
+            Err(_) => info!(
+                "Set the X11_SCREEN_ID env variable to place the window on non-default screen"
+            ),
+        }
+
+        let window = Arc::new(event_loop.create_window(window_attributes)?);
+
+        window.set_cursor_hittest(false).ok();
+
+        #[cfg(target_os = "macos")]
+        {
+            Self::configure_macos_pixels_window(window.clone());
+        }
+
+        // SAFETY: we drop the context right before the event loop is stopped, thus making it safe.
+        let context = Some(
+            Context::new(unsafe {
+                std::mem::transmute::<DisplayHandle<'_>, DisplayHandle<'static>>(
+                    event_loop.display_handle().unwrap(),
+                )
+            })
+            .unwrap(),
+        );
+
+        let surface = Surface::new(context.as_ref().unwrap(), window.clone()).unwrap();
+        let face = match create_font_face() {
+            Ok(face) => Some(face),
+            Err(err) => {
+                log::error!("Failed to create font face: {}", err);
+                None
+            }
+        };
+        Ok(Self {
+            window,
+            context,
+            surface,
+            face,
+            ripples: Vec::new(),
+            last_cursors: HashMap::new(),
+            close_requested: false,
+        })
     }
 
-    #[cfg(any(target_os = "windows", target_os = "linux"))]
-    {
-        window_builder = window_builder.with_skip_taskbar(true);
+    #[cfg(target_os = "macos")]
+    fn configure_macos_pixels_window(window: Arc<Window>) {
+        unsafe {
+            use winit::raw_window_handle::{RawWindowHandle, HasRawWindowHandle};
+            match window.raw_window_handle() {
+                Ok(RawWindowHandle::AppKit(handle)) => {
+                    log::info!("======================= set opauqe");
+                    let ns_window = handle.ns_view.as_ptr() as *mut _;
+                    NSWindow::setBackgroundColor_(ns_window, NSColor::clearColor(nil));
+                    ns_window.setOpaque_(NO);
+                }
+                Ok(_) => {
+                    log::info!("================= not app kit rwh");
+                }
+                Err(e) => {
+                    log::error!(
+                        "==================== failed to get raw window handle: {}",
+                        e
+                    );
+                }
+            }
+        }
     }
 
-    let window = Arc::new(window_builder.build::<(String, CustomEvent)>(&event_loop)?);
-    window.set_ignore_cursor_events(true)?;
+    fn draw(&mut self) -> ResultType<()> {
+        let (width, height) = {
+            let size = self.window.inner_size();
+            (size.width, size.height)
+        };
 
-    let context = Context::new(window.clone()).map_err(|e| {
-        log::error!("Failed to create context: {}", e);
-        anyhow!(e.to_string())
-    })?;
-    let mut surface = Surface::new(&context, window.clone()).map_err(|e| {
-        log::error!("Failed to create surface: {}", e);
-        anyhow!(e.to_string())
-    })?;
+        let (Some(width), Some(height)) = (NonZeroU32::new(width), NonZeroU32::new(height)) else {
+            bail!("Invalid window size, {width}x{height}")
+        };
+        self.surface.resize(width, height).unwrap();
 
-    let proxy = event_loop.create_proxy();
-    EVENT_PROXY.write().unwrap().replace(proxy);
-    let _call_on_ret = crate::common::SimpleCallOnReturn {
-        b: true,
-        f: Box::new(move || {
-            let _ = EVENT_PROXY.write().unwrap().take();
-        }),
-    };
+        let mut buffer = self.surface.buffer_mut().unwrap();
 
-    struct Ripple {
-        x: f32,
-        y: f32,
-        start_time: Instant,
+        let Some(mut pixmap) = PixmapMut::from_bytes(
+            bytemuck::cast_slice_mut(&mut buffer),
+            width.get(),
+            height.get(),
+        ) else {
+            bail!("Failed to create pixmap from buffer");
+        };
+        pixmap.fill(Color::TRANSPARENT);
+
+        let ripple_duration = std::time::Duration::from_millis(500);
+        self.ripples
+            .retain(|r| r.start_time.elapsed() < ripple_duration);
+
+        for ripple in &self.ripples {
+            let elapsed = ripple.start_time.elapsed();
+            let progress = elapsed.as_secs_f32() / ripple_duration.as_secs_f32();
+            let radius = 45.0 * progress;
+            let alpha = 1.0 - progress;
+
+            let mut ripple_paint = Paint::default();
+            ripple_paint.set_color_rgba8(255, 0, 0, (alpha * 128.0) as u8);
+            ripple_paint.anti_alias = true;
+
+            let mut ripple_pb = PathBuilder::new();
+            let (rx, ry) = (ripple.x as f64, ripple.y as f64);
+            ripple_pb.push_circle(rx as f32, ry as f32, radius as f32);
+            if let Some(path) = ripple_pb.finish() {
+                pixmap.fill_path(
+                    &path,
+                    &ripple_paint,
+                    FillRule::Winding,
+                    Transform::identity(),
+                    None,
+                );
+            }
+        }
+
+        for cursor in self.last_cursors.values() {
+            let (x, y) = (cursor.x as f64, cursor.y as f64);
+            let (x, y) = (x as f32, y as f32);
+            let size = 1.5 as f32;
+
+            let mut pb = PathBuilder::new();
+            pb.move_to(x, y);
+            pb.line_to(x, y + 16.0 * size);
+            pb.line_to(x + 4.0 * size, y + 13.0 * size);
+            pb.line_to(x + 7.0 * size, y + 20.0 * size);
+            pb.line_to(x + 9.0 * size, y + 19.0 * size);
+            pb.line_to(x + 6.0 * size, y + 12.0 * size);
+            pb.line_to(x + 11.0 * size, y + 12.0 * size);
+            pb.close();
+
+            if let Some(path) = pb.finish() {
+                let mut arrow_paint = Paint::default();
+                arrow_paint.set_color_rgba8(
+                    (cursor.argb >> 16 & 0xFF) as u8,
+                    (cursor.argb >> 8 & 0xFF) as u8,
+                    (cursor.argb & 0xFF) as u8,
+                    (cursor.argb >> 24 & 0xFF) as u8,
+                );
+                arrow_paint.anti_alias = true;
+                pixmap.fill_path(
+                    &path,
+                    &arrow_paint,
+                    FillRule::Winding,
+                    Transform::identity(),
+                    None,
+                );
+
+                let mut black_paint = Paint::default();
+                black_paint.set_color_rgba8(0, 0, 0, 255);
+                black_paint.anti_alias = true;
+                let mut stroke = Stroke::default();
+                stroke.width = 1.0 as f32;
+                pixmap.stroke_path(&path, &black_paint, &stroke, Transform::identity(), None);
+
+                self.face.as_ref().map(|face| {
+                    draw_text(
+                        &mut pixmap,
+                        face,
+                        &cursor.text,
+                        x + 24.0 * size,
+                        y + 24.0 * size,
+                        &arrow_paint,
+                        24.0 as f32,
+                    );
+                });
+            }
+        }
+
+        self.window.pre_present_notify();
+
+        buffer.present().unwrap();
+        Ok(())
     }
-    let mut ripples: Vec<Ripple> = Vec::new();
-    let mut last_cursors: HashMap<String, Cursor> = HashMap::new();
-    let mut resized = final_size.is_none();
+}
 
-    event_loop.run(move |event, _, control_flow| {
-        *control_flow = ControlFlow::Poll;
+impl ApplicationHandler<(String, CustomEvent)> for WhiteboardApplication {
+    fn user_event(&mut self, _event_loop: &ActiveEventLoop, (k, evt): (String, CustomEvent)) {
+        match evt {
+            CustomEvent::Cursor(cursor) => {
+                if cursor.btns != 0 {
+                    self.ripples.push(Ripple {
+                        x: cursor.x,
+                        y: cursor.y,
+                        start_time: Instant::now(),
+                    });
+                }
+                self.last_cursors.insert(k, cursor);
+                self.window.request_redraw();
+            }
+            CustomEvent::Exit => {
+                self.close_requested = true;
+            }
+            _ => {}
+        }
+    }
 
+    fn resumed(&mut self, event_loop: &ActiveEventLoop) {
+        log::info!("====================== resumed");
+        // let window_attributes = Window::default_attributes().with_title("A fantastic window!");
+        // self.window = Some(event_loop.create_window(window_attributes).unwrap());
+    }
+
+    fn window_event(
+        &mut self,
+        _event_loop: &ActiveEventLoop,
+        _window_id: WindowId,
+        event: WindowEvent,
+    ) {
         match event {
-            Event::WindowEvent { event, .. } => match event {
-                WindowEvent::CloseRequested => {
-                    *control_flow = ControlFlow::Exit;
-                }
-                _ => {}
-            },
-            Event::RedrawRequested(_) => {
-                if !resized {
-                    if let Some(size) = final_size.take() {
-                        window.set_inner_size(size);
-                    }
-                    resized = true;
-                    return;
-                }
-
-                let (width, height) = {
-                    let size = window.inner_size();
-                    (size.width, size.height)
-                };
-
-                let (Some(width), Some(height)) = (NonZeroU32::new(width), NonZeroU32::new(height))
-                else {
-                    return;
-                };
-                if let Err(e) = surface.resize(width, height) {
-                    log::error!("Failed to resize surface: {}", e);
-                    return;
-                }
-
-                let mut buffer = match surface.buffer_mut() {
-                    Ok(buf) => buf,
-                    Err(e) => {
-                        log::error!("Failed to get buffer: {}", e);
-                        return;
-                    }
-                };
-                let Some(mut pixmap) = PixmapMut::from_bytes(
-                    bytemuck::cast_slice_mut(&mut buffer),
-                    width.get(),
-                    height.get(),
-                ) else {
-                    log::error!("Failed to create pixmap from buffer");
-                    return;
-                };
-                pixmap.fill(Color::TRANSPARENT);
-
-                let ripple_duration = std::time::Duration::from_millis(500);
-                ripples.retain(|r| r.start_time.elapsed() < ripple_duration);
-
-                for ripple in &ripples {
-                    let elapsed = ripple.start_time.elapsed();
-                    let progress = elapsed.as_secs_f32() / ripple_duration.as_secs_f32();
-                    let radius = 45.0 * progress;
-                    let alpha = 1.0 - progress;
-
-                    let mut ripple_paint = Paint::default();
-                    ripple_paint.set_color_rgba8(255, 0, 0, (alpha * 128.0) as u8);
-                    ripple_paint.anti_alias = true;
-
-                    let mut ripple_pb = PathBuilder::new();
-                    let (rx, ry) = (ripple.x as f64, ripple.y as f64);
-                    ripple_pb.push_circle(rx as f32, ry as f32, radius as f32);
-                    if let Some(path) = ripple_pb.finish() {
-                        pixmap.fill_path(
-                            &path,
-                            &ripple_paint,
-                            FillRule::Winding,
-                            Transform::identity(),
-                            None,
-                        );
-                    }
-                }
-
-                for cursor in last_cursors.values() {
-                    let (x, y) = (cursor.x as f64, cursor.y as f64);
-                    let (x, y) = (x as f32, y as f32);
-                    let size = 1.5 as f32;
-
-                    let mut pb = PathBuilder::new();
-                    pb.move_to(x, y);
-                    pb.line_to(x, y + 16.0 * size);
-                    pb.line_to(x + 4.0 * size, y + 13.0 * size);
-                    pb.line_to(x + 7.0 * size, y + 20.0 * size);
-                    pb.line_to(x + 9.0 * size, y + 19.0 * size);
-                    pb.line_to(x + 6.0 * size, y + 12.0 * size);
-                    pb.line_to(x + 11.0 * size, y + 12.0 * size);
-                    pb.close();
-
-                    if let Some(path) = pb.finish() {
-                        let mut arrow_paint = Paint::default();
-                        arrow_paint.set_color_rgba8(
-                            (cursor.argb >> 16 & 0xFF) as u8,
-                            (cursor.argb >> 8 & 0xFF) as u8,
-                            (cursor.argb & 0xFF) as u8,
-                            (cursor.argb >> 24 & 0xFF) as u8,
-                        );
-                        arrow_paint.anti_alias = true;
-                        pixmap.fill_path(
-                            &path,
-                            &arrow_paint,
-                            FillRule::Winding,
-                            Transform::identity(),
-                            None,
-                        );
-
-                        let mut black_paint = Paint::default();
-                        black_paint.set_color_rgba8(0, 0, 0, 255);
-                        black_paint.anti_alias = true;
-                        let mut stroke = Stroke::default();
-                        stroke.width = 1.0 as f32;
-                        pixmap.stroke_path(
-                            &path,
-                            &black_paint,
-                            &stroke,
-                            Transform::identity(),
-                            None,
-                        );
-
-                        face.as_ref().map(|face| {
-                            draw_text(
-                                &mut pixmap,
-                                face,
-                                &cursor.text,
-                                x + 24.0 * size,
-                                y + 24.0 * size,
-                                &arrow_paint,
-                                24.0 as f32,
-                            );
-                        });
-                    }
-                }
-
-                if let Err(e) = buffer.present() {
-                    log::error!("Failed to present surface: {}", e);
-                    return;
+            WindowEvent::CloseRequested => {
+                self.close_requested = true;
+            }
+            WindowEvent::RedrawRequested => {
+                if let Err(err) = self.draw() {
+                    log::error!("Error drawing window: {err}");
                 }
             }
-            Event::MainEventsCleared => {
-                window.request_redraw();
-            }
-            Event::UserEvent((k, evt)) => match evt {
-                CustomEvent::Cursor(cursor) => {
-                    if cursor.btns != 0 {
-                        ripples.push(Ripple {
-                            x: cursor.x,
-                            y: cursor.y,
-                            start_time: Instant::now(),
-                        });
-                    }
-                    last_cursors.insert(k, cursor);
-                }
-                CustomEvent::Exit => {
-                    *control_flow = ControlFlow::Exit;
-                }
-                _ => {}
-            },
             _ => (),
         }
-    });
+    }
+
+    fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
+        if !self.close_requested {
+            self.window.request_redraw();
+        } else {
+            event_loop.exit();
+        }
+    }
+
+    fn exiting(&mut self, _event_loop: &ActiveEventLoop) {
+        // We must drop the context here.
+        self.context = None;
+    }
 }
