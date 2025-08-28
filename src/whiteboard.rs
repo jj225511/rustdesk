@@ -495,38 +495,40 @@ fn create_event_loop() -> ResultType<()> {
         .with_decorations(false);
 
     use tao::dpi::{PhysicalPosition, PhysicalSize};
-    let mut final_size = None;
-    if let Ok(displays) = crate::server::display_service::try_get_displays() {
-        let mut min_x = i32::MAX;
-        let mut min_y = i32::MAX;
-        let mut max_x = i32::MIN;
-        let mut max_y = i32::MIN;
-
-        for display in displays {
-            let (x, y) = (display.origin().0 as i32, display.origin().1 as i32);
-            let (w, h) = (display.width() as i32, display.height() as i32);
-            min_x = min_x.min(x);
-            min_y = min_y.min(y);
-            max_x = max_x.max(x + w);
-            max_y = max_y.max(y + h);
-        }
-
-        let (x, y) = (min_x, min_y);
-        let (w, h) = ((max_x - min_x) as u32, (max_y - min_y) as u32);
-
-        if w > 0 && h > 0 {
-            final_size = Some(PhysicalSize::new(w, h));
-            window_builder = window_builder
-                .with_position(PhysicalPosition::new(x, y))
-                .with_inner_size(PhysicalSize::new(1, 1));
-        } else {
+    //let mut final_size = None;
             window_builder =
-                window_builder.with_fullscreen(Some(tao::window::Fullscreen::Borderless(None)));
-        }
-    } else {
-        window_builder =
             window_builder.with_fullscreen(Some(tao::window::Fullscreen::Borderless(None)));
-    }
+    // if let Ok(displays) = crate::server::display_service::try_get_displays() {
+    //     let mut min_x = i32::MAX;
+    //     let mut min_y = i32::MAX;
+    //     let mut max_x = i32::MIN;
+    //     let mut max_y = i32::MIN;
+
+    //     for display in displays {
+    //         let (x, y) = (display.origin().0 as i32, display.origin().1 as i32);
+    //         let (w, h) = (display.width() as i32, display.height() as i32);
+    //         min_x = min_x.min(x);
+    //         min_y = min_y.min(y);
+    //         max_x = max_x.max(x + w);
+    //         max_y = max_y.max(y + h);
+    //     }
+
+    //     let (x, y) = (min_x, min_y);
+    //     let (w, h) = ((max_x - min_x) as u32, (max_y - min_y) as u32);
+
+    //     if w > 0 && h > 0 {
+    //         final_size = Some(PhysicalSize::new(w, h));
+    //         window_builder = window_builder
+    //             .with_position(PhysicalPosition::new(x, y))
+    //             .with_inner_size(PhysicalSize::new(1, 1));
+    //     } else {
+    //         window_builder =
+    //             window_builder.with_fullscreen(Some(tao::window::Fullscreen::Borderless(None)));
+    //     }
+    // } else {
+    //     window_builder =
+    //         window_builder.with_fullscreen(Some(tao::window::Fullscreen::Borderless(None)));
+    // }
 
     #[cfg(any(target_os = "windows", target_os = "linux"))]
     {
@@ -561,7 +563,7 @@ fn create_event_loop() -> ResultType<()> {
     }
     let mut ripples: Vec<Ripple> = Vec::new();
     let mut last_cursors: HashMap<String, Cursor> = HashMap::new();
-    let mut resized = final_size.is_none();
+    //let mut resized = final_size.is_none();
 
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Poll;
@@ -574,13 +576,13 @@ fn create_event_loop() -> ResultType<()> {
                 _ => {}
             },
             Event::RedrawRequested(_) => {
-                if !resized {
-                    if let Some(size) = final_size.take() {
-                        window.set_inner_size(size);
-                    }
-                    resized = true;
-                    return;
-                }
+                // if !resized {
+                //     if let Some(size) = final_size.take() {
+                //         window.set_inner_size(size);
+                //     }
+                //     resized = true;
+                //     return;
+                // }
 
                 let (width, height) = {
                     let size = window.inner_size();
