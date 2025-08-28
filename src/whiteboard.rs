@@ -479,6 +479,10 @@ fn create_font_face() -> ResultType<Face<'static>> {
 }
 
 fn create_event_loop() -> ResultType<()> {
+    #[cfg(target_os = "windows")]
+    let is_win10_or_greater = crate::platform::windows::is_win_10_or_greater();
+    #[cfg(not(target_os = "windows"))]
+    let is_win10_or_greater = false;
     let face = match create_font_face() {
         Ok(face) => Some(face),
         Err(err) => {
@@ -490,9 +494,12 @@ fn create_event_loop() -> ResultType<()> {
     let event_loop = EventLoopBuilder::<(String, CustomEvent)>::with_user_event().build();
     let mut window_builder = WindowBuilder::new()
         .with_title("RustDesk whiteboard")
-        .with_transparent(true)
         .with_always_on_top(true)
         .with_decorations(false);
+
+    if !cfg!(target_os = "windows") || is_win10_or_greater {
+        window_builder = window_builder.with_transparent(true);
+    }
 
     use tao::dpi::{PhysicalPosition, PhysicalSize};
     let mut final_size = None;
@@ -515,10 +522,13 @@ fn create_event_loop() -> ResultType<()> {
         let (w, h) = ((max_x - min_x) as u32, (max_y - min_y) as u32);
 
         if w > 0 && h > 0 {
-            final_size = Some(PhysicalSize::new(w, h));
-            window_builder = window_builder
-                .with_position(PhysicalPosition::new(x, y))
-                .with_inner_size(PhysicalSize::new(1, 1));
+            window_builder = window_builder.with_position(PhysicalPosition::new(x, y));
+            if !cfg!(target_os = "windows") || is_win10_or_greater {
+                final_size = Some(PhysicalSize::new(w, h));
+                window_builder = window_builder.with_inner_size(PhysicalSize::new(1, 1));
+            } else {
+                window_builder = window_builder.with_inner_size(PhysicalSize::new(w, h));
+            }
         } else {
             window_builder =
                 window_builder.with_fullscreen(Some(tao::window::Fullscreen::Borderless(None)));
@@ -534,7 +544,34 @@ fn create_event_loop() -> ResultType<()> {
     }
 
     let window = Arc::new(window_builder.build::<(String, CustomEvent)>(&event_loop)?);
-    window.set_ignore_cursor_events(true)?;
+
+    #[cfg(target_os = "windows")]
+    if !is_win10_or_greater {
+        use tao::platform::windows::WindowExtWindows;
+        use winapi::um::winuser::{
+            GetWindowLongPtrW, SetLayeredWindowAttributes, SetWindowLongPtrW, GWL_EXSTYLE,
+            LWA_COLORKEY, WS_EX_LAYERED, WS_EX_TRANSPARENT,
+        };
+        let hwnd = window.hwnd();
+        unsafe {
+            SetWindowLongPtrW(
+                hwnd as _,
+                GWL_EXSTYLE,
+                GetWindowLongPtrW(hwnd as _, GWL_EXSTYLE) | WS_EX_LAYERED as isize,
+            );
+            // The drawing is based on transparent background, so here just needs to be not 0.
+            SetLayeredWindowAttributes(hwnd as _, 0, 0, LWA_COLORKEY);
+            SetWindowLongPtrW(
+                hwnd as _,
+                GWL_EXSTYLE,
+                GetWindowLongPtrW(hwnd as _, GWL_EXSTYLE) | WS_EX_TRANSPARENT as isize,
+            );
+        }
+    }
+
+    if !cfg!(target_os = "windows") || is_win10_or_greater {
+        window.set_ignore_cursor_events(true)?;
+    }
 
     let context = Context::new(window.clone()).map_err(|e| {
         log::error!("Failed to create context: {}", e);
@@ -558,6 +595,7 @@ fn create_event_loop() -> ResultType<()> {
         x: f32,
         y: f32,
         start_time: Instant,
+        argb: u32,
     }
     let mut ripples: Vec<Ripple> = Vec::new();
     let mut last_cursors: HashMap<String, Cursor> = HashMap::new();
@@ -613,18 +651,36 @@ fn create_event_loop() -> ResultType<()> {
                 };
                 pixmap.fill(Color::TRANSPARENT);
 
-                let ripple_duration = std::time::Duration::from_millis(500);
+                let dur_millis = if !cfg!(target_os = "windows") || is_win10_or_greater {
+                    500
+                } else {
+                    300
+                };
+                let ripple_duration = std::time::Duration::from_millis(dur_millis);
                 ripples.retain(|r| r.start_time.elapsed() < ripple_duration);
 
                 for ripple in &ripples {
                     let elapsed = ripple.start_time.elapsed();
                     let progress = elapsed.as_secs_f32() / ripple_duration.as_secs_f32();
-                    let radius = 45.0 * progress;
+                    let radius = if !cfg!(target_os = "windows") || is_win10_or_greater {
+                        45.0
+                    } else {
+                        25.0
+                    } * progress;
                     let alpha = 1.0 - progress;
 
                     let mut ripple_paint = Paint::default();
                     // Note: The real color is bgra here.
-                    ripple_paint.set_color_rgba8(128, 128, 255, (alpha * 128.0) as u8);
+                    if !cfg!(target_os = "windows") || is_win10_or_greater {
+                        ripple_paint.set_color_rgba8(128, 128, 255, (alpha * 128.0) as u8);
+                    } else {
+                        ripple_paint.set_color_rgba8(
+                            (ripple.argb & 0xFF) as u8,
+                            (ripple.argb >> 8 & 0xFF) as u8,
+                            (ripple.argb >> 16 & 0xFF) as u8,
+                            (ripple.argb >> 24 & 0xFF) as u8,
+                        );
+                    }
                     ripple_paint.anti_alias = true;
 
                     let mut ripple_pb = PathBuilder::new();
@@ -675,7 +731,11 @@ fn create_event_loop() -> ResultType<()> {
                         );
 
                         let mut black_paint = Paint::default();
-                        black_paint.set_color_rgba8(0, 0, 0, 255);
+                        if !cfg!(target_os = "windows") || is_win10_or_greater {
+                            black_paint.set_color_rgba8(0, 0, 0, 255);
+                        } else {
+                            black_paint.set_color_rgba8(1, 1, 1, 255);
+                        }
                         black_paint.anti_alias = true;
                         let mut stroke = Stroke::default();
                         stroke.width = 1.0 as f32;
@@ -716,6 +776,7 @@ fn create_event_loop() -> ResultType<()> {
                             x: cursor.x,
                             y: cursor.y,
                             start_time: Instant::now(),
+                            argb: cursor.argb,
                         });
                     }
                     last_cursors.insert(k, cursor);
