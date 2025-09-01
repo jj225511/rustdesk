@@ -1,29 +1,36 @@
-use super::{create_event_loop, CustomEvent};
+use super::CustomEvent;
 use crate::ipc::{new_listener, Connection, Data};
+#[cfg(any(target_os = "windows", target_os = "macos"))]
+use hbb_common::tokio::sync::mpsc::unbounded_channel;
 #[cfg(any(target_os = "windows", target_os = "linux"))]
 use hbb_common::ResultType;
 use hbb_common::{
     allow_err, log,
-    tokio::{
-        self,
-        sync::mpsc::{unbounded_channel, UnboundedReceiver},
-    },
+    tokio::{self, sync::mpsc::UnboundedReceiver},
 };
 use lazy_static::lazy_static;
 use std::sync::RwLock;
+
+#[cfg(any(target_os = "windows", target_os = "macos"))]
 use tao::event_loop::EventLoopProxy;
+#[cfg(target_os = "linux")]
+use winit::event_loop::EventLoopProxy;
 
 lazy_static! {
     pub(super) static ref EVENT_PROXY: RwLock<Option<EventLoopProxy<(String, CustomEvent)>>> =
         RwLock::new(None);
 }
 
+#[cfg(target_os = "linux")]
+pub use super::linux::run;
+
+#[cfg(any(target_os = "windows", target_os = "macos"))]
 pub fn run() {
     let (tx_exit, rx_exit) = unbounded_channel();
     std::thread::spawn(move || {
         start_ipc(rx_exit);
     });
-    if let Err(e) = create_event_loop() {
+    if let Err(e) = super::create_event_loop() {
         log::error!("Failed to create event loop: {}", e);
         tx_exit.send(()).ok();
         return;
@@ -31,7 +38,7 @@ pub fn run() {
 }
 
 #[tokio::main(flavor = "current_thread")]
-async fn start_ipc(mut rx_exit: UnboundedReceiver<()>) {
+pub(super) async fn start_ipc(mut rx_exit: UnboundedReceiver<()>) {
     match new_listener("_whiteboard").await {
         Ok(mut incoming) => loop {
             tokio::select! {
