@@ -1940,7 +1940,7 @@ impl Connection {
 
     async fn handle_login_request_without_validation(&mut self, lr: &LoginRequest) {
         self.lr = lr.clone();
-        self.peer_argb = crate::str2color(&format!("{}{}", &lr.my_id, &lr.my_platform), 0x7f);
+        self.peer_argb = crate::str2color(&format!("{}{}", &lr.my_id, &lr.my_platform), 0xff);
         if let Some(o) = lr.option.as_ref() {
             self.options_in_login = Some(o.clone());
         }
@@ -3709,12 +3709,12 @@ impl Connection {
                 #[cfg(not(target_os = "windows"))]
                 let is_lower_win10 = false;
                 #[cfg(target_os = "linux")]
-                let is_wayland = !crate::platform::linux::is_x11();
+                let is_linux_supported = crate::whiteboard::is_supported();
                 #[cfg(not(target_os = "linux"))]
-                let is_wayland = false;
+                let is_linux_supported = false;
                 let not_support_msg = if is_lower_win10 {
                     "Windows 10 or greater is required."
-                } else if is_wayland {
+                } else if cfg!(target_os = "linux") && !is_linux_supported {
                     "This feature is not supported on Wayland, please switch to X11."
                 } else {
                     ""

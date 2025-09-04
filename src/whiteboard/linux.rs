@@ -61,7 +61,33 @@ extern "C" {
 
 const SHAPE_INPUT: std::ffi::c_int = 2;
 
+fn preset_env() -> bool {
+    if crate::platform::is_x11() {
+        return true;
+    }
+    if let Ok(output) = crate::platform::run_cmds("pgrep -a Xwayland") {
+        // 1410 /usr/bin/Xwayland :1 -auth /run/user/1000/xauth_RoDZey -listenfd 8 -listenfd 9 -displayfd 76 -wm 78 -rootless -enable-ei-portal
+        if output.contains("Xwayland") {
+            if let Some(display) = output.split_whitespace().nth(2) {
+                // https://github.com/rust-windowing/winit/blob/f6893a4390dfe6118ce4b33458d458fd3efd3025/src/event_loop.rs#L99
+                std::env::set_var("DISPLAY", display);
+                std::env::remove_var("WAYLAND_DISPLAY");
+                return true;
+            }
+        }
+    }
+    false
+}
+
+pub fn is_supported() -> bool {
+    crate::platform::is_x11() || crate::platform::is_xwayland_running()
+}
+
 pub fn run() {
+    if !preset_env() {
+        return;
+    }
+
     let event_loop = match EventLoop::<(String, CustomEvent)>::with_user_event().build() {
         Ok(el) => el,
         Err(e) => {
@@ -366,8 +392,7 @@ impl WindowState {
         }
 
         for cursor in self.last_cursors.values() {
-            let (x, y) = (cursor.x as f64, cursor.y as f64);
-            let (x, y) = (x as f32, y as f32);
+            let (x, y) = (cursor.x, cursor.y);
             let size = 1.5f32;
 
             let mut pb = PathBuilder::new();
@@ -408,7 +433,7 @@ impl WindowState {
                         x + 24.0 * size,
                         y + 24.0 * size,
                         &arrow_paint,
-                        24.0f32,
+                        14.0f32,
                     );
                 });
             }
