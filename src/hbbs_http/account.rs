@@ -295,6 +295,10 @@ impl OidcSession {
     }
 
     fn set_state(&mut self, state_msg: &'static str, failed_msg: String) {
+        if !failed_msg.is_empty() {
+            // The UI may not be able to show full error message, so log it too.
+            log::error!("Failed {}, err: {}", state_msg, &failed_msg);
+        }
         self.state_msg = state_msg;
         self.failed_msg = failed_msg;
     }
