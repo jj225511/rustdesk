@@ -711,5 +711,9 @@ pub static ref T: std::collections::HashMap<&'static str, &'static str> =
         ("Preparing for installation ...", "جارٍ التحضير للتثبيت..."),
         ("Show my cursor", "إظهار المؤشر الخاص بي"),
         ("Show virtual mouse", ""),
+        ("Virtual mouse size", ""),
+        ("Small", ""),
+        ("Large", ""),
+        ("Show virtual joystick", ""),
     ].iter().cloned().collect();
 }

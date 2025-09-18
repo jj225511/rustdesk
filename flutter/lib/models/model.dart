@@ -113,8 +113,7 @@ class FfiModel with ChangeNotifier {
   bool? _secure;
   bool? _direct;
   bool _touchMode = false;
-  bool _showVirtualMouseTouchMode = false;
-  bool _showVirtualMouseMouseMode = false;
+  late VirtualMouseMode virtualMouseMode;
   Timer? _timer;
   var _reconnects = 1;
   bool _viewOnly = false;
@@ -152,8 +151,6 @@ class FfiModel with ChangeNotifier {
   bool get inputBlocked => _inputBlocked;
 
   bool get touchMode => _touchMode;
-  bool get showVirtualMouseTouchMode => _showVirtualMouseTouchMode;
-  bool get showVirtualMouseMouseMode => _showVirtualMouseMouseMode;
 
   bool get isPeerAndroid => _pi.platform == kPeerPlatformAndroid;
   bool get isPeerMobile => isPeerAndroid;
@@ -169,6 +166,7 @@ class FfiModel with ChangeNotifier {
     clear();
     sessionId = parent.target!.sessionId;
     cachedPeerData.permissions = _permissions;
+    virtualMouseMode = VirtualMouseMode(this);
   }
 
   Rect? globalDisplaysRect() => _getDisplaysRect(_pi.displays, true);
@@ -201,22 +199,6 @@ class FfiModel with ChangeNotifier {
   toggleTouchMode() {
     if (!isPeerAndroid) {
       _touchMode = !_touchMode;
-      notifyListeners();
-    }
-  }
-
-  setShowVirtualMouseTouchMode(bool b) {
-    if (b == _showVirtualMouseTouchMode) return;
-    if (!isPeerAndroid) {
-      _showVirtualMouseTouchMode = b;
-      notifyListeners();
-    }
-  }
-
-  setShowVirtualMouseMouseMode(bool b) {
-    if (b == _showVirtualMouseMouseMode) return;
-    if (!isPeerAndroid) {
-      _showVirtualMouseMouseMode = b;
       notifyListeners();
     }
   }
@@ -1129,13 +1111,7 @@ class FfiModel with ChangeNotifier {
           '';
     }
     if (isMobile) {
-      // `mainGetLocalBoolOptionSync` is not used here.
-      // Because `kOptionShowVirtualMouseTouchMode` and `kOptionShowVirtualMouseMouseMode` are similar options,
-      // while the default values are different.
-      _showVirtualMouseTouchMode =
-          bind.mainGetLocalOption(key: kOptionShowVirtualMouseTouchMode) != 'N';
-      _showVirtualMouseMouseMode =
-          bind.mainGetLocalOption(key: kOptionShowVirtualMouseMouseMode) == 'Y';
+      virtualMouseMode.loadOptions();
     }
     if (connType == ConnType.fileTransfer) {
       parent.target?.fileModel.onReady();
@@ -1533,6 +1509,94 @@ class FfiModel with ChangeNotifier {
       _showMyCursor = value;
       notifyListeners();
     }
+  }
+}
+
+class VirtualMouseMode with ChangeNotifier {
+  bool _showVirtualMouseTouchMode = false;
+  double _virtualMouseTouchScale = 1.0;
+  bool _showVirtualMouseMouseMode = false;
+  bool _showVirtualJoystick = false;
+
+  bool get showVirtualMouseTouchMode => _showVirtualMouseTouchMode;
+  double get virtualMouseTouchScale => _virtualMouseTouchScale;
+  bool get showVirtualMouseMouseMode => _showVirtualMouseMouseMode;
+  bool get showVirtualJoystick => _showVirtualJoystick;
+
+  FfiModel ffiModel;
+
+  VirtualMouseMode(this.ffiModel);
+
+  setShowVirtualMouseTouchMode(bool b) {
+    if (b == _showVirtualMouseTouchMode) return;
+    if (!ffiModel.isPeerAndroid) {
+      _showVirtualMouseTouchMode = b;
+      notifyListeners();
+    }
+  }
+
+  setVirtualMouseTouchScale(double s) {
+    if (s <= 0) return;
+    if (s == _virtualMouseTouchScale) return;
+    _virtualMouseTouchScale = s;
+    bind.mainSetLocalOption(
+        key: kOptionVirtualMouseTouchModeScale, value: s.toString());
+    notifyListeners();
+  }
+
+  setShowVirtualMouseMouseMode(bool b) {
+    if (b == _showVirtualMouseMouseMode) return;
+    if (!ffiModel.isPeerAndroid) {
+      _showVirtualMouseMouseMode = b;
+      notifyListeners();
+    }
+  }
+
+  setShowVirtualJoystick(bool b) {
+    if (b == _showVirtualJoystick) return;
+    if (!ffiModel.isPeerAndroid) {
+      _showVirtualJoystick = b;
+      notifyListeners();
+    }
+  }
+
+  void loadOptions() {
+    // `mainGetLocalBoolOptionSync` is not used here.
+    // Because `kOptionShowVirtualMouseTouchMode` and `kOptionShowVirtualMouseMouseMode` are similar options,
+    // but their default values are different: TouchMode defaults to true ('Y'), while MouseMode defaults to false ('N').
+    _showVirtualMouseTouchMode =
+        bind.mainGetLocalOption(key: kOptionShowVirtualMouseTouchMode) != 'N';
+    _virtualMouseTouchScale = double.tryParse(
+            bind.mainGetLocalOption(key: kOptionVirtualMouseTouchModeScale)) ??
+        1.0;
+    _showVirtualMouseMouseMode =
+        bind.mainGetLocalOption(key: kOptionShowVirtualMouseMouseMode) == 'Y';
+    _showVirtualJoystick =
+        bind.mainGetLocalOption(key: kOptionShowVirtualJoystick) == 'Y';
+  }
+
+  Future<void> toggleVirtualMouseTouchMode() async {
+    await bind.mainSetLocalOption(
+        key: kOptionShowVirtualMouseTouchMode,
+        value: showVirtualMouseTouchMode ? 'N' : 'Y');
+    setShowVirtualMouseTouchMode(
+        bind.mainGetLocalOption(key: kOptionShowVirtualMouseTouchMode) != 'N');
+  }
+
+  Future<void> toggleVirtualMouseMouseMode() async {
+    await bind.mainSetLocalOption(
+        key: kOptionShowVirtualMouseMouseMode,
+        value: showVirtualMouseMouseMode ? 'N' : 'Y');
+    setShowVirtualMouseMouseMode(
+        bind.mainGetLocalOption(key: kOptionShowVirtualMouseMouseMode) == 'Y');
+  }
+
+  Future<void> toggleVirtualJoystick() async {
+    await bind.mainSetLocalOption(
+        key: kOptionShowVirtualJoystick,
+        value: showVirtualJoystick ? 'N' : 'Y');
+    setShowVirtualJoystick(
+        bind.mainGetLocalOption(key: kOptionShowVirtualJoystick) == 'Y');
   }
 }
 
@@ -2298,7 +2362,14 @@ class CursorModel with ChangeNotifier {
   // The blocked rect is used to block the pointer/touch events in the remote page.
   final List<Rect> _blockedRects = [];
   // Used in shouldBlock().
-  // 1. In FloatingMouse, when the scroll circle is shown, block the touch events on the remote image.
+  // _blockEvents is a flag to block pointer/touch events on the remote image.
+  // It is set to true to prevent accidental touch events in the following scenarios:
+  //   1. In floating mouse mode, when the scroll circle is shown.
+  //   2. In floating mouse widgets mode, when the left/right buttons are moving.
+  //   3. In floating mouse widgets mode, when using the virtual joystick.
+  // When _blockEvents is true, all pointer/touch events are blocked regardless of the contents of _blockedRects.
+  // _blockedRects contains specific rectangular regions where events are blocked; these are checked when _blockEvents is false.
+  // In summary: _blockEvents acts as a global block, while _blockedRects provides fine-grained blocking.
   bool _blockEvents = false;
   List<Rect> get blockedRects => List.unmodifiable(_blockedRects);
 
