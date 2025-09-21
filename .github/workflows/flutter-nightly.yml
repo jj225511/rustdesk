@@ -12,4 +12,4 @@ jobs:
     secrets: inherit
     with:
       upload-artifact: true
-      upload-tag: "nightly"
+      upload-tag: "test-android-4-4080907d2bf77508d35a26a9ef86034f0418ab36"
