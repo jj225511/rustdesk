@@ -63,6 +63,7 @@ set(OPTIONS "\
 --disable-valgrind-backtrace \
 --disable-large-tests \
 --disable-bzlib \
+--disable-iconv \
 --disable-avdevice \
 --enable-avcodec \
 --enable-avformat \
