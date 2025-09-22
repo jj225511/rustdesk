@@ -173,7 +173,7 @@ pub(super) async fn check_init() -> ResultType<()> {
                     log::warn!("wayland_diag: Preventing duplicate PipeWire initialization");
                     return Ok(());
                 }
-                
+
                 let all = Display::all()?;
                 *PIPEWIRE_INITIALIZED.write().unwrap() = true;
                 let num = all.len();
@@ -189,25 +189,40 @@ pub(super) async fn check_init() -> ResultType<()> {
                     rects.push((d.origin(), d.width(), d.height()));
                 }
 
-                log::debug!("#displays={}, primary={}, rects: {:?}, cpus={}/{}", num, primary, rects, num_cpus::get_physical(), num_cpus::get());
+                log::debug!(
+                    "#displays={}, primary={}, rects: {:?}, cpus={}/{}",
+                    num,
+                    primary,
+                    rects,
+                    num_cpus::get_physical(),
+                    num_cpus::get()
+                );
 
                 if use_uinput {
-                    let (max_width, max_height) = match get_max_desktop_resolution() {
-                        Some(result) if !result.is_empty() => {
+                    // We need to get the max resolution for uinput.
+                    // The width and height should be the physical screen size, not the virtual size.
+                    let (mut max_width, mut max_height) =
+                        calculate_max_resolution_from_displays(&all);
+                    if let Some(result) = get_max_desktop_resolution() {
+                        if !result.is_empty() {
                             let resolution: Vec<&str> = result.split(" ").collect();
-                            if let (Ok(w), Ok(h)) = (
-                                resolution[0].parse::<i32>(),
-                                resolution.get(2)
-                                    .unwrap_or(&"0")
-                                    .trim_end_matches(",")
-                                    .parse::<i32>()
-                            ) {
-                                (w, h)
-                            } else {
-                                calculate_max_resolution_from_displays(&all)
+                            if let (Some(ws), Some(hs)) = (resolution.get(0), resolution.get(2)) {
+                                if let (Ok(w), Ok(h)) =
+                                    (ws.parse::<i32>(), hs.trim_end_matches(",").parse::<i32>())
+                                {
+                                    if displays.len() == 1 {
+                                        if w >= max_width && h >= max_height {
+                                            max_width = w;
+                                            max_height = h;
+                                        }
+                                    } else {
+                                        // to-do: for multiple displays, we need a better way to get max resolution
+                                        max_width = w;
+                                        max_height = h;
+                                    }
+                                }
                             }
                         }
-                        _ => calculate_max_resolution_from_displays(&all),
                     };
 
                     minx = 0;
@@ -218,11 +233,12 @@ pub(super) async fn check_init() -> ResultType<()> {
 
                 // Create individual CapDisplayInfo for each display with its own capturer
                 for (idx, display) in all.into_iter().enumerate() {
-                    let capturer = Box::into_raw(Box::new(
-                        Capturer::new(display).with_context(|| format!("Failed to create capturer for display {}", idx))?,
-                    ));
+                    let capturer =
+                        Box::into_raw(Box::new(Capturer::new(display).with_context(|| {
+                            format!("Failed to create capturer for display {}", idx)
+                        })?));
                     let capturer = CapturerPtr(capturer);
-                    
+
                     let cap_display_info = Box::into_raw(Box::new(CapDisplayInfo {
                         rects: rects.clone(),
                         displays: displays.clone(),
@@ -231,7 +247,7 @@ pub(super) async fn check_init() -> ResultType<()> {
                         current: idx,
                         capturer,
                     }));
-                    
+
                     lock.insert(idx, cap_display_info as u64);
                 }
             }
@@ -293,12 +309,14 @@ pub fn clear() {
         }
     }
     write_lock.clear();
-    
+
     // Reset PipeWire initialization flag to allow recreation on next init
     *PIPEWIRE_INITIALIZED.write().unwrap() = false;
 }
 
-pub(super) fn get_capturer_for_display(display_idx: usize) -> ResultType<super::video_service::CapturerInfo> {
+pub(super) fn get_capturer_for_display(
+    display_idx: usize,
+) -> ResultType<super::video_service::CapturerInfo> {
     if is_x11() {
         bail!("Do not call this function if not wayland");
     }
@@ -307,7 +325,7 @@ pub(super) fn get_capturer_for_display(display_idx: usize) -> ResultType<super::
         let cap_display_info: *const CapDisplayInfo = *addr as _;
         unsafe {
             let cap_display_info = &*cap_display_info;
-            let rect = cap_display_info.rects[cap_display_info.current];          
+            let rect = cap_display_info.rects[cap_display_info.current];
             Ok(super::video_service::CapturerInfo {
                 origin: rect.0,
                 width: rect.1,
@@ -320,7 +338,10 @@ pub(super) fn get_capturer_for_display(display_idx: usize) -> ResultType<super::
             })
         }
     } else {
-        bail!("Failed to get capturer display info for display {}", display_idx);
+        bail!(
+            "Failed to get capturer display info for display {}",
+            display_idx
+        );
     }
 }
 
