@@ -198,6 +198,7 @@ class _FloatingMouseState extends State<FloatingMouse> {
   final GlobalKey _cursorPaintKey = GlobalKey();
 
   Offset _position = Offset.zero;
+  bool _isInitialized = false;
   double _baseMouseScale = 1.0;
   double _mouseScale = 1.0;
   bool _isExpanded = true;
@@ -253,7 +254,7 @@ class _FloatingMouseState extends State<FloatingMouse> {
   void _onVirtualMouseModeChanged() {
     if (mounted) {
       setState(() {
-        if (_virtualMouseMode.showVirtualMouseTouchMode) {
+        if (_virtualMouseMode.showVirtualMouse) {
           _isExpanded = true;
           _resetCollapseTimer();
         }
@@ -279,6 +280,7 @@ class _FloatingMouseState extends State<FloatingMouse> {
         (size.width - _baseMouseWidth * _mouseScale) / 2,
         (size.height - _baseMouseHeight * _mouseScale) / 2,
       );
+      _isInitialized = true;
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _updateBlockedRect();
@@ -583,11 +585,14 @@ class _FloatingMouseState extends State<FloatingMouse> {
 
   @override
   Widget build(BuildContext context) {
-    final virtualMouseMode = _virtualMouseMode;
-    if (!virtualMouseMode.showVirtualMouseTouchMode) {
+    if (!_isInitialized) {
       return const Offstage();
     }
-    _baseMouseScale = virtualMouseMode.virtualMouseTouchScale;
+    final virtualMouseMode = _virtualMouseMode;
+    if (!virtualMouseMode.showVirtualMouse) {
+      return const Offstage();
+    }
+    _baseMouseScale = virtualMouseMode.virtualMouseScale;
     if (_isExpanded) {
       _mouseScale = _baseMouseScale;
     } else {
