@@ -2448,6 +2448,9 @@ impl LoginConfigHandler {
     }
 
     pub fn get_option(&self, k: &str) -> String {
+        if k == keys::OPTION_TOUCH_MODE {
+            log::info!("==================== option: {:?}", &self.config.options);
+        }
         if let Some(v) = self.config.options.get(k) {
             // For touch-mode option
             // Change "" to "N", then "" means not set, "N" means off, "Y" means on.

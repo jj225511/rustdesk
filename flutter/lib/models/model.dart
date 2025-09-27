@@ -1109,8 +1109,11 @@ class FfiModel with ChangeNotifier {
       // 'N' means disabled
       final sessionOpt = await bind.sessionGetOption(
           sessionId: sessionId, arg: kOptionTouchMode);
+          debugPrint('======================= opt1: $sessionOpt');
       if (sessionOpt == null || sessionOpt == '') {
-        _touchMode = bind.mainGetLocalOption(key: kOptionTouchMode) != '';
+        final opt2 = bind.mainGetLocalOption(key: kOptionTouchMode);
+        debugPrint('======================= opt2: $opt2');
+        _touchMode = opt2 != '';
       } else {
         _touchMode = sessionOpt == 'Y';
       }
