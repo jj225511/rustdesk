@@ -1664,6 +1664,12 @@ pub fn read_custom_client(config: &str) {
         }
     }
 
+    if let Some(update_custom_components) = data.remove("update-custom-components") {
+        if let Some(update_custom_components) = update_custom_components.as_bool() {
+            *config::UPDATE_CUSTOM_COMPONENTS.write().unwrap() = update_custom_components;
+        }
+    }
+
     let mut map_display_settings = HashMap::new();
     for s in keys::KEYS_DISPLAY_SETTINGS {
         map_display_settings.insert(s.replace("_", "-"), s);

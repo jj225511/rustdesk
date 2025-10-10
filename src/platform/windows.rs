@@ -2675,6 +2675,66 @@ if exist \"{tray_shortcut}\" del /f /q \"{tray_shortcut}\"
     std::process::exit(0);
 }
 
+fn backup_custom_files_cmd(install_path: &str, files: &[&str]) -> (String, String) {
+    let temp_dir = std::env::temp_dir()
+        .join("rustdesk_custom_update")
+        .to_string_lossy()
+        .to_string();
+    let mut backup_cmds = format!(
+        "if exist \"{temp_dir}\" rd /s /q \"{temp_dir}\"\nmd \"{temp_dir}\"\n",
+        temp_dir = temp_dir
+    );
+    for file in files {
+        let file_parent = std::path::Path::new(&format!("{}\\{}", temp_dir, file))
+            .parent()
+            .unwrap_or(std::path::Path::new(&temp_dir))
+            .to_string_lossy()
+            .to_string();
+        backup_cmds.push_str(&format!(
+            "if exist \"{install_path}\\{file}\" xcopy /Y /E /H /C /I \"{install_path}\\{file}\" \"{file_parent}\\\"\n",
+            install_path = install_path,
+            file = file,
+        ));
+    }
+    (backup_cmds, temp_dir)
+}
+
+fn restore_custom_files_cmd(install_path: &str, files: &[&str], backup_dir: &str) -> String {
+    // Delete existing custom files first to make sure there are no custom files in the new version.
+    let mut restore_cmds = String::new();
+    for file in files {
+        let install_file_path = format!("{}\\{}", install_path, file);
+        restore_cmds.push_str(&format!(
+            r#"
+            if exist "{install_file_path}" (
+                if exist "{install_file_path}\" (
+                    rd /s /q "{install_file_path}"
+                ) else (
+                    del /f /q "{install_file_path}"
+                )
+            )
+            "#
+        ));
+    }
+    for file in files {
+        let file_parent = std::path::Path::new(&format!("{}\\{}", install_path, file))
+            .parent()
+            .unwrap_or(std::path::Path::new(&install_path))
+            .to_string_lossy()
+            .to_string();
+        restore_cmds.push_str(&format!(
+            "if exist \"{backup_dir}\\{file}\" xcopy /Y /E /H /C /I \"{backup_dir}\\{file}\" \"{file_parent}\\\"\n",
+            file = file,
+            backup_dir = backup_dir
+        ));
+    }
+    restore_cmds.push_str(&format!(
+        "if exist \"{backup_dir}\" rd /s /q \"{backup_dir}\"\n",
+        backup_dir = backup_dir
+    ));
+    restore_cmds
+}
+
 pub fn update_me(debug: bool) -> ResultType<()> {
     let app_name = crate::get_app_name();
     let src_exe = std::env::current_exe()?.to_string_lossy().to_string();
@@ -2752,6 +2812,25 @@ reg add {subkey} /f /v EstimatedSize /t REG_DWORD /d {size}
         ("".to_owned(), "".to_owned())
     };
 
+    let custom_client_files = [
+        "custom.txt",
+        "data\\flutter_assets\\assets\\icon.png",
+        "data\\flutter_assets\\assets\\logo.png",
+    ];
+    let is_custom_client = crate::common::is_custom_client();
+    let update_custom_components = *config::UPDATE_CUSTOM_COMPONENTS.read().unwrap();
+
+    let (backup_custom_files, backup_dir) = if is_custom_client && !update_custom_components {
+        backup_custom_files_cmd(&path, &custom_client_files)
+    } else {
+        ("".to_owned(), "".to_owned())
+    };
+    let restore_custom_files = if is_custom_client && !update_custom_components {
+        restore_custom_files_cmd(&path, &custom_client_files, &backup_dir)
+    } else {
+        "".to_owned()
+    };
+
     // We do not try to remove all files in the old version.
     // Because I don't know whether additional files will be installed here after installation, such as drivers.
     // Just copy files to the installation directory works fine.
@@ -2770,7 +2849,9 @@ chcp 65001
 sc stop {app_name}
 taskkill /F /IM {app_name}.exe{filter}
 {reg_cmd}
+{backup_custom_files}
 {copy_exe}
+{restore_custom_files}
 {restore_service_cmd}
 {uninstall_printer_cmd}
 {install_printer_cmd}
@@ -2781,6 +2862,7 @@ taskkill /F /IM {app_name}.exe{filter}
         sleep = if debug { "timeout 300" } else { "" },
     );
 
+    log::info!("Updating {}...", &app_name);
     run_cmds(cmds, debug, "update")?;
 
     std::thread::sleep(std::time::Duration::from_millis(2000));
