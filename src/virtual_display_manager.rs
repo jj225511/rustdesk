@@ -447,7 +447,7 @@ pub mod amyuni_idd {
                 log::info!("Uninstalling driver by deviceinstaller64.exe");
                 install_if_x86_on_x64(&work_dir, "remove usbmmidd")?;
                 // Sleep some time to wait for the driver to be uninstalled.
-                std::thread::sleep(Duration::from_secs(2));
+                std::thread::sleep(Duration::from_secs(1));
                 return Ok(());
             }
         }
