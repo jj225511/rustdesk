@@ -445,9 +445,7 @@ pub mod amyuni_idd {
         if let Ok(Some(work_dir)) = get_deviceinstaller64_work_dir() {
             if crate::platform::windows::is_x64() {
                 log::info!("Uninstalling driver by deviceinstaller64.exe");
-                install_if_x86_on_x64(&work_dir, "remove usbmmidd")?;
-                // Sleep some time to wait for the driver to be uninstalled.
-                std::thread::sleep(Duration::from_secs(2));
+                // install_if_x86_on_x64(&work_dir, "remove usbmmidd")?;
                 return Ok(());
             }
         }
