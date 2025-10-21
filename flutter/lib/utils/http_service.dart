@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_hbb/common.dart';
 import 'package:http/http.dart' as http;
 import '../models/platform_model.dart';
 export 'package:http/http.dart' show Response;
@@ -16,9 +17,12 @@ class HttpService {
     headers ??= {'Content-Type': 'application/json'};
 
     // Determine if there is currently a proxy setting, and if so, use FFI to call the Rust HTTP method.
-    final isProxy = await bind.mainGetProxyStatus();
+    // final isProxy = await bind.mainGetProxyStatus();
 
-    if (!isProxy) {
+    // Use Rust HTTP implementation for non-web platforms for consistency.
+    // https://github.com/rustdesk/rustdesk/issues/13233#issuecomment-3425086827
+    final useFlutterHttp = isWeb || kIsWeb;
+    if (useFlutterHttp) {
       return await _pollFultterHttp(url, method, headers: headers, body: body);
     }
 
