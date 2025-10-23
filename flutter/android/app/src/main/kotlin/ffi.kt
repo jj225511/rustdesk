@@ -12,6 +12,9 @@ object FFI {
         System.loadLibrary("rustdesk")
     }
 
+    // init on activity create
+    external fun initAndroid(ctx: Context)
+    // init main service
     external fun init(ctx: Context)
     external fun setClipboardManager(clipboardManager: RdClipboardManager)
     external fun startServer(app_dir: String, custom_client_config: String)

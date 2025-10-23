@@ -120,6 +120,17 @@ pub fn get_clipboards(client: bool) -> Option<MultiClipboards> {
 }
 
 #[no_mangle]
+pub unsafe extern "system" fn Java_ffi_FFI_initAndroid(
+    mut env: JNIEnv,
+    _class: JClass,
+    context: JObject,
+) {
+    if let Err(e) = hbb_common::rustls_platform_verifier::android::init_hosted(&mut env, context) {
+        log::error!("failed to init rustls-platform-verifier: {:?}", e);
+    }
+}
+
+#[no_mangle]
 pub extern "system" fn Java_ffi_FFI_onVideoFrameUpdate(
     env: JNIEnv,
     _class: JClass,

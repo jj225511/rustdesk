@@ -96,6 +96,7 @@ class MainActivity : FlutterActivity() {
             _rdClipboardManager = RdClipboardManager(getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager)
             FFI.setClipboardManager(_rdClipboardManager!!)
         }
+        FFI.initAndroid(this)
     }
 
     override fun onDestroy() {

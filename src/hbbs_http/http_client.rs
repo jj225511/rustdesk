@@ -81,12 +81,14 @@ macro_rules! configure_http_client {
 }
 
 pub fn create_http_client(tls_type: TlsType) -> SyncClient {
-    let builder = SyncClient::builder();
+    let mut builder = SyncClient::builder();
+    builder = builder.danger_accept_invalid_certs(true);
     configure_http_client!(builder, tls_type, SyncClient)
 }
 
 pub fn create_http_client_async(tls_type: TlsType) -> AsyncClient {
-    let builder = AsyncClient::builder();
+    let mut builder = AsyncClient::builder();
+    builder = builder.danger_accept_invalid_certs(true);
     configure_http_client!(builder, tls_type, AsyncClient)
 }
 
