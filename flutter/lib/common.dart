@@ -3460,19 +3460,19 @@ Future<bool> setServerConfig(
   }
   // id
   if (config.idServer.isNotEmpty && errMsgs != null) {
-    errMsgs[0].value = translate(await bind.mainTestIfValidServer(
-        server: config.idServer, testWithProxy: true));
-    if (errMsgs[0].isNotEmpty) {
-      return false;
-    }
+    // errMsgs[0].value = translate(await bind.mainTestIfValidServer(
+    //     server: config.idServer, testWithProxy: true));
+    // if (errMsgs[0].isNotEmpty) {
+    //   return false;
+    // }
   }
   // relay
   if (config.relayServer.isNotEmpty && errMsgs != null) {
-    errMsgs[1].value = translate(await bind.mainTestIfValidServer(
-        server: config.relayServer, testWithProxy: true));
-    if (errMsgs[1].isNotEmpty) {
-      return false;
-    }
+    // errMsgs[1].value = translate(await bind.mainTestIfValidServer(
+    //     server: config.relayServer, testWithProxy: true));
+    // if (errMsgs[1].isNotEmpty) {
+    //   return false;
+    // }
   }
   // api
   if (config.apiServer.isNotEmpty && errMsgs != null) {
