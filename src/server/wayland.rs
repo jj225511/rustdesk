@@ -127,34 +127,70 @@ pub(super) fn is_inited() -> Option<Message> {
     }
 }
 
-fn get_max_desktop_resolution() -> Option<String> {
+fn get_max_desktop_resolution() -> Option<(i32, i32, usize)> {
     // works with Xwayland
     let output: Output = Command::new(CMD_SH.as_str())
         .arg("-c")
-        .arg("xrandr | awk '/current/ { print $8,$9,$10 }'")
+        .arg("xrandr")
         .output()
         .ok()?;
 
     if output.status.success() {
         let result = String::from_utf8_lossy(&output.stdout);
-        Some(result.trim().to_string())
+        let mut n = 0;
+        let mut w = 0;
+        let mut h = 0;
+        for line in result.lines() {
+            if line.contains("current") {
+                let parts: Vec<&str> = line.split_whitespace().collect();
+                if parts.len() >= 10 {
+                    w = parts[7].parse::<i32>().unwrap_or(0);
+                    h = parts[9].trim_end_matches(",").parse::<i32>().unwrap_or(0);
+                }
+            }
+            if line.contains("connected") {
+                n += 1;
+            }
+        }
+        Some((w, h, n))
     } else {
         None
     }
 }
 
-fn calculate_max_resolution_from_displays(displays: &[Display]) -> (i32, i32) {
+fn calculate_range_from_displays(displays: &[Display]) -> Option<(i32, i32, i32, i32)> {
     // TODO: this doesn't work in most situations other than sharing all displays
     //  this is because the function only gets called with the displays being shared with pipewire
     //  the xrandr method does work otherwise we could get this correctly using xdg-output-unstable-v1 when xrandr isn't available
     // log::warn!("using incorrect max resolution calculation uinput may not work correctly");
-    let (mut max_x, mut max_y) = (0, 0);
+    let mut range_values = None;
     for d in displays {
         let (x, y) = d.origin();
-        max_x = max_x.max(x + d.width() as i32);
-        max_y = max_y.max(y + d.height() as i32);
+        let (x1, y1) = (x + d.logical_width() as i32, y + d.logical_height() as i32);
+        if let Some((mut minx, mut maxx, mut miny, mut maxy)) = range_values {
+            if x < minx {
+                minx = x;
+            }
+            if y < miny {
+                miny = y;
+            }
+            if x1 > maxx {
+                maxx = x1;
+            }
+            if y1 > maxy {
+                maxy = y1;
+            }
+            range_values = Some((minx, maxx, miny, maxy));
+        } else {
+            range_values = Some((
+                x,
+                x + d.logical_width() as i32,
+                y,
+                y + d.logical_height() as i32,
+            ));
+        }
     }
-    (max_x, max_y)
+    range_values
 }
 
 pub(super) async fn check_init() -> ResultType<()> {
@@ -173,7 +209,7 @@ pub(super) async fn check_init() -> ResultType<()> {
                     log::warn!("wayland_diag: Preventing duplicate PipeWire initialization");
                     return Ok(());
                 }
-                
+
                 let all = Display::all()?;
                 *PIPEWIRE_INITIALIZED.write().unwrap() = true;
                 let num = all.len();
@@ -189,31 +225,51 @@ pub(super) async fn check_init() -> ResultType<()> {
                     rects.push((d.origin(), d.width(), d.height()));
                 }
 
-                log::debug!("#displays={}, primary={}, rects: {:?}, cpus={}/{}", num, primary, rects, num_cpus::get_physical(), num_cpus::get());
+                log::debug!(
+                    "#displays={}, primary={}, rects: {:?}, cpus={}/{}",
+                    num,
+                    primary,
+                    rects,
+                    num_cpus::get_physical(),
+                    num_cpus::get()
+                );
 
                 if use_uinput {
-                    let (max_width, max_height) = match get_max_desktop_resolution() {
-                        Some(result) if !result.is_empty() => {
-                            let resolution: Vec<&str> = result.split(" ").collect();
-                            if let (Ok(w), Ok(h)) = (
-                                resolution[0].parse::<i32>(),
-                                resolution.get(2)
-                                    .unwrap_or(&"0")
-                                    .trim_end_matches(",")
-                                    .parse::<i32>()
-                            ) {
-                                (w, h)
-                            } else {
-                                calculate_max_resolution_from_displays(&all)
-                            }
-                        }
-                        _ => calculate_max_resolution_from_displays(&all),
-                    };
+                    if all.is_empty() {
+                        // unreachable!
+                        log::error!("No displays when calculating the range values");
+                    }
+                    let (mut min_x, mut max_x, mut min_y, mut max_y) =
+                        calculate_range_from_displays(&all).unwrap_or((0, 0, 0, 0));
 
-                    minx = 0;
-                    maxx = max_width;
-                    miny = 0;
-                    maxy = max_height;
+                    use hbb_common::platform::linux::CMD_SH;
+                    let is_kde = std::process::Command::new(CMD_SH.as_str())
+                        .arg("-c")
+                        .arg("ps -e | grep -E kded[0-9]+ | grep -v grep")
+                        .stdout(std::process::Stdio::piped())
+                        .output()
+                        .map(|o| !o.stdout.is_empty())
+                        .unwrap_or(false);
+                    let is_kde2 = hbb_common::platform::linux::is_kde();
+                    log::info!("================================= is_kde from hbb_common: {}, is_kde from ps command: {}", is_kde2, is_kde);
+
+                    if is_kde {
+                        // Use xrandr to get max resolution if not all displays are being captured.
+                        // `xrandr` may not provide correct resolution in some cases, but it's better than nothing.
+                        if let Some((w, h, n)) = get_max_desktop_resolution() {
+                            if n > all.len() {
+                                min_x = 0;
+                                min_y = 0;
+                                max_x = w;
+                                max_y = h;
+                            }
+                        };
+                    }
+
+                    minx = min_x;
+                    maxx = max_x;
+                    miny = min_y;
+                    maxy = max_y;
                 }
 
                 // Create individual CapDisplayInfo for each display with its own capturer
