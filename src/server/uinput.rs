@@ -622,7 +622,7 @@ pub mod service {
         let rng_y = resolution.1.clone();
         tokio::spawn(async move {
             log::info!(
-                "Create uinput mouce with rng_x: ({}, {}), rng_y: ({}, {})",
+                "============================== Create uinput mouce with rng_x: ({}, {}), rng_y: ({}, {})",
                 rng_x.0,
                 rng_x.1,
                 rng_y.0,
@@ -1065,6 +1065,7 @@ mod mouce {
             //self.move_relative(i32::MIN, i32::MIN)?;
             //self.move_relative(x as i32, y as i32)
 
+            hbb_common::log::info!("============================= move to: ({}, {})", x, y);
             self.emit(EV_ABS, ABS_X as c_int, x as c_int)?;
             self.emit(EV_ABS, ABS_Y as c_int, y as c_int)?;
             self.syncronize()
