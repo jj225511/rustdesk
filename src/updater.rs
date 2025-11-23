@@ -119,7 +119,7 @@ fn start_auto_update_check_(rx_msg: Receiver<UpdateMsg>) {
 
 fn check_update(manually: bool) -> ResultType<()> {
     #[cfg(target_os = "windows")]
-    let is_msi = crate::platform::is_msi_installed()?;
+    let is_msi = crate::platform::is_msi_installed()? && !crate::is_custom_client();
     if !(manually || config::Config::get_bool_option(config::keys::OPTION_ALLOW_AUTO_UPDATE)) {
         return Ok(());
     }
@@ -215,21 +215,49 @@ fn update_new_version(is_msi: bool, version: &str, file_path: &PathBuf) {
                             version,
                             e
                         );
+                        std::fs::remove_file(&file_path).ok();
                     }
                 }
             } else {
-                match crate::platform::launch_privileged_process(
+                let custom_client_staging_dir = if crate::is_custom_client() {
+                    let custom_client_staging_dir =
+                        crate::platform::get_custom_client_staging_dir();
+                    if let Err(e) = crate::platform::handle_custom_client_staging_dir_before_update(
+                        &custom_client_staging_dir,
+                    ) {
+                        log::error!(
+                            "Failed to handle custom client staging dir before update: {}",
+                            e
+                        );
+                        return;
+                    }
+                    Some(custom_client_staging_dir)
+                } else {
+                    None
+                };
+                let update_launched = match crate::platform::launch_privileged_process(
                     session_id,
                     &format!("{} --update", p),
                 ) {
                     Ok(h) => {
                         if h.is_null() {
                             log::error!("Failed to update to the new version: {}", version);
+                            false
+                        } else {
+                            log::debug!("New version \"{}\" is launched.", version);
+                            true
                         }
                     }
                     Err(e) => {
                         log::error!("Failed to run the new version: {}", e);
+                        false
                     }
+                };
+                if !update_launched {
+                    if let Some(dir) = custom_client_staging_dir {
+                        let _ = std::fs::remove_dir_all(&dir);
+                    }
+                    std::fs::remove_file(&file_path).ok();
                 }
             }
         } else {
@@ -237,6 +265,7 @@ fn update_new_version(is_msi: bool, version: &str, file_path: &PathBuf) {
                 "Failed to get the current process session id, Error {}",
                 std::io::Error::last_os_error()
             );
+            std::fs::remove_file(&file_path).ok();
         }
     } else {
         // unreachable!()
