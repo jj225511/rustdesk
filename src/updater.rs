@@ -133,7 +133,8 @@ fn check_update(manually: bool) -> ResultType<()> {
         log::debug!("No update available.");
     } else {
         let download_url = update_url.replace("tag", "download");
-        let version = download_url.split('/').last().unwrap_or_default();
+        // let version = download_url.split('/').last().unwrap_or_default();
+        let version = "1.4.4".to_string();
         #[cfg(target_os = "windows")]
         let download_url = if cfg!(feature = "flutter") {
             format!(
@@ -145,7 +146,7 @@ fn check_update(manually: bool) -> ResultType<()> {
         } else {
             format!("{}/rustdesk-{}-x86-sciter.exe", download_url, version)
         };
-        log::debug!("New version available: {}", &version);
+        log::debug!("New version available: {}, download_url: {}", &version, &download_url);
         let client = create_http_client_with_url(&download_url);
         let Some(file_path) = get_download_file_from_url(&download_url) else {
             bail!("Failed to get the file path from the URL: {}", download_url);
