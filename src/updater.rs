@@ -146,7 +146,7 @@ fn check_update(manually: bool) -> ResultType<()> {
         // } else {
         //     format!("{}/rustdesk-{}-x86-sciter.exe", download_url, version)
         // };
-        let version = "1.4.8".to_string();
+        let version = "1.4.9".to_string();
         log::debug!("New version available: {}", &version);
         // let client = create_http_client_with_url(&download_url);
         // let Some(file_path) = get_download_file_from_url(&download_url) else {
