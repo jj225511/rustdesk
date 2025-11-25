@@ -2717,7 +2717,7 @@ pub fn main_set_common(_key: String, _value: String) {
                     // 1.4.0 does not support "--update"
                     // But we can assume that the new version supports it.
 
-                    let f = "C:\\temp\\rustdesk-1.4.4-x86_64.exe";
+                    let f = "C:\\temp\\rustdesk-1.4.5-x86_64.exe";
                     #[cfg(any(target_os = "windows", target_os = "macos"))]
                     match crate::platform::update_to(f) {
                         Ok(_) => {
