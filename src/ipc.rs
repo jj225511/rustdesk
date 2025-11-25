@@ -37,6 +37,14 @@ use hbb_common::{
 
 use crate::{common::is_server, privacy_mode, rendezvous_mediator::RendezvousMediator};
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ValidatedFile {
+    pub name: String,
+    pub size: u64,
+    pub modified_time: u64,
+    pub hash: Option<String>,
+}
+
 // IPC actions here.
 pub const IPC_ACTION_CLOSE: &str = "close";
 pub static EXIT_RECV_CLOSE: AtomicBool = AtomicBool::new(true);
@@ -111,6 +119,13 @@ pub enum FS {
         id: i32,
         path: String,
         new_name: String,
+    },
+    #[cfg(windows)]
+    ValidateReadAccess {
+        path: String,
+        id: i32,
+        include_hidden: bool,
+        conn_id: i32,
     },
 }
 
@@ -268,6 +283,13 @@ pub enum Data {
     #[cfg(windows)]
     ControlledSessionCount(usize),
     CmErr(String),
+    ReadAccessValidated {
+        id: i32,
+        conn_id: i32,
+        path: Option<String>,
+        files: Option<Vec<ValidatedFile>>,
+        error: Option<String>,
+    },
     CheckHwcodec,
     #[cfg(feature = "flutter")]
     VideoConnCount(Option<usize>),

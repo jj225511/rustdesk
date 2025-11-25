@@ -717,6 +717,11 @@ impl Connection {
                             let msg = new_voice_call_request(false);
                             conn.send(msg).await;
                         }
+                        ipc::Data::ReadAccessValidated { id, conn_id, path, files, error } => {
+                            if conn_id == conn.inner.id() {
+                                conn.handle_read_access_validated(id, path, files, error).await;
+                            }
+                        }
                         _ => {}
                     }
                 },
@@ -2677,67 +2682,77 @@ impl Connection {
                             }
                             Some(file_action::Union::Send(s)) => {
                                 // server to client
-                                let id = s.id;
-                                let od = can_enable_overwrite_detection(get_version_number(
-                                    &self.lr.version,
-                                ));
-                                let path = s.path.clone();
                                 let r#type = JobType::from_proto(s.file_type);
-                                let data_source;
                                 match r#type {
                                     JobType::Generic => {
-                                        data_source =
-                                            fs::DataSource::FilePath(PathBuf::from(&path));
+                                        if crate::common::need_validate_file_read_permission() {
+                                            self.send_fs(ipc::FS::ValidateReadAccess {
+                                                path: s.path.clone(),
+                                                id: s.id,
+                                                include_hidden: s.include_hidden,
+                                                conn_id: self.inner.id(),
+                                            });
+                                        } else {
+                                            let id = s.id;
+                                            let od = can_enable_overwrite_detection(
+                                                get_version_number(&self.lr.version),
+                                            );
+                                            let path = s.path.clone();
+                                            let data_source =
+                                                fs::DataSource::FilePath(PathBuf::from(&path));
+
+                                            match fs::TransferJob::new_read(
+                                                id,
+                                                r#type,
+                                                "".to_string(),
+                                                data_source,
+                                                s.file_num,
+                                                s.include_hidden,
+                                                false,
+                                                od,
+                                            ) {
+                                                Err(err) => {
+                                                    self.send(fs::new_error(id, err, 0)).await;
+                                                }
+                                                Ok(job) => {
+                                                    self.process_new_read_job(job, path).await;
+                                                }
+                                            }
+                                        }
                                     }
                                     JobType::Printer => {
+                                        let id = s.id;
+                                        let path = s.path.clone();
                                         if let Some((_, _, data)) = self
                                             .printer_data
                                             .iter()
                                             .position(|(_, p, _)| *p == path)
                                             .map(|index| self.printer_data.remove(index))
                                         {
-                                            data_source = fs::DataSource::MemoryCursor(
+                                            let od = can_enable_overwrite_detection(
+                                                get_version_number(&self.lr.version),
+                                            );
+                                            let data_source = fs::DataSource::MemoryCursor(
                                                 std::io::Cursor::new(data),
                                             );
-                                        } else {
-                                            // Ignore this message if the printer data is not found
-                                            return true;
+                                            match fs::TransferJob::new_read(
+                                                id,
+                                                r#type,
+                                                "".to_string(),
+                                                data_source,
+                                                s.file_num,
+                                                s.include_hidden,
+                                                false,
+                                                od,
+                                            ) {
+                                                Err(err) => {
+                                                    self.send(fs::new_error(id, err, 0)).await;
+                                                }
+                                                Ok(job) => {
+                                                    self.process_new_read_job(job, path).await;
+                                                }
+                                            }
                                         }
-                                    }
-                                };
-                                match fs::TransferJob::new_read(
-                                    id,
-                                    r#type,
-                                    "".to_string(),
-                                    data_source,
-                                    s.file_num,
-                                    s.include_hidden,
-                                    false,
-                                    od,
-                                ) {
-                                    Err(err) => {
-                                        self.send(fs::new_error(id, err, 0)).await;
-                                    }
-                                    Ok(mut job) => {
-                                        self.send(fs::new_dir(id, path, job.files().to_vec()))
-                                            .await;
-                                        let files = job.files().to_owned();
-                                        job.is_remote = true;
-                                        job.conn_id = self.inner.id();
-                                        let job_type = job.r#type;
-                                        self.read_jobs.push(job);
-                                        self.file_timer =
-                                            crate::rustdesk_interval(time::interval(MILLI1));
-                                        self.post_file_audit(
-                                            FileAuditType::RemoteSend,
-                                            if job_type == fs::JobType::Printer {
-                                                "Remote print"
-                                            } else {
-                                                &s.path
-                                            },
-                                            Self::get_files_for_audit(job_type, files),
-                                            json!({}),
-                                        );
                                     }
                                 }
                                 self.file_transferred = true;
@@ -4011,6 +4026,72 @@ impl Connection {
         msg_out.set_misc(misc);
         self.send(msg_out).await;
         raii::AuthedConnID::check_remove_session(self.inner.id(), self.session_key());
+    }
+
+    async fn handle_read_access_validated(
+        &mut self,
+        id: i32,
+        path: Option<String>,
+        files: Option<Vec<ipc::ValidatedFile>>,
+        error: Option<String>,
+    ) {
+        if let Some(err) = error {
+            self.send(fs::new_error(id, err, 0)).await;
+            return;
+        }
+
+        if let (Some(path_str), Some(validated_files)) = (path, files) {
+            let od = can_enable_overwrite_detection(get_version_number(&self.lr.version));
+            let path_buf = PathBuf::from(&path_str);
+
+            let file_hashes: Vec<Option<String>> =
+                validated_files.iter().map(|vf| vf.hash.clone()).collect();
+
+            let file_entries: Vec<FileEntry> = validated_files
+                .iter()
+                .map(|vf| FileEntry {
+                    name: vf.name.clone(),
+                    entry_type: FileType::File.into(),
+                    size: vf.size,
+                    modified_time: vf.modified_time,
+                    ..Default::default()
+                })
+                .collect();
+
+            let job = fs::TransferJob::new_read_with_validated_files(
+                id,
+                fs::JobType::Generic,
+                "".to_string(),
+                fs::DataSource::FilePath(path_buf),
+                file_entries.clone(),
+                file_hashes,
+                false,
+                od,
+            );
+            self.process_new_read_job(job, path_str).await;
+        }
+    }
+
+    async fn process_new_read_job(&mut self, mut job: fs::TransferJob, path: String) {
+        let files = job.files().to_owned();
+        let job_type = job.r#type;
+        self.send(fs::new_dir(job.id, path.clone(), files.clone()))
+            .await;
+        job.is_remote = true;
+        job.conn_id = self.inner.id();
+        self.read_jobs.push(job);
+        self.file_timer = crate::rustdesk_interval(time::interval(MILLI1));
+        let audit_path = if job_type == fs::JobType::Printer {
+            "Remote print".to_owned()
+        } else {
+            path
+        };
+        self.post_file_audit(
+            FileAuditType::RemoteSend,
+            &audit_path,
+            Self::get_files_for_audit(job_type, files),
+            json!({}),
+        );
     }
 
     fn read_empty_dirs(&mut self, dir: &str, include_hidden: bool) {

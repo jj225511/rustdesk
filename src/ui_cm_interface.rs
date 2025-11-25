@@ -31,6 +31,8 @@ use hbb_common::{
 use serde_derive::Serialize;
 #[cfg(any(target_os = "android", target_os = "ios", feature = "flutter"))]
 use std::iter::FromIterator;
+#[cfg(not(any(target_os = "ios")))]
+use std::path::Path;
 #[cfg(target_os = "windows")]
 use std::sync::Arc;
 use std::{
@@ -922,11 +924,129 @@ async fn handle_fs(
         ipc::FS::Rename { id, path, new_name } => {
             rename_file(path, new_name, id, tx).await;
         }
+        #[cfg(windows)]
+        ipc::FS::ValidateReadAccess {
+            path,
+            id,
+            include_hidden,
+            conn_id,
+        } => {
+            validate_read_access(path, include_hidden, id, conn_id, tx).await;
+        }
         _ => {}
     }
 }
 
-#[cfg(not(any(target_os = "ios")))]
+#[cfg(windows)]
+fn compute_hash(path: &Path) -> Option<String> {
+    if !Config::get_bool_option(OPTION_ENABLE_FILE_TRANSFER_HASH_VALIDATION) {
+        return None;
+    }
+
+    match std::fs::File::open(&path) {
+        Ok(mut file) => match fs::compute_file_hash_sync(&mut file, Some(fs::MAX_HASH_BYTES)) {
+            Ok(hash) => {
+                if let Some(ref h) = hash {
+                    log::debug!("Hash computed for file: {}", path.display());
+                }
+                hash
+            }
+            Err(e) => {
+                log::warn!("Failed to compute hash for file {}: {}", path.display(), e);
+                None
+            }
+        },
+        Err(e) => {
+            log::debug!("Failed to open file for hashing {}: {}", path.display(), e);
+            None
+        }
+    }
+}
+
+#[cfg(windows)]
+async fn validate_read_access(
+    path: String,
+    include_hidden: bool,
+    id: i32,
+    conn_id: i32,
+    tx: &UnboundedSender<Data>,
+) {
+    let result = spawn_blocking(move || {
+        let path_obj = Path::new(&path);
+
+        match path_obj.canonicalize() {
+            Ok(canonical_path) => {
+                let canonical_str = canonical_path.to_string_lossy().to_string();
+
+                if canonical_path.is_file() {
+                    match std::fs::metadata(&canonical_path) {
+                        Ok(meta) => {
+                            let size = meta.len();
+                            let modified_time = meta
+                                .modified()
+                                .ok()
+                                .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                                .map(|d| d.as_secs())
+                                .unwrap_or(0);
+
+                            let hash = compute_hash(&canonical_path);
+
+                            let file_entry = ipc::ValidatedFile {
+                                name: String::new(),
+                                size,
+                                modified_time,
+                                hash,
+                            };
+                            Ok((canonical_str, vec![file_entry]))
+                        }
+                        Err(e) => Err(format!("Failed to get file metadata: {}", e)),
+                    }
+                } else if canonical_path.is_dir() {
+                    match fs::get_recursive_files(&canonical_str, include_hidden) {
+                        Ok(files) => {
+                            let validated_files: Vec<ipc::ValidatedFile> = files
+                                .into_iter()
+                                .map(|f| {
+                                    let full_path = canonical_path.join(&f.name);
+                                    let hash = compute_hash(&full_path);
+                                    ipc::ValidatedFile {
+                                        name: f.name,
+                                        size: f.size,
+                                        modified_time: f.modified_time,
+                                        hash,
+                                    }
+                                })
+                                .collect();
+                            Ok((canonical_str, validated_files))
+                        }
+                        Err(e) => Err(format!("Failed to read directory: {}", e)),
+                    }
+                } else {
+                    Err("Path is neither file nor directory".to_string())
+                }
+            }
+            Err(e) => Err(format!("Invalid path: {}", e)),
+        }
+    })
+    .await;
+
+    let (path, files, error) = match result {
+        Ok(Ok((p, f))) => (Some(p), Some(f), None),
+        Ok(Err(err)) => (None, None, Some(err)),
+        Err(e) => (None, None, Some(format!("Validation failed: {}", e))),
+    };
+
+    tx.send(Data::ReadAccessValidated {
+        id,
+        conn_id,
+        path,
+        files,
+        error,
+    })
+    .ok();
+}
+
+#[cfg(windows)]
 async fn read_empty_dirs(dir: &str, include_hidden: bool, tx: &UnboundedSender<Data>) {
     let path = dir.to_owned();
     let path_clone = dir.to_owned();
