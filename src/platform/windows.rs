@@ -1328,6 +1328,19 @@ pub fn rename_exe_cmd(src_exe: &str, path: &str) -> ResultType<String> {
     }
 }
 
+#[inline]
+pub fn remove_meta_toml_cmd(is_msi: bool, path: &str) -> String {
+    if !(is_msi && crate::is_custom_client()) {
+        "".to_owned()
+    } else {
+        format!(
+            "
+        del /F /Q \"{path}\\meta.toml\"
+        ",
+        )
+    }
+}
+
 fn get_after_install(
     exe: &str,
     reg_value_start_menu_shortcuts: Option<String>,
@@ -1414,8 +1427,10 @@ pub fn install_me(options: &str, path: String, silent: bool, debug: bool) -> Res
     }
     let app_name = crate::get_app_name();
 
+    let current_exe = std::env::current_exe()?;
+
     let tmp_path = std::env::temp_dir().to_string_lossy().to_string();
-    let cur_exe = std::env::current_exe()?.to_str().unwrap_or("").to_owned();
+    let cur_exe = current_exe.to_str().unwrap_or("").to_owned();
     let shortcut_icon_location = get_shortcut_icon_location(&cur_exe);
     let mk_shortcut = write_cmds(
         format!(
@@ -1482,8 +1497,13 @@ copy /Y \"{tmp_path}\\Uninstall {app_name}.lnk\" \"{start_menu}\\\"
         reg_value_printer = "1".to_owned();
     }
 
-    let meta = std::fs::symlink_metadata(std::env::current_exe()?)?;
-    let size = meta.len() / 1024;
+    let meta = std::fs::symlink_metadata(&current_exe)?;
+    let mut size = meta.len() / 1024;
+    if let Some(parent_dir) = current_exe.parent() {
+        if let Some(d) = parent_dir.to_str() {
+            size = get_directory_size_kb(d);
+        }
+    }
     // https://docs.microsoft.com/zh-cn/windows/win32/msi/uninstall-registry-key?redirectedfrom=MSDNa
     // https://www.windowscentral.com/how-edit-registry-using-command-prompt-windows-10
     // https://www.tenforums.com/tutorials/70903-add-remove-allowed-apps-through-windows-firewall-windows-10-a.html
@@ -2047,6 +2067,10 @@ fn get_custom_icon(exe: &str) -> Option<String> {
 
 #[inline]
 fn get_shortcut_icon_location(exe: &str) -> String {
+    if exe.is_empty() {
+        return "".to_owned();
+    }
+
     get_custom_icon(exe)
         .map(|p| format!("oLink.IconLocation = \"{}\"", p))
         .unwrap_or_default()
@@ -3052,6 +3076,7 @@ taskkill /F /IM {app_name}.exe{filter}
 {reg_cmd}
 {copy_exe}
 {rename_exe}
+{remove_meta_toml}
 {restore_service_cmd}
 {uninstall_printer_cmd}
 {install_printer_cmd}
@@ -3060,6 +3085,7 @@ taskkill /F /IM {app_name}.exe{filter}
         app_name = app_name,
         copy_exe = copy_exe_cmd(&src_exe, &exe, &path)?,
         rename_exe = rename_exe_cmd(&src_exe, &path)?,
+        remove_meta_toml = remove_meta_toml_cmd(is_msi.unwrap_or(true), &path),
         sleep = if debug { "timeout 300" } else { "" },
     );
 
