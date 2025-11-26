@@ -12,4 +12,4 @@ jobs:
     secrets: inherit
     with:
       upload-artifact: true
-      upload-tag: "test-win-update"
+      upload-tag: "test-win-update-2"
